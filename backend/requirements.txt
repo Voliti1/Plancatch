@@ -3,3 +3,6 @@ uvicorn==0.52.4
 pydantic==2.13.5
 pydantic-settings
 python-multipart
+SQLAlchemy>=2.0,<3.0
+psycopg[binary]>=3.2,<4.0
+alembic>=1.16,<2.0

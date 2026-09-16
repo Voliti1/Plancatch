@@ -20,6 +20,12 @@ cp .env.example .env
 Keep real credentials in `.env`. The file is ignored by Git and must not be
 committed.
 
+Apply database migrations after configuring the DB settings:
+
+```bash
+alembic upgrade head
+```
+
 ## Run
 
 ```bash

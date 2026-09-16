@@ -2,6 +2,7 @@
 
 from functools import lru_cache
 
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,7 +11,11 @@ class Settings(BaseSettings):
 
     app_name: str = "PlanCatch API"
     app_env: str = "development"
-    database_url: str | None = None
+    db_host: str | None = None
+    db_port: int = 5432
+    db_name: str = "plancatch"
+    db_user: str | None = None
+    db_password: SecretStr | None = None
     aws_region: str = "ap-northeast-2"
     s3_bucket_name: str | None = None
     gemini_api_key: str | None = None
