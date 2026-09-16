@@ -1,43 +1,21 @@
 """Authentication endpoints."""
 
-import uuid
-from typing import Annotated
-
-import jwt
-from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
 
+from app.api.dependencies import CurrentUser, DatabaseSession, unauthorized
 from app.core.config import get_settings
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
     create_access_token,
-    decode_access_token,
     hash_password,
     verify_password,
 )
-from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import TokenResponse, UserCreate, UserLogin, UserResponse
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
-DatabaseSession = Annotated[Session, Depends(get_db)]
-bearer_scheme = HTTPBearer(auto_error=False)
-BearerCredentials = Annotated[
-    HTTPAuthorizationCredentials | None,
-    Depends(bearer_scheme),
-]
-
-
-def unauthorized() -> HTTPException:
-    """Return the standard response for failed authentication."""
-    return HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Invalid authentication credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
 
 
 @router.post(
@@ -93,20 +71,6 @@ def login(payload: UserLogin, db: DatabaseSession) -> TokenResponse:
 
 
 @router.get("/me", response_model=UserResponse)
-def get_current_user(
-    credentials: BearerCredentials,
-    db: DatabaseSession,
-) -> User:
+def read_current_user(current_user: CurrentUser) -> User:
     """Return the account represented by a valid bearer token."""
-    if credentials is None:
-        raise unauthorized()
-
-    try:
-        user_id = uuid.UUID(decode_access_token(credentials.credentials))
-    except (jwt.InvalidTokenError, ValueError):
-        raise unauthorized() from None
-
-    user = db.get(User, user_id)
-    if user is None or not user.is_active:
-        raise unauthorized()
-    return user
+    return current_user
