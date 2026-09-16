@@ -5,9 +5,9 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app import models  # noqa: F401
 from app.db.base import Base
 from app.db.session import build_database_url
-from app.models import User  # noqa: F401
 
 config = context.config
 
