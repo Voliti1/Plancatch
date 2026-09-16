@@ -59,7 +59,7 @@ def list_sources(
         db.scalars(
             select(Source)
             .where(Source.user_id == current_user.id)
-            .order_by(Source.created_at.desc())
+            .order_by(Source.created_at.desc(), Source.id)
             .limit(limit)
             .offset(offset),
         ),

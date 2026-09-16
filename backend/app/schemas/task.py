@@ -1,21 +1,35 @@
 """Task input validation and public responses."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 ScheduleType = Literal["fixed", "flexible"]
 
 
-class TaskCreate(BaseModel):
+class TaskTimes(BaseModel):
+    @field_validator("earliest_start", "latest_end", check_fields=False)
+    @classmethod
+    def normalize_utc(cls, value: datetime | None) -> datetime | None:
+        return value.astimezone(UTC) if value is not None else None
+
+
+class TaskCreate(TaskTimes):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     deadline_id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
-    estimated_minutes: int | None = Field(default=None, gt=0)
+    estimated_minutes: int | None = Field(default=None, gt=0, le=2147483647)
     priority: int = Field(default=3, ge=1, le=5)
     schedule_type: ScheduleType = "flexible"
     earliest_start: AwareDatetime | None = None
@@ -33,13 +47,13 @@ class TaskCreate(BaseModel):
         return self
 
 
-class TaskUpdate(BaseModel):
+class TaskUpdate(TaskTimes):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     deadline_id: uuid.UUID | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
-    estimated_minutes: int | None = Field(default=None, gt=0)
+    estimated_minutes: int | None = Field(default=None, gt=0, le=2147483647)
     priority: int | None = Field(default=None, ge=1, le=5)
     schedule_type: ScheduleType | None = None
     earliest_start: AwareDatetime | None = None

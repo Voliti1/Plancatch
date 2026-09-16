@@ -5,5 +5,5 @@ export default async function DeadlinePage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <DeadlineDetail id={id} />;
+  return <DeadlineDetail key={id} id={id} />;
 }

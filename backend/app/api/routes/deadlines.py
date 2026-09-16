@@ -85,7 +85,7 @@ def list_deadlines(
 
     return list(
         db.scalars(
-            statement.order_by(Deadline.due_at.asc()).limit(limit).offset(offset),
+            statement.order_by(Deadline.due_at.asc(), Deadline.id).limit(limit).offset(offset),
         ),
     )
 

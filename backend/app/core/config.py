@@ -11,6 +11,7 @@ class Settings(BaseSettings):
 
     app_name: str = "PlanCatch API"
     app_env: str = "development"
+    cors_origins: list[str] = []
     db_host: str | None = None
     db_port: int = 5432
     db_name: str = "plancatch"
