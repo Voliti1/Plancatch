@@ -38,3 +38,24 @@ class UserResponse(BaseModel):
     display_name: str | None
     is_active: bool
     created_at: datetime
+
+
+class UserLogin(BaseModel):
+    """Email and password accepted by the login endpoint."""
+
+    email: EmailStr
+    password: str = Field(min_length=1, max_length=128)
+
+    @field_validator("email")
+    @classmethod
+    def normalize_email(cls, value: EmailStr) -> str:
+        """Match the normalized email stored during registration."""
+        return str(value).strip().lower()
+
+
+class TokenResponse(BaseModel):
+    """Bearer access token returned after successful login."""
+
+    access_token: str
+    token_type: str = "bearer"
+    expires_in: int
