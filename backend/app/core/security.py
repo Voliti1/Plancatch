@@ -55,6 +55,7 @@ def decode_access_token(token: str) -> str:
         token,
         get_jwt_secret(),
         algorithms=[settings.jwt_algorithm],
+        options={"require": ["exp", "sub"]},
     )
     subject = payload.get("sub")
     if not isinstance(subject, str) or not subject:
