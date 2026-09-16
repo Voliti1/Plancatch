@@ -32,7 +32,9 @@ export function DeadlineForm({
       if (!title.trim()) throw new Error("제목을 입력해 주세요.");
       await onSave({
         title: title.trim(),
-        due_at: seoulInputToUtc(dueAt),
+        due_at: initial && dueAt === toSeoulInput(initial.due_at)
+          ? initial.due_at
+          : seoulInputToUtc(dueAt),
         description: description.trim() || null,
         deadline_type: deadlineType.trim() || null,
         source_id: initial?.source_id ?? null,

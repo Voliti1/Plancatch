@@ -69,6 +69,8 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   );
   await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
   expect((await sent).postDataJSON().due_at).toBe("2026-10-01T00:30:00.000Z");
+  await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
+  await expect(page.getByRole("heading", { name: "마감일 상세" })).toBeVisible();
   await expect(page.getByLabel("마감 일시 (한국 시간)")).toHaveValue(
     "2026-10-01T09:30",
   );
@@ -116,4 +118,49 @@ test("backend error, retry and expired session", async ({ page }) => {
   expect(
     await page.evaluate(() => sessionStorage.getItem("plancatch.access_token")),
   ).toBeNull();
+});
+
+test("editing a title preserves deadline seconds", async ({ page }) => {
+  await login(page);
+  const deadline = {
+    id: "precision-check", title: "초 단위 마감", due_at: "2026-10-01T00:30:45.123Z",
+    source_id: null, deadline_type: null, description: null, confidence: null,
+    evidence_text: null, is_confirmed: false,
+    created_at: "2026-09-16T00:00:00Z", updated_at: "2026-09-16T00:00:00Z",
+  };
+  await page.route("**/test-api/api/deadlines/precision-check", async (route) => {
+    if (route.request().method() === "PATCH") {
+      Object.assign(deadline, route.request().postDataJSON());
+    }
+    await route.fulfill({ json: deadline });
+  });
+  await page.goto("/deadlines/precision-check");
+  await page.getByLabel("마감 제목").fill("제목만 변경");
+  const sent = page.waitForRequest((request) => request.method() === "PATCH");
+  await page.getByRole("button", { name: "변경 사항 저장" }).click();
+  expect((await sent).postDataJSON().due_at).toBe("2026-10-01T00:30:45.123Z");
+  await expect(page.getByText("변경 사항을 저장했습니다.")).toBeVisible();
+});
+
+test("retry clears stale error while request is pending", async ({ page }) => {
+  await login(page);
+  await page.route("**/test-api/api/sources?**", (route) =>
+    route.fulfill({ status: 500, json: { detail: "재시도 테스트" } }),
+  );
+  await page.getByRole("link", { name: "원본 자료", exact: true }).click();
+  await expect(page.getByRole("alert").filter({ hasText: "재시도 테스트" })).toBeVisible();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => { release = resolve; });
+  await page.route("**/test-api/api/sources?**", async (route) => {
+    await pending;
+    await route.fulfill({ json: [] });
+  });
+  await page.getByRole("button", { name: "다시 시도" }).click();
+  try {
+    await expect(page.getByRole("alert").filter({ hasText: "재시도 테스트" })).toHaveCount(0);
+    await expect(page.getByText("불러오는 중입니다…", { exact: true })).toBeVisible();
+  } finally {
+    release();
+  }
+  await expect(page.getByText("등록된 자료가 없습니다")).toBeVisible();
 });

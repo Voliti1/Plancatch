@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.deadlines import get_owned_deadline
+from app.models.scheduled_event import ScheduledEvent
 from app.models.task import Task
 from app.schemas.task import ScheduleType, TaskCreate, TaskResponse, TaskUpdate
 
@@ -96,6 +97,12 @@ def update_task(
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(task_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession) -> Response:
     task = get_owned_task(task_id, current_user.id, db)
+    synced_event = db.scalar(select(ScheduledEvent.id).where(
+        ScheduledEvent.task_id == task.id,
+        (ScheduledEvent.google_event_id.is_not(None)) | (ScheduledEvent.status == "synced"),
+    ).limit(1))
+    if synced_event is not None:
+        raise HTTPException(status_code=409, detail="Synchronize linked calendar events before deleting this task")
     db.delete(task)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

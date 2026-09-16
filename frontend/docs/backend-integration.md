@@ -4,7 +4,7 @@
 
 현재 `backend/app/schemas`와 `backend/app/api/routes`의 실제 필드와 경로를 기준으로 연결했습니다. 첫 MVP에 새로운 CRUD API는 필요하지 않습니다.
 
-1. **CORS**: 현재 `backend/app/main.py`에는 CORS 미들웨어가 없습니다. 프론트엔드와 API의 origin이 다르면 프론트엔드 origin을 허용하고 OPTIONS preflight, Authorization/Content-Type 헤더, GET/POST/PATCH/DELETE를 허용해야 합니다. 실제 배포 환경에서 다른 계층이 이미 처리하는지는 확인이 필요합니다. 이 작업은 백엔드/배포 담당자 범위입니다.
+1. **CORS**: 백엔드 `.env`의 `CORS_ORIGINS`에 프론트엔드 origin을 JSON 배열로 설정해야 합니다. 예: `CORS_ORIGINS=["http://localhost:3000","http://127.0.0.1:3000"]`. 설정 후 백엔드를 재시작하세요. 배포 주소도 명시적으로 추가해야 하며 미설정 시 다른 origin은 허용되지 않습니다. OPTIONS 사전 요청과 Authorization/Content-Type 헤더 및 GET/POST/PATCH/DELETE가 지원됩니다.
 2. **HTTPS**: HTTPS 프론트엔드에서 HTTP API로 요청하면 혼합 콘텐츠 제한에 걸립니다. 배포 담당자가 브라우저에서 접근 가능한 HTTPS API 주소를 제공해야 합니다.
 3. **현재 사용자**: `/api/auth/me`는 Bearer 인증이며, 프론트엔드 보호 화면 진입 시 이를 확인합니다. 401은 로그아웃으로 처리합니다.
 4. **날짜**: `due_at`은 UTC offset을 포함한 ISO 8601로 요청합니다. 응답 날짜도 `Z` 또는 offset을 포함해야 합니다.

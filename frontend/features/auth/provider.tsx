@@ -40,6 +40,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (tokenStore.get()) {
         const me = await authApi.me();
         if (current === generation.current) setUser(me);
+      } else if (current === generation.current) {
+        setUser(null);
       }
     } catch (err) {
       if (current === generation.current) setError(errorMessage(err));
@@ -69,16 +71,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [logout]);
   async function login(email: string, password: string) {
+    const current = ++generation.current;
     const token = await authApi.login(email, password);
+    if (current !== generation.current) throw new Error("로그인이 취소되었습니다.");
     tokenStore.set(token.access_token);
     try {
       const me = await authApi.me();
-      generation.current++;
+      if (current !== generation.current) throw new Error("로그인이 취소되었습니다.");
       setUser(me);
       setError("");
       setLoading(false);
     } catch (err) {
-      tokenStore.clear();
+      if (current === generation.current) tokenStore.clear();
       throw err;
     }
   }
