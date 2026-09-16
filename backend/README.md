@@ -11,6 +11,15 @@ python -m pip install --upgrade pip
 python -m pip install -r requirements-dev.txt
 ```
 
+Copy the environment template before running the application:
+
+```bash
+cp .env.example .env
+```
+
+Keep real credentials in `.env`. The file is ignored by Git and must not be
+committed.
+
 ## Run
 
 ```bash
