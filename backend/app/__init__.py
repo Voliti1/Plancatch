@@ -1,0 +1,1 @@
+"""PlanCatch backend application package."""
