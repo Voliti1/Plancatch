@@ -34,6 +34,20 @@ uvicorn main:app --reload
 
 The health endpoint is available at `http://127.0.0.1:8000/health`.
 
+## Account registration
+
+Create an account with `POST /api/auth/signup`:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "at-least-8-characters",
+  "display_name": "Plan Catcher"
+}
+```
+
+Passwords are stored as Argon2 hashes and are never included in API responses.
+
 ## Test
 
 ```bash

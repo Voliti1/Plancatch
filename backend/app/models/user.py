@@ -10,12 +10,12 @@ from app.db.base import Base
 
 
 class User(Base):
-    """A PlanCatch account that can authenticate with a login ID."""
+    """A PlanCatch account that authenticates with an email address."""
 
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
-    login_id: Mapped[str] = mapped_column(String(100), unique=True, index=True)
+    email: Mapped[str] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")

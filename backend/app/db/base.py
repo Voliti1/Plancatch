@@ -7,4 +7,4 @@ class Base(DeclarativeBase):
     """Base class for all database models."""
 
 
-from app.models.user import User  # noqa: E402, F401
+from app.models.user import User  # noqa: F401
