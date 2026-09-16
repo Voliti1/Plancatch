@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import SecretStr
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -20,6 +20,13 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSession = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
+
+
+@event.listens_for(engine, "connect")
+def enable_foreign_keys(connection, _record):
+    connection.execute("PRAGMA foreign_keys=ON")
+
+
 Base.metadata.create_all(engine)
 
 

@@ -4,6 +4,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from pydantic import ValidationError
 from sqlalchemy import select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
@@ -86,12 +87,17 @@ def update_source(
     source = get_owned_source(source_id, current_user.id, db)
     changes = payload.model_dump(exclude_unset=True)
 
-    candidate = SourceCreate(
-        source_type=source.source_type,
-        title=changes.get("title", source.title),
-        original_url=changes.get("original_url", source.original_url),
-        original_text=changes.get("original_text", source.original_text),
-    )
+    try:
+        candidate = SourceCreate(
+            source_type=source.source_type,
+            title=changes.get("title", source.title),
+            original_url=changes.get("original_url", source.original_url),
+            original_text=changes.get("original_text", source.original_text),
+        )
+    except ValidationError as exc:
+        raise HTTPException(
+            status_code=422, detail="Source content is required for its source type",
+        ) from exc
 
     for field in changes:
         value = getattr(candidate, field)
