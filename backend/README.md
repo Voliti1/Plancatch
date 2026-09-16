@@ -48,6 +48,18 @@ Create an account with `POST /api/auth/signup`:
 
 Passwords are stored as Argon2 hashes and are never included in API responses.
 
+Set `JWT_SECRET_KEY` in `.env`, then sign in with `POST /api/auth/login`:
+
+```json
+{
+  "email": "user@example.com",
+  "password": "at-least-8-characters"
+}
+```
+
+Send the returned token as `Authorization: Bearer <token>` when calling
+`GET /api/auth/me`.
+
 ## Test
 
 ```bash
