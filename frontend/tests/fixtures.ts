@@ -8,8 +8,8 @@ export const user = {
   is_active: true,
   created_at: "2026-09-16T00:00:00Z",
 };
-export async function mockApi(page: Page) {
-  const sources: Source[] = [];
+export async function mockApi(page: Page, initialSources: Source[] = []) {
+  const sources: Source[] = initialSources.map((source) => ({ ...source }));
   let deadlines: Deadline[] = [];
   await page.route("**/test-api/api/**", async (route) => {
     const request = route.request();
@@ -52,6 +52,27 @@ export async function mockApi(page: Page) {
         return route.fulfill({ status: 201, json: source });
       }
       return route.fulfill({ json: sources });
+    }
+    if (path.startsWith("/api/sources/")) {
+      const id = decodeURIComponent(path.slice("/api/sources/".length));
+      const index = sources.findIndex((source) => source.id === id);
+      if (index === -1)
+        return route.fulfill({
+          status: 404,
+          json: { detail: "Source not found" },
+        });
+      if (method === "DELETE") {
+        sources.splice(index, 1);
+        return route.fulfill({ status: 204 });
+      }
+      if (method === "PATCH") {
+        sources[index] = {
+          ...sources[index],
+          ...request.postDataJSON(),
+          updated_at: "2026-09-30T01:00:00Z",
+        };
+      }
+      return route.fulfill({ json: sources[index] });
     }
     if (path === "/api/deadlines") {
       if (method === "POST") {
