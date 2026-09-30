@@ -1,3 +1,48 @@
+.source-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 20px;
+}
+.source-detail-link {
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 600;
+}
+.source-detail h2 {
+  overflow-wrap: anywhere;
+}
+.source-metadata {
+  margin: 0 0 24px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.source-metadata div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 15px;
+}
+.source-metadata dt {
+  min-width: 60px;
+}
+.source-metadata dd {
+  margin: 0;
+}
+.source-content {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  margin-bottom: 24px;
+}
+.source-content h3 {
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.source-content .source-text {
+  max-height: none;
+  overflow: visible;
+}
 :root {
   --bg: #f6f7f9;
   --ink: #202c3a;
