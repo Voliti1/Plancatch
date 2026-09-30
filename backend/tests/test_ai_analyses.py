@@ -171,7 +171,12 @@ def test_real_adapter_validates_schema_and_evidence(monkeypatch):
     envelope = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{
         "text": json.dumps({"deadlines": [PROPOSAL], "warnings": []}),
     }]}}]}
-    monkeypatch.setattr(service, "provider_request", lambda *args: envelope)
+    def provider(payload, model):
+        output_format = payload["generationConfig"]["responseFormat"]["text"]
+        assert output_format["mimeType"] == "APPLICATION_JSON"
+        assert "schema" in output_format
+        return envelope
+    monkeypatch.setattr(service, "provider_request", provider)
     assert original(TEXT, "test-model").deadlines[0].title == PROPOSAL["title"]
     with pytest.raises(service.AIError, match="ai_evidence_not_in_source"):
         original("not the original", "test-model")
