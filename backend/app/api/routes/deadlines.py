@@ -10,6 +10,7 @@ from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.deadline import DeadlineCreate, DeadlineResponse, DeadlineUpdate
+from app.services.deadline_safety import calculate_safe_due_at
 
 router = APIRouter(prefix="/api/deadlines", tags=["deadlines"])
 
@@ -18,14 +19,17 @@ def get_owned_deadline(
     deadline_id: uuid.UUID,
     user_id: uuid.UUID,
     db: DatabaseSession,
+    *,
+    for_update: bool = False,
 ) -> Deadline:
     """Return an owned deadline without revealing other users' records."""
-    deadline = db.scalar(
-        select(Deadline).where(
-            Deadline.id == deadline_id,
-            Deadline.user_id == user_id,
-        ),
+    statement = select(Deadline).where(
+        Deadline.id == deadline_id,
+        Deadline.user_id == user_id,
     )
+    if for_update:
+        statement = statement.with_for_update()
+    deadline = db.scalar(statement)
     if deadline is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -108,10 +112,19 @@ def update_deadline(
     db: DatabaseSession,
 ) -> Deadline:
     """Update an owned deadline."""
-    deadline = get_owned_deadline(deadline_id, current_user.id, db)
+    deadline = get_owned_deadline(deadline_id, current_user.id, db, for_update=True)
     changes = payload.model_dump(exclude_unset=True)
     if "source_id" in changes:
         validate_owned_source(changes["source_id"], current_user.id, db)
+
+    # Validate the combined saved + patched values before changing any database field.
+    try:
+        calculate_safe_due_at(
+            changes.get("due_at", deadline.due_at),
+            changes.get("safety_buffer_minutes", deadline.safety_buffer_minutes),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
 
     for field, value in changes.items():
         setattr(deadline, field, value)

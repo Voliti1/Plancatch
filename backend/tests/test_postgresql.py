@@ -110,3 +110,33 @@ def test_postgresql_analysis_migration_in_isolated_schema(pg):
     indexes = inspect(pg).get_indexes("analyses", schema=schema)
     assert any(item["name"] == "uq_analyses_active_source" and item["unique"] for item in indexes)
     assert pg.scalar(select(Analysis.id)) is None
+
+
+def test_postgresql_safety_buffer_migration_preserves_existing_dates(pg):
+    from importlib import import_module
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import inspect, update
+
+    schema = pg.get_execution_options()["schema_translate_map"][None]
+    pg.execute(text(f'SET LOCAL search_path TO "{schema}"'))
+    # Recreate the previous structure only inside this rollback-only test schema.
+    pg.execute(text('ALTER TABLE deadlines DROP CONSTRAINT ck_deadlines_safety_buffer_minutes'))
+    pg.execute(text('ALTER TABLE deadlines DROP COLUMN safety_buffer_minutes'))
+    user_id, deadline_id = uuid.uuid4(), uuid.uuid4()
+    due = datetime(2026, 10, 5, 9, tzinfo=UTC)
+    pg.execute(insert(User).values(id=user_id, email=f"{user_id}@example.com", password_hash="test"))
+    pg.execute(insert(Deadline).values(id=deadline_id, user_id=user_id, title="Legacy", due_at=due))
+    migration = import_module("migrations.versions.20260930_0006_safe_deadlines")
+    with Operations.context(MigrationContext.configure(pg)):
+        migration.upgrade()
+    columns = inspect(pg).get_columns("deadlines", schema=schema)
+    assert any(c["name"] == "safety_buffer_minutes" and c["nullable"] for c in columns)
+    saved = pg.execute(select(Deadline.due_at, Deadline.safety_buffer_minutes)).one()
+    assert saved == (due, None)
+    for minutes in (0, -1):
+        with pytest.raises(IntegrityError), pg.begin_nested():
+            pg.execute(update(Deadline).values(safety_buffer_minutes=minutes))
+    pg.execute(update(Deadline).values(safety_buffer_minutes=180))
+    assert pg.execute(select(Deadline.due_at, Deadline.safety_buffer_minutes)).one() == (due, 180)
