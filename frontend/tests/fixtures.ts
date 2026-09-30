@@ -9,13 +9,24 @@ export const user = {
   is_active: true,
   created_at: "2026-09-16T00:00:00Z",
 };
+// Synthetic API calculation only; production displays the server's safe_due_at.
+function withSafetyDate(deadline: Deadline): Deadline {
+  const buffer = deadline.safety_buffer_minutes;
+  return {
+    ...deadline,
+    safe_due_at:
+      buffer == null
+        ? null
+        : new Date(Date.parse(deadline.due_at) - buffer * 60000).toISOString(),
+  };
+}
 export async function mockApi(
   page: Page,
   initialSources: Source[] = [],
   initial: { deadlines?: Deadline[]; tasks?: Task[] } = {},
 ) {
   const sources: Source[] = initialSources.map((source) => ({ ...source }));
-  let deadlines: Deadline[] = (initial.deadlines ?? []).map((item) => ({
+  const deadlines: Deadline[] = (initial.deadlines ?? []).map((item) => ({
     ...item,
   }));
   const tasks: Task[] = (initial.tasks ?? []).map((item) => ({ ...item }));
@@ -87,14 +98,17 @@ export async function mockApi(
     }
     if (path === "/api/deadlines") {
       if (method === "POST") {
-        const deadline = {
+        expect(request.postDataJSON()).not.toHaveProperty("safe_due_at");
+        const deadline = withSafetyDate({
           id: "deadline-1",
+          safety_buffer_minutes: null,
+          safe_due_at: null,
           confidence: null,
           evidence_text: null,
           created_at: "2026-09-16T00:00:00Z",
           updated_at: "2026-09-16T00:00:00Z",
           ...request.postDataJSON(),
-        };
+        });
         deadlines.push(deadline);
         return route.fulfill({ status: 201, json: deadline });
       }
@@ -102,25 +116,27 @@ export async function mockApi(
       const limit = Number(url.searchParams.get("limit") ?? 50);
       return route.fulfill({ json: deadlines.slice(offset, offset + limit) });
     }
-    if (path === "/api/deadlines/deadline-1") {
-      if (method === "DELETE") {
-        deadlines = [];
-        return route.fulfill({ status: 204 });
-      }
-      if (method === "PATCH")
-        deadlines[0] = { ...deadlines[0], ...request.postDataJSON() };
-      return route.fulfill({ json: deadlines[0] });
-    }
     if (path.startsWith("/api/deadlines/")) {
-      const deadline = deadlines.find(
+      const index = deadlines.findIndex(
         (item) => item.id === path.slice("/api/deadlines/".length),
       );
-      return deadline
-        ? route.fulfill({ json: deadline })
-        : route.fulfill({
-            status: 404,
-            json: { detail: "Deadline not found" },
-          });
+      if (index === -1)
+        return route.fulfill({
+          status: 404,
+          json: { detail: "Deadline not found" },
+        });
+      if (method === "DELETE") {
+        deadlines.splice(index, 1);
+        return route.fulfill({ status: 204 });
+      }
+      if (method === "PATCH") {
+        expect(request.postDataJSON()).not.toHaveProperty("safe_due_at");
+        deadlines[index] = withSafetyDate({
+          ...deadlines[index],
+          ...request.postDataJSON(),
+        });
+      }
+      return route.fulfill({ json: deadlines[index] });
     }
     if (path === "/api/tasks") {
       if (method === "POST") {

@@ -34,6 +34,8 @@ export interface Deadline {
   source_id: string | null;
   title: string;
   due_at: string;
+  safety_buffer_minutes: number | null;
+  safe_due_at: string | null;
   deadline_type: string | null;
   description: string | null;
   confidence: string | number | null;
@@ -45,6 +47,7 @@ export interface Deadline {
 export interface DeadlineInput {
   title: string;
   due_at: string;
+  safety_buffer_minutes: number | null;
   source_id: string | null;
   deadline_type: string | null;
   description: string | null;

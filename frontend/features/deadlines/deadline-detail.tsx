@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deadlinesApi } from "./api";
 import { DeadlineForm } from "./deadline-form";
+import { DeadlineTimes } from "./deadline-times";
 import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
 import { formatSeoul } from "@/lib/date/seoul";
@@ -33,6 +34,7 @@ export function DeadlineDetail({ id }: { id: string }) {
       />
       <section className="card form-card">
         <h2>{data.title}</h2>
+        <DeadlineTimes deadline={data} />
         {saved && (
           <p className="success" role="status">
             변경 사항을 저장했습니다.
