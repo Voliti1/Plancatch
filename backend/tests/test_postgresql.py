@@ -14,7 +14,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.db.base import Base
 from app.db.session import build_database_url
-from app.models import Deadline, ScheduledEvent, Source, Task, User
+from app.models import Analysis, Deadline, ScheduledEvent, Source, Task, User
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("PLANCATCH_TEST_POSTGRES") != "1",
@@ -76,3 +76,37 @@ def test_postgresql_constraints_timezone_and_cascades(pg):
     assert pg.scalar(select(Task.deadline_id).where(Task.id == task_id)) is None
     pg.execute(delete(Task).where(Task.id == task_id))
     assert pg.scalar(select(ScheduledEvent.id).where(ScheduledEvent.id == event_id)) is None
+
+
+def test_postgresql_analysis_active_uniqueness_and_cascade(pg):
+    user_id, source_id = uuid.uuid4(), uuid.uuid4()
+    pg.execute(insert(User).values(id=user_id, email=f"{user_id}@example.com", password_hash="test"))
+    pg.execute(insert(Source).values(id=source_id, user_id=user_id, source_type="text", original_text="test"))
+    values = {"user_id": user_id, "source_id": source_id, "input_text": "test",
+              "input_hash": "0" * 64, "model": "test-model", "status": "processing"}
+    pg.execute(insert(Analysis).values(**values))
+    with pytest.raises(IntegrityError), pg.begin_nested():
+        pg.execute(insert(Analysis).values(**values))
+    pg.execute(insert(Analysis).values(**dict(values, status="ready")))
+    with pytest.raises(IntegrityError), pg.begin_nested():
+        pg.execute(insert(Analysis).values(**dict(values, status="unknown")))
+    pg.execute(delete(Source).where(Source.id == source_id))
+    assert pg.scalar(select(Analysis.id).where(Analysis.source_id == source_id)) is None
+
+
+def test_postgresql_analysis_migration_in_isolated_schema(pg):
+    from importlib import import_module
+
+    from alembic.migration import MigrationContext
+    from alembic.operations import Operations
+    from sqlalchemy import inspect
+
+    schema = pg.get_execution_options()["schema_translate_map"][None]
+    Analysis.__table__.drop(pg)
+    pg.execute(text(f'SET LOCAL search_path TO "{schema}"'))
+    migration = import_module("migrations.versions.20260930_0005_ai_analyses")
+    with Operations.context(MigrationContext.configure(pg)):
+        migration.upgrade()
+    indexes = inspect(pg).get_indexes("analyses", schema=schema)
+    assert any(item["name"] == "uq_analyses_active_source" and item["unique"] for item in indexes)
+    assert pg.scalar(select(Analysis.id)) is None
