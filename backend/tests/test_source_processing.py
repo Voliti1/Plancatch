@@ -77,3 +77,34 @@ def test_analysis_requires_authentication():
     headers, source_id = new_source()
     assert client.post(f"/api/sources/{source_id}/analyze").status_code == 401
     assert client.get(f"/api/sources/{source_id}", headers=headers).json()["processing_status"] == "pending"
+
+
+def test_previously_login_required_public_job_can_be_retried(monkeypatch):
+    from app.services import extraction as service
+    from tests.test_extraction import PUBLIC_JOB, PUBLIC_RELAY, relay_markup
+
+    headers = auth_headers(f"public-job-{uuid.uuid4().hex}@example.com")
+    response = client.post("/api/sources", headers=headers, json={
+        "source_type": "url", "title": "My selected title", "original_url": PUBLIC_RELAY,
+    })
+    source_id = response.json()["id"]
+    with TestingSession() as db:
+        source = db.get(Source, uuid.UUID(source_id))
+        source.processing_status = "requires_login"
+        source.error_message = "requires_login"
+        db.commit()
+    monkeypatch.setattr(service, "public_target", lambda url: ("www.saramin.co.kr", 443, "8.8.8.8"))
+    monkeypatch.setattr(service, "check_robots", lambda *args: None)
+    def fetch(url, deadline):
+        assert url in {PUBLIC_RELAY, PUBLIC_JOB}
+        body = (relay_markup() if url == PUBLIC_RELAY else
+                '<title>Job title</title><main><dt>마감일</dt><dd>2026.10.01 23:59</dd></main>'.encode())
+        return 200, {"content-type": "text/html; charset=utf-8"}, body
+    monkeypatch.setattr(service, "fetch_once", fetch)
+    assert client.post(f"/api/sources/{source_id}/analyze", headers=headers).status_code == 202
+    result = client.get(f"/api/sources/{source_id}", headers=headers).json()
+    assert result["processing_status"] == "extracted"
+    assert result["error_message"] is None
+    assert result["original_url"] == PUBLIC_RELAY
+    assert result["title"] == "My selected title"
+    assert result["extracted_text"] == "마감일\n2026.10.01 23:59"

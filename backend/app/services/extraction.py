@@ -2,12 +2,13 @@
 
 import http.client
 import ipaddress
+import re
 import socket
 import ssl
 import time
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, urljoin, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
 MAX_BYTES = 2_000_000
@@ -111,22 +112,31 @@ class PageParser(HTMLParser):
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, bool]] = []
+        # Text exclusions (navigation) are distinct from unrendered elements.
+        # A visible password input in a header still represents a login gate.
+        self.stack: list[tuple[str, bool, bool]] = []
         self.body: list[str] = []
         self.main: list[str] = []
         self.title: list[str] = []
         self.password_form = False
+        self.canonical_links: list[str] = []
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
-        if tag == "input" and values.get("type", "").lower() == "password":
+        unrendered = (tag in {"script", "style", "template", "noscript"}
+                      or "hidden" in values or (values.get("aria-hidden") or "").lower() == "true"
+                      or hidden_inline_style(values.get("style") or "")
+                      or any(hidden for _, _, hidden in self.stack))
+        if tag == "input" and (values.get("type") or "").lower() == "password" and not unrendered:
             self.password_form = True
-        hidden = (tag in {"script", "style", "nav", "footer", "header", "noscript"}
-                  or "hidden" in values or values.get("aria-hidden") == "true"
-                  or any(skip for _, skip in self.stack))
+        if (tag == "link" and "canonical" in (values.get("rel") or "").lower().split()
+                and any(name == "head" for name, _, _ in self.stack) and values.get("href")):
+            self.canonical_links.append(values["href"])
+        hidden = (unrendered or tag in {"nav", "footer", "header"}
+                  or any(skip for _, skip, _ in self.stack))
         if tag not in {"area", "base", "br", "col", "embed", "hr", "img", "input",
                        "link", "meta", "param", "source", "track", "wbr"}:
-            self.stack.append((tag, hidden))
+            self.stack.append((tag, hidden, unrendered))
 
     def handle_endtag(self, tag):
         for i in range(len(self.stack) - 1, -1, -1):
@@ -138,30 +148,53 @@ class PageParser(HTMLParser):
         text = " ".join(data.split())
         if not text:
             return
-        if any(tag == "title" for tag, _ in self.stack):
+        if any(tag == "title" for tag, _, _ in self.stack):
             self.title.append(text)
-        elif not any(skip for _, skip in self.stack):
+        elif not any(skip for _, skip, _ in self.stack):
             self.body.append(text)
-            if any(tag in {"main", "article"} for tag, _ in self.stack):
+            if any(tag in {"main", "article"} for tag, _, _ in self.stack):
                 self.main.append(text)
 
 
-def parse_page(body: bytes, content_type: str) -> Document:
-    media_type = content_type.split(";", 1)[0].strip().lower()
+def hidden_inline_style(style: str) -> bool:
+    """Recognize explicit hiding only; never infer it from arbitrary CSS classes."""
+    properties: dict[str, tuple[str, bool]] = {}
+    style = re.sub(r"/\*.*?\*/", "", style, flags=re.DOTALL)
+    for declaration in style.split(";"):
+        key, separator, value = declaration.partition(":")
+        if not separator:
+            continue
+        key, value = key.strip().lower(), value.strip().lower()
+        important = re.search(r"!\s*important\s*$", value) is not None
+        if important:
+            value = re.sub(r"!\s*important\s*$", "", value).strip()
+        if key not in properties or important or not properties[key][1]:
+            properties[key] = (value, important)
+    return (properties.get("display", ("", False))[0] == "none"
+            or properties.get("visibility", ("", False))[0] in {"hidden", "collapse"})
+
+
+def decode_page(body: bytes, content_type: str) -> str:
     charset = "utf-8"
     for parameter in content_type.split(";")[1:]:
         if parameter.strip().lower().startswith("charset="):
             charset = parameter.split("=", 1)[1].strip().strip('"')
     try:
-        decoded = body.decode(charset, errors="replace")
+        return body.decode(charset, errors="replace")
     except LookupError as exc:
         raise ExtractionError("unsupported_encoding") from exc
+
+
+def parse_page(body: bytes, content_type: str) -> Document:
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    decoded = decode_page(body, content_type)
     if media_type == "text/plain":
         text, title = decoded.strip(), None
     elif media_type in {"text/html", "application/xhtml+xml"}:
         parser = PageParser()
         parser.feed(decoded)
-        # Password inputs are a conservative heuristic; never submit the form.
+        # Visible password inputs remain a conservative gate heuristic. Hidden
+        # optional login popups neither block public content nor enter AI input.
         if parser.password_form:
             raise ExtractionError("requires_login")
         text = "\n".join(parser.main or parser.body)
@@ -173,6 +206,40 @@ def parse_page(body: bytes, content_type: str) -> Document:
     if len(text) > MAX_TEXT:
         raise ExtractionError("text_too_large")
     return Document(text, title)
+
+
+def public_job_canonical(url: str, body: bytes, content_type: str) -> str | None:
+    """Saramin relay shells link to a public, server-rendered version of the same job.
+
+    This is a bounded site adapter, not a generic canonical/iframe crawler. The
+    original document must already pass parse_page's login gate before calling.
+    """
+    source = urlsplit(url)
+    if (source.hostname != "www.saramin.co.kr" or source.path != "/zf_user/jobs/relay/view"
+            or content_type.split(";", 1)[0].strip().lower() not in {"text/html", "application/xhtml+xml"}):
+        return None
+    try:
+        source_ids = parse_qs(source.query, keep_blank_values=True, max_num_fields=30).get("rec_idx", [])
+        if len(source_ids) != 1 or not re.fullmatch(r"[0-9]{1,20}", source_ids[0]):
+            return None
+        parser = PageParser()
+        parser.feed(decode_page(body, content_type))
+        # Conflicting canonical declarations cannot establish a single identity.
+        targets = {urljoin(url, href) for href in parser.canonical_links}
+        if len(targets) != 1:
+            return None
+        target = urlsplit(targets.pop())
+        target_query = parse_qs(target.query, keep_blank_values=True, max_num_fields=30)
+        if (target.scheme != source.scheme or target.hostname != source.hostname
+                or (target.port or (443 if target.scheme == "https" else 80))
+                != (source.port or (443 if source.scheme == "https" else 80))
+                or target.username is not None or target.password is not None
+                or target.path != "/zf_user/jobs/view"
+                or target_query != {"rec_idx": source_ids}):
+            return None
+        return urlunsplit((target.scheme, target.netloc, target.path, target.query, ""))
+    except ValueError:
+        return None
 
 
 def extract(source_type: str, original_url: str | None, original_text: str | None) -> Document:
@@ -187,6 +254,7 @@ def extract(source_type: str, original_url: str | None, original_text: str | Non
         raise ExtractionError("unsupported_source_type")
     url = original_url
     deadline = time.monotonic() + 30
+    canonical_followed = False
     for _ in range(4):
         public_target(url)
         check_robots(url, deadline)
@@ -205,5 +273,13 @@ def extract(source_type: str, original_url: str | None, original_text: str | Non
             raise ExtractionError("rate_limited")
         if code != 200:
             raise ExtractionError("http_error")
-        return parse_page(body, headers.get("content-type", ""))
+        content_type = headers.get("content-type", "")
+        document = parse_page(body, content_type)  # Never leave an actual login gate.
+        canonical = None if canonical_followed else public_job_canonical(url, body, content_type)
+        if canonical:
+            canonical_followed = True
+            url = canonical
+            # The next iteration checks robots/public DNS/TLS/limits again.
+            continue
+        return document
     raise ExtractionError("too_many_redirects")
