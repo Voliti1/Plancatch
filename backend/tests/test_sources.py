@@ -115,6 +115,9 @@ def test_owner_can_request_source_analysis() -> None:
     assert response.status_code == 202
     assert response.json()["processing_status"] == "processing"
     assert response.json()["error_message"] is None
+    result = client.get(f"/api/sources/{source_id}", headers=headers).json()
+    assert result["processing_status"] == "extracted"
+    assert result["extracted_text"] == "The application closes on October 1."
 
 
 def test_user_cannot_request_another_users_source_analysis() -> None:

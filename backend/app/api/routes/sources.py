@@ -3,13 +3,14 @@
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, Response, status
 from pydantic import ValidationError
-from sqlalchemy import select
+from sqlalchemy import select, update
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models.source import Source
 from app.schemas.source import SourceCreate, SourceResponse, SourceUpdate
+from app.services.source_processing import process_source, slots
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
 
@@ -17,7 +18,7 @@ router = APIRouter(prefix="/api/sources", tags=["sources"])
 def get_owned_source(source_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession) -> Source:
     """Return a source owned by a user without leaking other users' records."""
     source = db.scalar(
-        select(Source).where(Source.id == source_id, Source.user_id == user_id),
+        select(Source).where(Source.id == source_id, Source.user_id == user_id).with_for_update(),
     )
     if source is None:
         raise HTTPException(
@@ -83,19 +84,30 @@ def read_source(
 )
 def request_source_analysis(
     source_id: uuid.UUID,
+    background_tasks: BackgroundTasks,
     current_user: CurrentUser,
     db: DatabaseSession,
 ) -> Source:
-    """Queue an owned source for analysis.
+    """Start text extraction; poll GET /api/sources/{id} for the result.
 
-    The extraction and AI worker is intentionally introduced separately.  This
-    endpoint establishes the durable request boundary that worker will consume.
+    `extracted` means text is ready, not that AI analysis has run.
     """
     source = get_owned_source(source_id, current_user.id, db)
-    source.processing_status = "processing"
-    source.error_message = None
-    db.commit()
+    if not slots.acquire(blocking=False):
+        raise HTTPException(status_code=429, detail="Extraction capacity reached; retry later")
+    try:
+        result = db.execute(update(Source).where(
+            Source.id == source.id, Source.processing_status != "processing",
+        ).values(processing_status="processing", extracted_text=None, error_message=None))
+        if result.rowcount != 1:
+            raise HTTPException(status_code=409, detail="Source is already processing")
+        db.commit()
+    except Exception:
+        db.rollback()
+        slots.release()
+        raise
     db.refresh(source)
+    background_tasks.add_task(process_source, source.id, db.get_bind())
     return source
 
 
@@ -108,6 +120,8 @@ def update_source(
 ) -> Source:
     """Update editable fields on an owned source."""
     source = get_owned_source(source_id, current_user.id, db)
+    if source.processing_status == "processing":
+        raise HTTPException(status_code=409, detail="Source is currently processing")
     changes = payload.model_dump(exclude_unset=True)
 
     try:
@@ -128,6 +142,11 @@ def update_source(
             value = str(value)
         setattr(source, field, value)
 
+    if "original_url" in changes or "original_text" in changes:
+        source.extracted_text = None
+        source.processing_status = "pending"
+        source.error_message = None
+
     db.commit()
     db.refresh(source)
     return source
@@ -141,6 +160,8 @@ def delete_source(
 ) -> Response:
     """Delete one source owned by the authenticated user."""
     source = get_owned_source(source_id, current_user.id, db)
+    if source.processing_status == "processing":
+        raise HTTPException(status_code=409, detail="Source is currently processing")
     db.delete(source)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
