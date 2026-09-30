@@ -7,7 +7,12 @@ export const sourcesApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  get: (id: string) => api<Source>(`/api/sources/${encodeURIComponent(id)}`),
+  get: (id: string, signal?: AbortSignal) =>
+    api<Source>(`/api/sources/${encodeURIComponent(id)}`, { signal }),
+  extract: (id: string) =>
+    api<Source>(`/api/sources/${encodeURIComponent(id)}/analyze`, {
+      method: "POST",
+    }),
   update: (id: string, payload: SourceUpdateInput) =>
     api<Source>(`/api/sources/${encodeURIComponent(id)}`, {
       method: "PATCH",
