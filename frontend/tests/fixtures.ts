@@ -1,6 +1,7 @@
 // Test-only API responses. Production features never import these fixtures.
 import { expect, type Page } from "@playwright/test";
 import type { Deadline, Source } from "../types/api";
+import type { Task } from "../types/task";
 export const user = {
   id: "test-user",
   email: "tester@example.com",
@@ -8,9 +9,17 @@ export const user = {
   is_active: true,
   created_at: "2026-09-16T00:00:00Z",
 };
-export async function mockApi(page: Page, initialSources: Source[] = []) {
+export async function mockApi(
+  page: Page,
+  initialSources: Source[] = [],
+  initial: { deadlines?: Deadline[]; tasks?: Task[] } = {},
+) {
   const sources: Source[] = initialSources.map((source) => ({ ...source }));
-  let deadlines: Deadline[] = [];
+  let deadlines: Deadline[] = (initial.deadlines ?? []).map((item) => ({
+    ...item,
+  }));
+  const tasks: Task[] = (initial.tasks ?? []).map((item) => ({ ...item }));
+  let nextTaskId = 1;
   await page.route("**/test-api/api/**", async (route) => {
     const request = route.request();
     const url = new URL(request.url());
@@ -87,7 +96,9 @@ export async function mockApi(page: Page, initialSources: Source[] = []) {
         deadlines.push(deadline);
         return route.fulfill({ status: 201, json: deadline });
       }
-      return route.fulfill({ json: deadlines });
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      const limit = Number(url.searchParams.get("limit") ?? 50);
+      return route.fulfill({ json: deadlines.slice(offset, offset + limit) });
     }
     if (path === "/api/deadlines/deadline-1") {
       if (method === "DELETE") {
@@ -97,6 +108,85 @@ export async function mockApi(page: Page, initialSources: Source[] = []) {
       if (method === "PATCH")
         deadlines[0] = { ...deadlines[0], ...request.postDataJSON() };
       return route.fulfill({ json: deadlines[0] });
+    }
+    if (path.startsWith("/api/deadlines/")) {
+      const deadline = deadlines.find(
+        (item) => item.id === path.slice("/api/deadlines/".length),
+      );
+      return deadline
+        ? route.fulfill({ json: deadline })
+        : route.fulfill({
+            status: 404,
+            json: { detail: "Deadline not found" },
+          });
+    }
+    if (path === "/api/tasks") {
+      if (method === "POST") {
+        const body = request.postDataJSON();
+        const allowed = [
+          "deadline_id",
+          "title",
+          "description",
+          "estimated_minutes",
+          "priority",
+          "schedule_type",
+          "earliest_start",
+          "latest_end",
+          "is_completed",
+        ];
+        expect(
+          Object.keys(body).every((key) => allowed.includes(key)),
+        ).toBeTruthy();
+        const task = {
+          id: `task-${nextTaskId++}`,
+          completed_at: body.is_completed ? "2026-09-30T01:00:00Z" : null,
+          created_at: "2026-09-30T00:00:00Z",
+          updated_at: "2026-09-30T00:00:00Z",
+          ...body,
+        };
+        tasks.unshift(task);
+        return route.fulfill({ status: 201, json: task });
+      }
+      const deadline = url.searchParams.get("deadline_id");
+      const completed = url.searchParams.get("is_completed");
+      const scheduleType = url.searchParams.get("schedule_type");
+      const filtered = tasks.filter(
+        (task) =>
+          (!deadline || task.deadline_id === deadline) &&
+          (completed === null ||
+            task.is_completed === (completed === "true")) &&
+          (!scheduleType || task.schedule_type === scheduleType),
+      );
+      const offset = Number(url.searchParams.get("offset") ?? 0);
+      const limit = Number(url.searchParams.get("limit") ?? 50);
+      return route.fulfill({ json: filtered.slice(offset, offset + limit) });
+    }
+    if (path.startsWith("/api/tasks/")) {
+      const id = path.slice("/api/tasks/".length);
+      const index = tasks.findIndex((task) => task.id === id);
+      if (index === -1)
+        return route.fulfill({
+          status: 404,
+          json: { detail: "Task not found" },
+        });
+      if (method === "DELETE") {
+        tasks.splice(index, 1);
+        return route.fulfill({ status: 204 });
+      }
+      if (method === "PATCH") {
+        const body = request.postDataJSON();
+        const task = tasks[index];
+        const completed = body.is_completed ?? task.is_completed;
+        tasks[index] = {
+          ...task,
+          ...body,
+          updated_at: "2026-09-30T01:00:00Z",
+          completed_at: completed
+            ? (task.completed_at ?? "2026-09-30T01:00:00Z")
+            : null,
+        };
+      }
+      return route.fulfill({ json: tasks[index] });
     }
     return route.fulfill({ status: 404, json: { detail: "Not found" } });
   });
