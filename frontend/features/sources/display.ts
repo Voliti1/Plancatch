@@ -11,6 +11,8 @@ export function processingStatusLabel(status: string): string {
   const labels: Record<string, string> = {
     pending: "처리 대기",
     processing: "처리 중",
+    extracted: "원문 추출 완료",
+    requires_login: "로그인 필요",
     completed: "처리 완료",
     failed: "처리 실패",
   };
