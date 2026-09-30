@@ -92,7 +92,7 @@ export function SourceForm() {
             )}
           </label>
           <p className="muted small">
-            자료 저장 후 AI 분석은 아직 실행되지 않습니다.
+            자료 저장 후 상세 화면에서 원문 추출과 AI 분석을 시작할 수 있습니다.
           </p>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions">

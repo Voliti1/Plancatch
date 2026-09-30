@@ -13,6 +13,7 @@ import { SourceEditForm } from "./source-edit-form";
 import type { Source } from "@/types/api";
 import { SourceExtraction } from "./source-extraction";
 import { processingError } from "@/features/analyses/errors";
+import { SourceAnalyses } from "@/features/analyses/source-analyses";
 
 export function SourceDetail({ id }: { id: string }) {
   const loader = useCallback(async () => {
@@ -169,8 +170,13 @@ export function SourceDetail({ id }: { id: string }) {
             </section>
             <SourceExtraction
               source={data}
-              disabled={editing || confirmDelete || deleting}
+              disabled={editing || confirmDelete || deleting || workflowBusy}
               onUpdate={setSourceUpdate}
+              onBusy={setWorkflowBusy}
+            />
+            <SourceAnalyses
+              source={data}
+              disabled={editing || confirmDelete || deleting || workflowBusy}
               onBusy={setWorkflowBusy}
             />
             {!editing && (

@@ -46,7 +46,12 @@ export default function WorkspaceLayout({
             <Link
               key={href}
               href={href}
-              aria-current={path.startsWith(href) ? "page" : undefined}
+              aria-current={
+                path.startsWith(href) ||
+                (href === "/sources" && path.startsWith("/analyses/"))
+                  ? "page"
+                  : undefined
+              }
             >
               <span aria-hidden>{icon}</span>
               {label}
