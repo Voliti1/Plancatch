@@ -90,9 +90,8 @@ def analyze_text(text: str, model: str) -> ProviderResult:
         )}]},
         "contents": [{"role": "user", "parts": [{"text": text}]}],
         "generationConfig": {
-            "responseFormat": {"text": {
-                "mimeType": "application/json", "schema": ProviderResult.model_json_schema(),
-            }},
+            "responseMimeType": "application/json",
+            "responseJsonSchema": ProviderResult.model_json_schema(),
             "maxOutputTokens": 8192,
         },
     }
