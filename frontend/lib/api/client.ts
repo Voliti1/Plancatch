@@ -17,12 +17,9 @@ export async function api<T>(
   options: RequestInit = {},
   authenticated = true,
 ): Promise<T> {
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "");
-  if (!base)
-    throw new ApiError(
-      "API 주소가 설정되지 않았습니다. NEXT_PUBLIC_API_BASE_URL 설정을 확인해 주세요.",
-      0,
-    );
+  // A deployed frontend shares its origin with the reverse-proxied API.
+  // Local development can still opt into a different API through .env.local.
+  const base = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
   const headers = new Headers(options.headers);
   if (options.body) headers.set("Content-Type", "application/json");
   const token = authenticated ? tokenStore.get() : null;
