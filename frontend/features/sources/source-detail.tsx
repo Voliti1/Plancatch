@@ -10,6 +10,9 @@ import { formatSeoul } from "@/lib/date/seoul";
 import { sourcesApi } from "./api";
 import { processingStatusLabel, sourceTypeLabel } from "./display";
 import { SourceEditForm } from "./source-edit-form";
+import type { Source } from "@/types/api";
+import { SourceExtraction } from "./source-extraction";
+import { processingError } from "@/features/analyses/errors";
 
 export function SourceDetail({ id }: { id: string }) {
   const loader = useCallback(async () => {
@@ -23,7 +26,10 @@ export function SourceDetail({ id }: { id: string }) {
       throw err;
     }
   }, [id]);
-  const { data, loading, error, reload } = useResource(loader);
+  const { data: loaded, loading, error, reload } = useResource(loader);
+  const [sourceUpdate, setSourceUpdate] = useState<Source>();
+  const [workflowBusy, setWorkflowBusy] = useState(false);
+  const data = sourceUpdate ?? loaded;
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -88,7 +94,7 @@ export function SourceDetail({ id }: { id: string }) {
                 </div>
               </dl>
               {data.error_message && (
-                <ErrorNotice message={data.error_message} />
+                <ErrorNotice message={processingError(data.error_message)} />
               )}
               {editing ? (
                 <SourceEditForm
@@ -98,6 +104,7 @@ export function SourceDetail({ id }: { id: string }) {
                     await sourcesApi.update(id, payload);
                     setEditing(false);
                     setSaved(true);
+                    setSourceUpdate(undefined);
                     reload();
                   }}
                 />
@@ -139,7 +146,12 @@ export function SourceDetail({ id }: { id: string }) {
                   {data.source_type === "url" || data.source_type === "text" ? (
                     <button
                       className="secondary"
-                      disabled={confirmDelete || deleting}
+                      disabled={
+                        confirmDelete ||
+                        deleting ||
+                        workflowBusy ||
+                        data.processing_status === "processing"
+                      }
                       onClick={() => {
                         setSaved(false);
                         setEditing(true);
@@ -155,6 +167,12 @@ export function SourceDetail({ id }: { id: string }) {
                 </>
               )}
             </section>
+            <SourceExtraction
+              source={data}
+              disabled={editing || confirmDelete || deleting}
+              onUpdate={setSourceUpdate}
+              onBusy={setWorkflowBusy}
+            />
             {!editing && (
               <section className="card danger-zone">
                 <div>
@@ -169,6 +187,9 @@ export function SourceDetail({ id }: { id: string }) {
                 {!confirmDelete ? (
                   <button
                     className="danger secondary"
+                    disabled={
+                      workflowBusy || data.processing_status === "processing"
+                    }
                     onClick={() => {
                       setDeleteError("");
                       setConfirmDelete(true);
