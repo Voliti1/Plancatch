@@ -63,6 +63,8 @@ export async function mockApi(
       return route.fulfill({ json: sources });
     }
     if (path.startsWith("/api/sources/")) {
+      if (path.endsWith("/ai-analyses") && method === "GET")
+        return route.fulfill({ json: [] });
       const id = decodeURIComponent(path.slice("/api/sources/".length));
       const index = sources.findIndex((source) => source.id === id);
       if (index === -1)
