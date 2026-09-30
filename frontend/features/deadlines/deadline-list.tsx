@@ -4,8 +4,8 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deadlinesApi } from "./api";
 import { DeadlineForm } from "./deadline-form";
+import { DeadlineTimes } from "./deadline-times";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { Pagination } from "@/components/pagination";
@@ -24,9 +24,8 @@ export function DeadlineRows({ deadlines }: { deadlines: Deadline[] }) {
           </span>
           <div className="row-title">
             <strong>{item.title}</strong>
-            <span>
-              {formatSeoul(item.due_at)} · {item.deadline_type || "일반"}
-            </span>
+            <DeadlineTimes deadline={item} compact />
+            <span>{item.deadline_type || "일반"}</span>
           </div>
           <span className={`tag ${item.is_confirmed ? "confirmed" : ""}`}>
             {item.is_confirmed ? "확인 완료" : "미확인"}
@@ -87,7 +86,7 @@ function DeadlinePage({
       <div className="card">
         <div className="section-header">
           <h2>마감일 목록</h2>
-          <span className="small muted">마감일이 빠른 순 · 한국 시간</span>
+          <span className="small muted">공식 마감일이 빠른 순 · 한국 시간</span>
         </div>
         {data?.length ? (
           <DeadlineRows deadlines={data} />
