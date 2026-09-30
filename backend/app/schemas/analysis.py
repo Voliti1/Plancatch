@@ -1,4 +1,4 @@
-"""Explicit review and consent contracts; no AI result is approved automatically."""
+"""Explicit review and opt-in automatic registration contracts."""
 import uuid
 from datetime import datetime
 from typing import Literal
@@ -83,6 +83,18 @@ class ReviewRequest(BaseModel):
 class DecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: int = Field(ge=1)
+
+
+class AutoRegistrationRequest(DecisionRequest):
+    title: str = Field(min_length=1, max_length=255)
+    confirm_auto_registration: Literal[True]
+
+    @field_validator("title")
+    @classmethod
+    def nonblank_title(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Title must not be blank")
+        return value.strip()
 
 
 class AnalysisResponse(BaseModel):

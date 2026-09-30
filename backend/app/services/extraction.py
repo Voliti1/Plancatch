@@ -71,7 +71,9 @@ def fetch_once(url: str, deadline: float) -> tuple[int, dict[str, str], bytes]:
         if headers.get("content-encoding", "identity").lower() not in {"identity", ""}:
             raise ExtractionError("unsupported_encoding")
         chunks, size = [], 0
-        while True:
+        # Content-Length (including zero) closes the response as soon as the
+        # final bytes are consumed. Do not dereference its released file/socket.
+        while not response.isclosed():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise ExtractionError("fetch_timeout")

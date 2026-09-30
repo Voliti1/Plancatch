@@ -215,3 +215,96 @@ def test_source_delete_removes_analysis():
     analysis, source_id, headers = ready_analysis()
     assert client.delete(f"/api/sources/{source_id}", headers=headers).status_code == 204
     assert client.get(f"/api/ai-analyses/{analysis['id']}", headers=headers).status_code == 404
+
+
+def automatic_ready():
+    analysis, source_id, headers = ready_analysis()
+    assert client.patch(f"/api/sources/{source_id}", headers=headers,
+                        json={"title": "사용자가 설정한 제목"}).status_code == 200
+    return analysis, source_id, headers
+
+
+def automatic_payload(analysis):
+    return {"revision": analysis["revision"], "title": "사용자가 설정한 제목",
+            "confirm_auto_registration": True}
+
+
+def test_auto_registration_uses_requested_title_and_is_idempotent():
+    analysis, source_id, headers = automatic_ready()
+    path = f"/api/ai-analyses/{analysis['id']}/auto-register"
+    result = client.post(path, headers=headers, json=automatic_payload(analysis))
+    assert result.status_code == 200
+    assert result.json()["status"] == "approved"
+    assert result.json()["candidates"][0]["title"] == "사용자가 설정한 제목"
+    assert result.json()["revision"] == 2
+    repeat = client.post(path, headers=headers, json=automatic_payload(analysis))
+    assert repeat.json()["approved_deadline_ids"] == result.json()["approved_deadline_ids"]
+    deadlines = client.get("/api/deadlines", headers=headers).json()
+    assert len(deadlines) == 1 and deadlines[0]["title"] == "사용자가 설정한 제목"
+    assert deadlines[0]["source_id"] == source_id
+    assert deadlines[0]["safety_buffer_minutes"] is None
+    assert client.get("/api/tasks", headers=headers).json() == []
+    assert client.get("/api/scheduled-events", headers=headers).json() == []
+
+
+@pytest.mark.parametrize("kind", ["none", "multiple", "missing_date", "warning", "edited", "excluded"])
+def test_auto_registration_requires_review_for_ambiguous_results(kind):
+    from app.models.analysis import Analysis
+
+    analysis, _, headers = automatic_ready()
+    with TestingSession() as db:
+        saved = db.get(Analysis, uuid.UUID(analysis["id"]))
+        if kind == "none":
+            saved.candidates = []
+        elif kind == "multiple":
+            saved.candidates = [*saved.candidates, dict(saved.candidates[0], id=str(uuid.uuid4()))]
+        elif kind == "missing_date":
+            saved.candidates = [dict(saved.candidates[0], due_at=None)]
+        elif kind == "warning":
+            saved.warnings = ["날짜를 확인하세요"]
+        elif kind == "edited":
+            saved.revision = 2
+            analysis["revision"] = 2
+        else:
+            saved.candidates = [dict(saved.candidates[0], selected=False)]
+        db.commit()
+    result = client.post(f"/api/ai-analyses/{analysis['id']}/auto-register", headers=headers,
+                         json=automatic_payload(analysis))
+    assert result.status_code == 422 and result.json()["detail"] == "auto_registration_requires_review"
+    assert client.get("/api/deadlines", headers=headers).json() == []
+
+
+@pytest.mark.parametrize("override", [{"confirm_auto_registration": False},
+                                      {"title": "   "}, {"title": "x" * 256}])
+def test_auto_registration_requires_valid_title_and_consent(override):
+    analysis, _, headers = automatic_ready()
+    result = client.post(f"/api/ai-analyses/{analysis['id']}/auto-register", headers=headers,
+                         json=automatic_payload(analysis) | override)
+    assert result.status_code == 422
+    assert client.get("/api/deadlines", headers=headers).json() == []
+
+
+def test_auto_registration_source_change_rolls_back_title_and_revision():
+    analysis, source_id, headers = automatic_ready()
+    path = f"/api/ai-analyses/{analysis['id']}"
+    assert client.post(path + "/auto-register", headers=headers,
+                       json=automatic_payload(analysis) | {"title": "다른 제목"}).status_code == 409
+    client.patch(f"/api/sources/{source_id}", headers=headers, json={"original_text": "변경된 원문"})
+    assert client.post(path + "/auto-register", headers=headers,
+                       json=automatic_payload(analysis)).status_code == 409
+    unchanged = client.get(path, headers=headers).json()
+    assert unchanged["revision"] == 1 and unchanged["candidates"] == analysis["candidates"]
+    assert client.get("/api/deadlines", headers=headers).json() == []
+
+
+def test_auto_registration_owner_revision_and_consent_protection():
+    analysis, _, headers = automatic_ready()
+    path = f"/api/ai-analyses/{analysis['id']}/auto-register"
+    payload = automatic_payload(analysis)
+    assert client.post(path, json=payload).status_code == 401
+    other = auth_headers(f"auto-other-{uuid.uuid4().hex}@example.com")
+    assert client.post(path, headers=other, json=payload).status_code == 404
+    assert client.post(path, headers=headers, json=payload | {"revision": 2}).status_code == 409
+    del payload["confirm_auto_registration"]
+    assert client.post(path, headers=headers, json=payload).status_code == 422
+    assert client.get("/api/deadlines", headers=headers).json() == []

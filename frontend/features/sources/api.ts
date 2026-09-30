@@ -2,16 +2,18 @@ import { api } from "@/lib/api/client";
 import type { Source, SourceInput, SourceUpdateInput } from "@/types/api";
 export const sourcesApi = {
   list: (offset = 0) => api<Source[]>(`/api/sources?limit=50&offset=${offset}`),
-  create: (payload: SourceInput) =>
+  create: (payload: SourceInput, signal?: AbortSignal) =>
     api<Source>("/api/sources", {
       method: "POST",
       body: JSON.stringify(payload),
+      signal,
     }),
   get: (id: string, signal?: AbortSignal) =>
     api<Source>(`/api/sources/${encodeURIComponent(id)}`, { signal }),
-  extract: (id: string) =>
+  extract: (id: string, signal?: AbortSignal) =>
     api<Source>(`/api/sources/${encodeURIComponent(id)}/analyze`, {
       method: "POST",
+      signal,
     }),
   update: (id: string, payload: SourceUpdateInput) =>
     api<Source>(`/api/sources/${encodeURIComponent(id)}`, {

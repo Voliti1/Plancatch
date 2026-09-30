@@ -33,8 +33,8 @@ export default function DashboardPage() {
             눈앞의 계획으로.
           </h2>
           <p>링크 하나, 메모 한 줄부터 시작해 보세요.</p>
-          <Link className="button" href="/sources/new">
-            새 자료 등록하기 ↗
+          <Link className="button" href="/deadlines/auto">
+            새 일정 등록하기 ↗
           </Link>
         </div>
         <div className="hero-art" aria-hidden>
