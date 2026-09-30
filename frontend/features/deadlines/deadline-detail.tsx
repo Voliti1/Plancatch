@@ -9,6 +9,7 @@ import { errorMessage } from "@/lib/api/client";
 import { formatSeoul } from "@/lib/date/seoul";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
+import { DeadlineTasks } from "@/features/tasks/deadline-tasks";
 export function DeadlineDetail({ id }: { id: string }) {
   const loader = useCallback(() => deadlinesApi.get(id), [id]);
   const { data, loading, error, reload } = useResource(loader);
@@ -52,6 +53,7 @@ export function DeadlineDetail({ id }: { id: string }) {
           </div>
         )}
       </section>
+      <DeadlineTasks deadlineId={id} />
       <section className="card danger-zone">
         <div>
           <h2>마감일 삭제</h2>
