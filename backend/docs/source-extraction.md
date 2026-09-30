@@ -8,8 +8,11 @@ States:
 - `pending`: not yet requested, or source contents changed.
 - `processing`: extraction in progress.
 - `extracted`: extracted_text is ready. **No AI inference has run.**
-- `requires_login`: HTTP 401 or a page containing a password input; not fetched
-  with credentials. Password-form detection is conservative, not definitive.
+- `requires_login`: HTTP 401 or a page containing a non-hidden password input;
+  not fetched with credentials. Password-form detection is conservative, not definitive.
+  Explicitly hidden optional login popups (hidden/aria-hidden/inline display or
+  visibility, including inherited hiding) do not block public content. Their
+  text is excluded from extraction and AI input. External CSS is not evaluated.
 - `failed`: inspect error_message (safe code).
 - `completed`: reserved for a later AI pipeline; this worker never sets it.
 
@@ -25,6 +28,16 @@ Cookies, authentication headers, proxy environment variables and embedded
 resources are not forwarded or fetched. There is no browser rendering or
 CAPTCHA bypass. robots.txt 404/410 is treated as absent; other non-200 responses
 fail closed. Site terms/permission still need separate review for supported sites.
+
+Saramin public relay job URLs have a bounded adapter: when the HTML itself links
+to a single same-origin `/zf_user/jobs/view` canonical with exactly the same
+numeric `rec_idx`, extraction reads that public server-rendered job page instead
+of the JavaScript-only relay shell. The original page must first pass the login
+gate. The canonical consumes the existing navigation budget and is subject to
+the same DNS pinning, TLS, robots, timeout and size checks. Different jobs,
+origins, credentials, ports, extra query fields and conflicting canonical links
+are not followed. No generic canonical crawler, AJAX calls, cookies, login or
+automatic iframe fetching are enabled. The stored original_url remains unchanged.
 
 Limits: 2 simultaneous jobs per application process, 2 MB response,
 100,000 characters, at most 3 followed redirects, 8-second socket timeout,

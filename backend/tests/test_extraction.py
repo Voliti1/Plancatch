@@ -44,6 +44,128 @@ def test_login_page_is_not_extracted():
         service.parse_page(b'<form><input type="password"></form>', "text/html")
 
 
+@pytest.mark.parametrize("attributes", [
+    "hidden", 'hidden="false"', 'aria-hidden="true"', 'style="display:none"',
+    'style="DISPLAY : none !important; position:absolute"',
+    'style="visibility: hidden"', 'style="visibility:collapse"',
+    'style="display: /* popup */ none"',
+    'style="display:none !important; display:block"',
+    'style="display:block; display:none"',
+])
+def test_hidden_optional_login_does_not_block_or_leak_into_public_text(attributes):
+    body = ('<main><h1>Public notice</h1><p>Submit by October 1.</p></main>'
+            f'<div {attributes}><form><p>Login-only popup text</p>'
+            '<input type="password"></form></div>').encode()
+    document = service.parse_page(body, "text/html")
+    assert document.text == "Public notice\nSubmit by October 1."
+
+
+@pytest.mark.parametrize("body", [
+    b'<main>Public notice</main><template><input type="password">Hidden text</template>',
+    b'<main>Public notice</main><input type="password" hidden>',
+    b'<main>Public notice</main><div style><input type aria-hidden></div>',
+])
+def test_unrendered_or_valueless_attributes_are_safe(body):
+    assert service.parse_page(body, "text/html").text == "Public notice"
+
+
+@pytest.mark.parametrize("body", [
+    b'<main>Login</main><form><input type="password"></form>',
+    b'<header><form><input type="password"></form></header><main>Login</main>',
+    b'<div style="display:none; display:block"><input type="password"></div>',
+    b'<div style="display:block !important;display:none"><input type="password"></div>',
+])
+def test_visible_password_gate_still_blocks_public_extraction(body):
+    with pytest.raises(service.ExtractionError, match="requires_login"):
+        service.parse_page(body, "text/html")
+
+
+PUBLIC_RELAY = "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=12345&view_type=list"
+PUBLIC_JOB = "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=12345"
+
+
+def relay_markup(canonical=PUBLIC_JOB, visible_login=False):
+    login_style = "" if visible_login else 'style="display:none"'
+    return (f'<html><head><title>Public job shell</title><link rel="canonical" href="{canonical}">'
+            f'</head><body><p>Public shell</p><div {login_style}><form>'
+            '<input type="password"></form></div></body></html>').encode()
+
+
+def test_public_relay_follows_same_job_canonical_under_existing_policy(monkeypatch):
+    body = '<title>Public job</title><main><dt>마감일</dt><dd>2026.10.01 23:59</dd></main>'.encode()
+    fetched, checked = [], []
+    monkeypatch.setattr(service, "public_target", lambda url: ("www.saramin.co.kr", 443, "8.8.8.8"))
+    monkeypatch.setattr(service, "check_robots", lambda url, deadline: checked.append(url))
+    def fetch(url, deadline):
+        fetched.append(url)
+        return 200, {"content-type": "text/html; charset=utf-8"}, relay_markup() if url == PUBLIC_RELAY else body
+    monkeypatch.setattr(service, "fetch_once", fetch)
+    document = service.extract("url", PUBLIC_RELAY, None)
+    assert document.title == "Public job"
+    assert document.text == "마감일\n2026.10.01 23:59"
+    assert fetched == checked == [PUBLIC_RELAY, PUBLIC_JOB]
+
+
+@pytest.mark.parametrize("canonical", [
+    "https://other.example/zf_user/jobs/view?rec_idx=12345",
+    "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=99999",
+    "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=12345&rec_idx=12345",
+    "https://www.saramin.co.kr/zf_user/jobs/view?rec_idx=12345&extra=1",
+    "https://www.saramin.co.kr/zf_user/auth?rec_idx=12345",
+    "http://www.saramin.co.kr/zf_user/jobs/view?rec_idx=12345",
+    "https://user:secret@www.saramin.co.kr/zf_user/jobs/view?rec_idx=12345",
+    "https://www.saramin.co.kr:8443/zf_user/jobs/view?rec_idx=12345",
+    "https://www.saramin.co.kr:invalid/zf_user/jobs/view?rec_idx=12345",
+    "http://127.0.0.1/admin",
+])
+def test_canonical_cannot_change_job_origin_identity_or_credentials(canonical):
+    assert service.public_job_canonical(PUBLIC_RELAY, relay_markup(canonical), "text/html") is None
+
+
+@pytest.mark.parametrize("url", [
+    "https://other.example/zf_user/jobs/relay/view?rec_idx=12345",
+    "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=12345&rec_idx=99999",
+    "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=not-a-number",
+    "https://www.saramin.co.kr/zf_user/auth?rec_idx=12345",
+])
+def test_no_generic_canonical_crawler_is_enabled(url):
+    assert service.public_job_canonical(url, relay_markup(), "text/html") is None
+
+
+def test_conflicting_canonical_links_are_not_followed():
+    body = relay_markup().replace(b'</head>', b'<link rel="canonical" href="/other"></head>')
+    assert service.public_job_canonical(PUBLIC_RELAY, body, "text/html") is None
+
+
+def test_actual_login_gate_cannot_be_skipped_via_canonical(monkeypatch):
+    calls = []
+    monkeypatch.setattr(service, "public_target", lambda url: ("www.saramin.co.kr", 443, "8.8.8.8"))
+    monkeypatch.setattr(service, "check_robots", lambda *args: None)
+    def fetch(url, deadline):
+        calls.append(url)
+        return 200, {"content-type": "text/html"}, relay_markup(visible_login=True)
+    monkeypatch.setattr(service, "fetch_once", fetch)
+    with pytest.raises(service.ExtractionError, match="requires_login"):
+        service.extract("url", PUBLIC_RELAY, None)
+    assert calls == [PUBLIC_RELAY]
+
+
+def test_canonical_job_robots_denial_is_respected(monkeypatch):
+    calls = []
+    monkeypatch.setattr(service, "public_target", lambda url: ("www.saramin.co.kr", 443, "8.8.8.8"))
+    def robots(url, deadline):
+        if url == PUBLIC_JOB:
+            raise service.ExtractionError("robots_disallowed")
+    def fetch(url, deadline):
+        calls.append(url)
+        return 200, {"content-type": "text/html"}, relay_markup()
+    monkeypatch.setattr(service, "check_robots", robots)
+    monkeypatch.setattr(service, "fetch_once", fetch)
+    with pytest.raises(service.ExtractionError, match="robots_disallowed"):
+        service.extract("url", PUBLIC_RELAY, None)
+    assert calls == [PUBLIC_RELAY]
+
+
 def test_robots_disallow(monkeypatch):
     monkeypatch.setattr(service, "fetch_once", lambda *a: (
         200, {}, b"User-agent: *\nDisallow: /private\n",
