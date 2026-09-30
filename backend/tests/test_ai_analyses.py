@@ -172,9 +172,9 @@ def test_real_adapter_validates_schema_and_evidence(monkeypatch):
         "text": json.dumps({"deadlines": [PROPOSAL], "warnings": []}),
     }]}}]}
     def provider(payload, model):
-        assert payload["generationConfig"]["responseMimeType"] == "application/json"
-        assert "responseJsonSchema" in payload["generationConfig"]
-        assert "responseFormat" not in payload["generationConfig"]
+        output_format = payload["generationConfig"]["responseFormat"]["text"]
+        assert output_format["mimeType"] == "APPLICATION_JSON"
+        assert "schema" in output_format
         return envelope
     monkeypatch.setattr(service, "provider_request", provider)
     assert original(TEXT, "test-model").deadlines[0].title == PROPOSAL["title"]

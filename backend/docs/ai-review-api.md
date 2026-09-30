@@ -45,7 +45,12 @@ Missing key returns 503 ai_not_configured; absent/invalid model returns 503
 ai_model_not_configured. No result/job is created on configuration failure.
 The adapter follows the official structured-output REST contract:
 https://ai.google.dev/gemini-api/docs/generate-content/structured-output
-No live provider verification has been performed until credentials are supplied.
+Live adapter verification succeeded on 2026-09-30 using gemini-3.5-flash-lite
+and synthetic source text. Model-list visibility alone does not imply generation
+access: gemini-2.5-flash-lite was listed but rejected generation for a new account.
+REST responseFormat.text.mimeType must use the APPLICATION_JSON enum. A flat,
+basic wire schema is used for compatibility; Pydantic applies stricter validation
+to the result afterward. Reference: https://ai.google.dev/api/generate-content
 
 Transport uses a fixed HTTPS host, key header, no cookies/proxy environment or tools.
 Model names cannot change the host/path. Limit: 1 job/process, 30 proposals,

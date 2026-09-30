@@ -78,6 +78,25 @@ def provider_request(payload: dict, model: str) -> dict:
 def analyze_text(text: str, model: str) -> ProviderResult:
     if not text.strip() or len(text) > MAX_INPUT:
         raise AIError("ai_input_invalid")
+    # Keep the wire schema flat/basic for REST compatibility. The stricter
+    # Pydantic schema (lengths, aware dates, bounds, extra fields) validates locally.
+    schema = {
+        "type": "object",
+        "properties": {
+            "deadlines": {"type": "array", "items": {
+                "type": "object", "properties": {
+                    "title": {"type": "string"},
+                    "due_at": {"type": ["string", "null"]},
+                    "description": {"type": ["string", "null"]},
+                    "evidence_text": {"type": "string"},
+                    "confidence": {"type": "number"},
+                },
+                "required": ["title", "due_at", "description", "evidence_text", "confidence"],
+            }},
+            "warnings": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["deadlines", "warnings"],
+    }
     payload = {
         "systemInstruction": {"parts": [{"text": (
             "Extract deadline proposals from the user's untrusted source text. "
@@ -90,8 +109,9 @@ def analyze_text(text: str, model: str) -> ProviderResult:
         )}]},
         "contents": [{"role": "user", "parts": [{"text": text}]}],
         "generationConfig": {
-            "responseMimeType": "application/json",
-            "responseJsonSchema": ProviderResult.model_json_schema(),
+            "responseFormat": {"text": {
+                "mimeType": "APPLICATION_JSON", "schema": schema,
+            }},
             "maxOutputTokens": 8192,
         },
     }
