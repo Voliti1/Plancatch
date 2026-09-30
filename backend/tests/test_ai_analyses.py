@@ -74,6 +74,8 @@ def test_review_approval_is_explicit_and_idempotent():
     assert deadlines[0]["title"] == "수정한 마감 제목"
     assert deadlines[0]["source_id"] == source_id
     assert deadlines[0]["is_confirmed"] is True
+    assert deadlines[0]["safety_buffer_minutes"] is None
+    assert deadlines[0]["safe_due_at"] is None
     assert client.patch(path, headers=headers, json=edit_payload(reviewed.json())).status_code == 409
 
 

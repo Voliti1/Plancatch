@@ -4,6 +4,10 @@ This stage does not include frontend screens, task generation, safety deadlines,
 automatic scheduling or Google Calendar synchronization. No deadlines are created
 until the authenticated owner approves a result. No production mock provider exists.
 
+Safety deadlines are available in a separate subsequent stage through existing
+Deadline CRUD: see [safe-deadlines-api.md](safe-deadlines-api.md). AI approval does
+not choose a safety buffer; the authenticated user configures it separately.
+
 ## Flow
 
 1. Store a source and call existing `POST /api/sources/{id}/analyze` for text extraction.
