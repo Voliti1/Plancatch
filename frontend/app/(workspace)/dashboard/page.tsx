@@ -84,7 +84,8 @@ export default function DashboardPage() {
                 <span className="tag">NEXT STEP</span>
                 <h3>다가올 기능</h3>
                 <p className="muted small">
-                  AI 분석, 작업 계획, 자동 일정 배치를 준비하고 있어요.
+                  AI 작업 계획과 자동 일정 배치, Google Calendar 연결을 준비하고
+                  있어요.
                 </p>
               </div>
             </div>

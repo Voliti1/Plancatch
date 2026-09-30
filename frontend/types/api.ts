@@ -26,6 +26,9 @@ export interface Source {
 export type SourceInput =
   | { title?: string; source_type: "url"; original_url: string }
   | { title?: string; source_type: "text"; original_text: string };
+export type SourceUpdateInput =
+  | { title: string | null; original_url: string; original_text?: never }
+  | { title: string | null; original_text: string; original_url?: never };
 export interface Deadline {
   id: string;
   source_id: string | null;

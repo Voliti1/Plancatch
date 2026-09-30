@@ -48,6 +48,13 @@ Create an account with `POST /api/auth/signup`:
 
 Passwords are stored as Argon2 hashes and are never included in API responses.
 
+## Safety deadlines
+
+Deadline CRUD supports optional `safety_buffer_minutes` and returns calculated
+`safe_due_at` alongside the unchanged official `due_at`. No buffer is assumed
+for existing records or AI-approved deadlines. See
+[API rules and frontend handoff](docs/safe-deadlines-api.md).
+
 Set `JWT_SECRET_KEY` in `.env`, then sign in with `POST /api/auth/login`:
 
 ```json

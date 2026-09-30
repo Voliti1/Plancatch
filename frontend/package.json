@@ -9,6 +9,7 @@
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "playwright test",
+    "test:live": "playwright test --config=playwright.live.config.ts",
     "test:serve": "next build --webpack && next start --hostname 127.0.0.1 --port 3100",
     "format": "prettier --write app components features lib types tests docs *.md *.json *.ts *.mjs"
   },

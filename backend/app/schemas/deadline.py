@@ -1,31 +1,61 @@
 """Deadline API schemas."""
 
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
+
+from app.services.deadline_safety import calculate_safe_due_at
 
 
-class DeadlineCreate(BaseModel):
+class DeadlineTimes(BaseModel):
+    """Normalize writes before persistence and reject client-supplied derived fields."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("due_at", check_fields=False)
+    @classmethod
+    def normalize_utc(cls, value: datetime | None) -> datetime | None:
+        try:
+            return value.astimezone(UTC) if value is not None else None
+        except OverflowError as exc:
+            raise ValueError("due_at is outside the supported UTC date range") from exc
+
+
+class DeadlineCreate(DeadlineTimes):
     """Fields accepted when a user creates a deadline."""
 
     source_id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     due_at: AwareDatetime
+    safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     deadline_type: str | None = Field(default=None, max_length=50)
     description: str | None = None
     confidence: Decimal | None = Field(default=None, ge=0, le=1)
     evidence_text: str | None = None
     is_confirmed: bool = False
 
+    @model_validator(mode="after")
+    def validate_safety_deadline(self) -> "DeadlineCreate":
+        calculate_safe_due_at(self.due_at, self.safety_buffer_minutes)
+        return self
 
-class DeadlineUpdate(BaseModel):
+
+class DeadlineUpdate(DeadlineTimes):
     """Editable deadline fields."""
 
     source_id: uuid.UUID | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     due_at: AwareDatetime | None = None
+    safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     deadline_type: str | None = Field(default=None, max_length=50)
     description: str | None = None
     confidence: Decimal | None = Field(default=None, ge=0, le=1)
@@ -53,6 +83,8 @@ class DeadlineResponse(BaseModel):
     source_id: uuid.UUID | None
     title: str
     due_at: datetime
+    safety_buffer_minutes: int | None
+    safe_due_at: datetime | None
     deadline_type: str | None
     description: str | None
     confidence: Decimal | None
@@ -60,3 +92,8 @@ class DeadlineResponse(BaseModel):
     is_confirmed: bool
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("due_at")
+    @classmethod
+    def normalize_due_at(cls, value: datetime) -> datetime:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)

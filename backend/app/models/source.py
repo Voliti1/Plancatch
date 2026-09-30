@@ -19,7 +19,7 @@ class Source(Base):
             name="ck_sources_source_type",
         ),
         CheckConstraint(
-            "processing_status IN ('pending', 'processing', 'completed', 'failed')",
+            "processing_status IN ('pending', 'processing', 'extracted', 'requires_login', 'completed', 'failed')",
             name="ck_sources_processing_status",
         ),
     )

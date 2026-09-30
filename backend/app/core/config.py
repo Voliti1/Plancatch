@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     jwt_access_token_expire_minutes: int = 30
     aws_region: str = "ap-northeast-2"
     s3_bucket_name: str | None = None
-    gemini_api_key: str | None = None
+    gemini_api_key: SecretStr | None = None
+    gemini_model: str | None = None
     google_client_id: str | None = None
     google_client_secret: str | None = None
 

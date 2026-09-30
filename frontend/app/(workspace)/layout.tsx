@@ -8,6 +8,7 @@ const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
   ["/deadlines", "◷", "마감일"],
+  ["/tasks", "✓", "작업"],
 ];
 export default function WorkspaceLayout({
   children,
@@ -45,7 +46,12 @@ export default function WorkspaceLayout({
             <Link
               key={href}
               href={href}
-              aria-current={path.startsWith(href) ? "page" : undefined}
+              aria-current={
+                path.startsWith(href) ||
+                (href === "/sources" && path.startsWith("/analyses/"))
+                  ? "page"
+                  : undefined
+              }
             >
               <span aria-hidden>{icon}</span>
               {label}
@@ -54,7 +60,7 @@ export default function WorkspaceLayout({
         </nav>
         <div className="coming">
           <span className="tag">준비 중</span>
-          <p>작업 · 자동 일정 · 캘린더</p>
+          <p>자동 일정 · 캘린더</p>
           <small>
             계획의 다음 단계도
             <br />곧 이곳에서 함께해요.

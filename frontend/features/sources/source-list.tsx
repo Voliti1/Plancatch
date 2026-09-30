@@ -7,6 +7,7 @@ import { formatSeoul } from "@/lib/date/seoul";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { Pagination } from "@/components/pagination";
+import { sourceTypeLabel, processingStatusLabel } from "./display";
 export function SourceList() {
   const [page, setPage] = useState(0);
   return (
@@ -52,9 +53,11 @@ function SourcePage({
             <article className="card source-card" key={source.id}>
               <div className="card-top">
                 <span className="tag">
-                  {source.source_type === "url" ? "URL 링크" : "텍스트"}
+                  {sourceTypeLabel(source.source_type)}
                 </span>
-                <span className="muted small">등록됨</span>
+                <span className="muted small">
+                  {processingStatusLabel(source.processing_status)}
+                </span>
               </div>
               <h2>{source.title || "제목 없는 자료"}</h2>
               {source.original_url &&
@@ -77,7 +80,16 @@ function SourcePage({
               {source.error_message && (
                 <p className="error-text">{source.error_message}</p>
               )}
-              <p className="small muted">{formatSeoul(source.created_at)}</p>
+              <div className="source-card-footer">
+                <p className="small muted">{formatSeoul(source.created_at)}</p>
+                <Link
+                  className="source-detail-link"
+                  href={`/sources/${encodeURIComponent(source.id)}`}
+                  aria-label={`${source.title || "제목 없는 자료"} 상세 보기`}
+                >
+                  상세 보기 →
+                </Link>
+              </div>
             </article>
           ))}
         </div>

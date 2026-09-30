@@ -9,6 +9,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Integer,
     Numeric,
     String,
     Text,
@@ -17,6 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
+from app.services.deadline_safety import calculate_safe_due_at
 
 
 class Deadline(Base):
@@ -27,6 +29,10 @@ class Deadline(Base):
         CheckConstraint(
             "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
             name="ck_deadlines_confidence",
+        ),
+        CheckConstraint(
+            "safety_buffer_minutes IS NULL OR safety_buffer_minutes > 0",
+            name="ck_deadlines_safety_buffer_minutes",
         ),
     )
 
@@ -42,6 +48,7 @@ class Deadline(Base):
     )
     title: Mapped[str] = mapped_column(String(255))
     due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    safety_buffer_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deadline_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     confidence: Mapped[Decimal | None] = mapped_column(
@@ -63,3 +70,8 @@ class Deadline(Base):
         server_default=func.now(),
         onupdate=func.now(),
     )
+
+    @property
+    def safe_due_at(self) -> datetime | None:
+        """Derived from persisted inputs, so official-date edits cannot leave it stale."""
+        return calculate_safe_due_at(self.due_at, self.safety_buffer_minutes)
