@@ -1,6 +1,9 @@
 """No-network extraction and SSRF regression tests."""
 
+import http.client
+import io
 import socket
+import time
 
 import pytest
 
@@ -86,3 +89,70 @@ def test_access_failures(monkeypatch, code, reason):
 def test_invalid_documents(body, content_type, reason):
     with pytest.raises(service.ExtractionError, match=reason):
         service.parse_page(body, content_type)
+
+
+@pytest.mark.parametrize("framing,body", [
+    ("length", b""),
+    ("length", b"hello"),
+    ("length", b"x" * 100_000),
+    ("length", b"x" * service.MAX_BYTES),
+    ("chunked", b""),
+    ("chunked", b"hello"),
+    ("eof", b"hello"),
+], ids=["empty-content-length", "short-content-length", "multiple-reads",
+        "exact-size-limit", "empty-chunked", "chunked", "connection-eof"])
+def test_fetch_once_reads_closed_responses_without_reusing_socket(monkeypatch, framing, body):
+    _mock_http_response(monkeypatch, framing, body)
+    code, headers, received = service.fetch_once("http://example.com/notice", time.monotonic() + 30)
+    assert code == 200
+    assert headers["content-type"] == "text/plain"
+    assert received == body
+
+
+def test_fetch_once_still_rejects_oversized_content_length(monkeypatch):
+    _mock_http_response(monkeypatch, "length", b"x" * (service.MAX_BYTES + 1))
+    with pytest.raises(service.ExtractionError, match="response_too_large"):
+        service.fetch_once("http://example.com/notice", time.monotonic() + 30)
+
+
+def _mock_http_response(monkeypatch, framing, body):
+    """Use real HTTPResponse parsing/EOF behavior without any network access."""
+    headers = b"HTTP/1.1 200 OK\r\nConnection: close\r\nContent-Type: text/plain\r\n"
+    if framing == "length":
+        headers += f"Content-Length: {len(body)}\r\n".encode()
+        payload = body
+    elif framing == "chunked":
+        headers += b"Transfer-Encoding: chunked\r\n"
+        payload = (f"{len(body):x}\r\n".encode() + body + b"\r\n" if body else b"")
+        payload += b"0\r\n\r\n"
+    else:
+        payload = body
+
+    class FakeSocket:
+        def makefile(self, mode):
+            raw = io.BytesIO(headers + b"\r\n" + payload)
+            raw._sock = self
+            return io.BufferedReader(raw)
+
+        def settimeout(self, timeout):
+            assert 0 < timeout <= 8
+
+    class FakeConnection:
+        def __init__(self, *args, **kwargs):
+            self.sock = None
+
+        def request(self, *args, **kwargs):
+            pass
+
+        def getresponse(self):
+            response = http.client.HTTPResponse(self.sock)
+            response.begin()
+            self.sock = None  # Connection: close transfers ownership to response.
+            return response
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(service, "public_target", lambda url: ("example.com", 80, "8.8.8.8"))
+    monkeypatch.setattr(service.socket, "create_connection", lambda *args, **kwargs: FakeSocket())
+    monkeypatch.setattr(service.http.client, "HTTPConnection", FakeConnection)
