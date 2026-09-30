@@ -2,7 +2,8 @@
 
 This stage does not include frontend screens, task generation, safety deadlines,
 automatic scheduling or Google Calendar synchronization. No deadlines are created
-until the authenticated owner approves a result. No production mock provider exists.
+until the authenticated owner approves a result or explicitly opts into the separate
+single-candidate automatic registration endpoint documented below. No production mock provider exists.
 
 Safety deadlines are available in a separate subsequent stage through existing
 Deadline CRUD: see [safe-deadlines-api.md](safe-deadlines-api.md). AI approval does
@@ -70,3 +71,12 @@ restart recovery, retention and external-AI consent auditing need follow-up work
 Schema migration 20260930_0005 only adds the analyses table and indexes. Keep user
 data during rollback: do not automatically downgrade/drop this table. Flag-001
 code remains compatible with the additional table.
+# Opt-in automatic registration
+
+Dashboard automatic registration uses `POST /api/ai-analyses/{id}/auto-register`
+with `revision`, the saved Source `title`, and `confirm_auto_registration: true`.
+Only an unedited revision-1 analysis with one selected, explicitly dated candidate and
+no warnings may be registered. Otherwise HTTP 422 `auto_registration_requires_review`
+leaves it ready for the existing manual review workflow. Title replacement and approval
+are atomic; approved retries return the original deadline IDs. Ownership, source hash/state
+and revision checks remain enforced. No schema migration, task/event creation or calendar sync.

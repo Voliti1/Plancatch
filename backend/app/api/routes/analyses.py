@@ -14,6 +14,7 @@ from app.models.deadline import Deadline
 from app.schemas.analysis import (
     AnalysisRequest,
     AnalysisResponse,
+    AutoRegistrationRequest,
     DecisionRequest,
     ReviewRequest,
 )
@@ -120,6 +121,11 @@ def approve_analysis(analysis_id: uuid.UUID, payload: DecisionRequest,
     if analysis.status == "approved":
         return analysis  # Idempotent retry; no duplicate deadlines.
     ensure_ready(analysis, payload.revision)
+    return create_approved_deadlines(analysis, current_user, db)
+
+
+def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
+                              db: DatabaseSession) -> Analysis:
     source = get_owned_source(analysis.source_id, current_user.id, db)
     if (source.processing_status != "extracted" or not source.extracted_text
             or content_hash(source.extracted_text) != analysis.input_hash):
@@ -141,6 +147,26 @@ def approve_analysis(analysis_id: uuid.UUID, payload: DecisionRequest,
     db.commit()
     db.refresh(analysis)
     return analysis
+
+
+@router.post("/api/ai-analyses/{analysis_id}/auto-register", response_model=AnalysisResponse)
+def auto_register_analysis(analysis_id: uuid.UUID, payload: AutoRegistrationRequest,
+                           current_user: CurrentUser, db: DatabaseSession) -> Analysis:
+    analysis = owned_analysis(analysis_id, current_user.id, db)
+    if analysis.status == "approved":
+        return analysis  # Recover a lost success response without creating another deadline.
+    ensure_ready(analysis, payload.revision)
+    # Never arbitrarily choose among dates, infer a missing date, or auto-approve a manual edit.
+    if (analysis.revision != 1 or analysis.warnings or len(analysis.candidates) != 1
+            or not analysis.candidates[0]["selected"] or analysis.candidates[0]["due_at"] is None):
+        raise HTTPException(422, "auto_registration_requires_review")
+    source = get_owned_source(analysis.source_id, current_user.id, db)
+    if source.title != payload.title:
+        raise HTTPException(409, "Source changed; confirm the registration title again")
+    analysis.candidates = [dict(analysis.candidates[0], title=payload.title)]
+    analysis.revision += 1
+    # Title replacement and deadline creation share one transaction and the analysis row lock.
+    return create_approved_deadlines(analysis, current_user, db)
 
 
 @router.post("/api/ai-analyses/{analysis_id}/reject", response_model=AnalysisResponse)
