@@ -76,6 +76,29 @@ def read_source(
     return get_owned_source(source_id, current_user.id, db)
 
 
+@router.post(
+    "/{source_id}/analyze",
+    response_model=SourceResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
+def request_source_analysis(
+    source_id: uuid.UUID,
+    current_user: CurrentUser,
+    db: DatabaseSession,
+) -> Source:
+    """Queue an owned source for analysis.
+
+    The extraction and AI worker is intentionally introduced separately.  This
+    endpoint establishes the durable request boundary that worker will consume.
+    """
+    source = get_owned_source(source_id, current_user.id, db)
+    source.processing_status = "processing"
+    source.error_message = None
+    db.commit()
+    db.refresh(source)
+    return source
+
+
 @router.patch("/{source_id}", response_model=SourceResponse)
 def update_source(
     source_id: uuid.UUID,

@@ -96,3 +96,39 @@ def test_user_cannot_read_another_users_source() -> None:
     response = client.get(f"/api/sources/{source_id}", headers=other_headers)
 
     assert response.status_code == 404
+
+
+def test_owner_can_request_source_analysis() -> None:
+    headers = auth_headers("analysis-owner@example.com")
+    create_response = client.post(
+        "/api/sources",
+        headers=headers,
+        json={
+            "source_type": "text",
+            "original_text": "The application closes on October 1.",
+        },
+    )
+    source_id = create_response.json()["id"]
+
+    response = client.post(f"/api/sources/{source_id}/analyze", headers=headers)
+
+    assert response.status_code == 202
+    assert response.json()["processing_status"] == "processing"
+    assert response.json()["error_message"] is None
+
+
+def test_user_cannot_request_another_users_source_analysis() -> None:
+    owner_headers = auth_headers("analysis-first-owner@example.com")
+    other_headers = auth_headers("analysis-second-owner@example.com")
+    create_response = client.post(
+        "/api/sources",
+        headers=owner_headers,
+        json={"source_type": "text", "original_text": "Private source"},
+    )
+
+    response = client.post(
+        f"/api/sources/{create_response.json()['id']}/analyze",
+        headers=other_headers,
+    )
+
+    assert response.status_code == 404
