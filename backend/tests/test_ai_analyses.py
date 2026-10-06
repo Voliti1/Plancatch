@@ -188,7 +188,7 @@ def test_real_adapter_validates_schema_and_evidence(monkeypatch):
 
 
 @pytest.mark.parametrize("expires,ambiguous", [
-    ("2026-10-31", True), ("2026-10-31T23:59", True),
+    ("2026-10-31", True), ("2026-10-31T23:59", False),
     ("2026-10-31T23:59:00+09:00", False),
 ])
 def test_html_metadata_ambiguity_is_enforced_even_if_model_guesses(monkeypatch, expires, ambiguous):
@@ -210,9 +210,10 @@ def test_html_metadata_ambiguity_is_enforced_even_if_model_guesses(monkeypatch, 
         assert result.warnings == []
 
 
-def test_job_metadata_is_stored_and_requires_manual_date_confirmation(monkeypatch):
+@pytest.mark.parametrize("date_only", [False, True])
+def test_job_metadata_default_kst_or_missing_time_review(monkeypatch, date_only):
     from app.services import extraction
-    from tests.test_job_metadata import JOB_URL, job_markup
+    from tests.test_job_metadata import JOB, JOB_URL, job_markup
 
     original_url = JOB_URL + "?Oem_Code=C1&logpath=1#seq=0"
     headers = auth_headers(f"metadata-{uuid.uuid4().hex}@example.com")
@@ -222,13 +223,16 @@ def test_job_metadata_is_stored_and_requires_manual_date_confirmation(monkeypatc
     source_id = response.json()["id"]
     monkeypatch.setattr(extraction, "public_target", lambda *a: ("www.jobkorea.co.kr", 443, "8.8.8.8"))
     monkeypatch.setattr(extraction, "check_robots", lambda *a: None)
-    monkeypatch.setattr(extraction, "fetch_once", lambda *a: (200, {"content-type": "text/html"}, job_markup()))
+    expires = "2026-10-31" if date_only else "2026-10-31T23:59"
+    monkeypatch.setattr(extraction, "fetch_once", lambda *a: (
+        200, {"content-type": "text/html"}, job_markup({**JOB, "validThrough": expires})))
     assert client.post(f"/api/sources/{source_id}/analyze", headers=headers).status_code == 202
     source = client.get(f"/api/sources/{source_id}", headers=headers).json()
     assert source["processing_status"] == "extracted"
     assert source["title"] == "내 공고 제목" and source["original_url"] == original_url
-    assert "2026-10-31T23:59" in source["extracted_text"]
-    proposal = {**PROPOSAL, "due_at": "2026-10-31T23:59:00+09:00", "evidence_text": "2026-10-31T23:59"}
+    assert expires in source["extracted_text"]
+    confirmed_due = "2026-10-31T23:59:00+09:00"
+    proposal = {**PROPOSAL, "due_at": confirmed_due if date_only else None, "evidence_text": expires}
     envelope = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{
         "text": json.dumps({"deadlines": [proposal], "warnings": []}),
     }]}}]}
@@ -239,22 +243,113 @@ def test_job_metadata_is_stored_and_requires_manual_date_confirmation(monkeypatc
     assert response.status_code == 202
     path = f"/api/ai-analyses/{response.json()['id']}"
     analysis = client.get(path, headers=headers).json()
-    assert analysis["status"] == "ready" and analysis["warnings"]
+    assert analysis["status"] == "ready"
     assert analysis["input_text"] == source["extracted_text"]
-    assert analysis["candidates"][0]["due_at"] is None
-    assert analysis["candidates"][0]["selected"] is False
-    assert client.post(path + "/auto-register", headers=headers, json={
+    auto_payload = {
         "revision": 1, "title": "내 공고 제목", "confirm_auto_registration": True,
-    }).status_code == 422
-    assert client.post(path + "/approve", headers=headers, json={"revision": 1}).status_code == 422
-    assert client.get("/api/deadlines", headers=headers).json() == []
-    payload = edit_payload(analysis)
-    payload["candidates"][0].update(due_at=proposal["due_at"], selected=True, title="내 공고 제목")
-    assert client.patch(path, headers=headers, json=payload).status_code == 200
-    assert client.post(path + "/approve", headers=headers, json={"revision": 2}).status_code == 200
+    }
+    if date_only:
+        assert analysis["warnings"] and analysis["candidates"][0]["due_at"] is None
+        assert analysis["candidates"][0]["selected"] is False
+        assert client.post(path + "/auto-register", headers=headers, json=auto_payload).status_code == 422
+        assert client.post(path + "/approve", headers=headers, json={"revision": 1}).status_code == 422
+        assert client.get("/api/deadlines", headers=headers).json() == []
+        payload = edit_payload(analysis)
+        payload["candidates"][0].update(due_at=confirmed_due, selected=True, title="내 공고 제목")
+        assert client.patch(path, headers=headers, json=payload).status_code == 200
+        assert client.post(path + "/approve", headers=headers, json={"revision": 2}).status_code == 200
+    else:
+        assert analysis["warnings"] == [] and analysis["candidates"][0]["selected"] is True
+        assert analysis["candidates"][0]["due_at"] == confirmed_due
+        approved = client.post(path + "/auto-register", headers=headers, json=auto_payload)
+        assert approved.status_code == 200
+        repeat = client.post(path + "/auto-register", headers=headers, json=auto_payload)
+        assert repeat.json()["approved_deadline_ids"] == approved.json()["approved_deadline_ids"]
     deadlines = client.get("/api/deadlines", headers=headers).json()
     assert len(deadlines) == 1 and deadlines[0]["title"] == "내 공고 제목"
     assert deadlines[0]["source_id"] == source_id
+    assert client.get("/api/tasks", headers=headers).json() == []
+    assert client.get("/api/scheduled-events", headers=headers).json() == []
+
+
+def adapter_result(monkeypatch, text, due_at, evidence=None, warnings=None):
+    proposal = {**PROPOSAL, "due_at": due_at, "evidence_text": evidence or text}
+    envelope = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{
+        "text": json.dumps({"deadlines": [proposal], "warnings": warnings or []}),
+    }]}}]}
+    def provider(payload, model):
+        instruction = payload["systemInstruction"]["parts"][0]["text"]
+        assert "Asia/Seoul (UTC+09:00)" in instruction
+        assert "Never invent a year, date, end-of-day time" in instruction
+        return envelope
+    monkeypatch.setattr(service, "provider_request", provider)
+    return REAL_ANALYZE_TEXT(text, "test-model")
+
+
+@pytest.mark.parametrize("model_due", [None, "2026-10-29T23:59:00Z", "2026-10-29T14:59:00Z",
+                                       "2026-10-29T23:59:00+09:00"])
+def test_complete_iso_without_zone_uses_service_default(monkeypatch, model_due):
+    text = "접수 마감일: 2026-10-29T23:59"
+    result = adapter_result(monkeypatch, text, model_due)
+    assert result.deadlines[0].due_at.isoformat() == "2026-10-29T23:59:00+09:00"
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize("expires,model_due", [
+    ("2026-10-29T23:59:00Z", "2026-10-30T08:59:00+09:00"),
+    ("2026-10-29T23:59:00-04:00", "2026-10-30T12:59:00+09:00"),
+    ("2026-10-29T23:59:00+09:00", "2026-10-29T14:59:00Z"),
+])
+def test_explicit_offset_is_preserved_not_reinterpreted(monkeypatch, expires, model_due):
+    result = adapter_result(monkeypatch, f"마감일: {expires}", model_due)
+    assert result.deadlines[0].due_at.isoformat() == expires.replace("Z", "+00:00")
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize("text,model_due", [
+    ("마감일: 2026-10-29T23:59", "2026-10-30T23:59:00+09:00"),
+    ("마감일: 2026-10-29T23:59:00Z", "2026-10-29T23:59:00+09:00"),
+])
+def test_conflicting_model_date_or_explicit_offset_stays_review_only(monkeypatch, text, model_due):
+    result = adapter_result(monkeypatch, text, model_due)
+    assert result.deadlines[0].due_at is None
+    assert service.DATE_CONFLICT_NOTICE in result.warnings
+
+
+@pytest.mark.parametrize("zone,model_due", [("UTC", "2026-10-29T23:59:00Z"),
+                                          ("미국 뉴욕 시간", "2026-10-29T23:59:00-04:00")])
+def test_separately_stated_timezone_is_not_overwritten(monkeypatch, zone, model_due):
+    text = f"접수 마감: 2026-10-29T23:59 ({zone})"
+    result = adapter_result(monkeypatch, text, model_due, evidence="2026-10-29T23:59")
+    assert result.deadlines[0].due_at.isoformat() == model_due.replace("Z", "+00:00")
+    assert result.warnings == []
+
+
+@pytest.mark.parametrize("text", ["마감일: 10월 29일 23:59", "마감일: 2026-10-29",
+                                  "마감일: 2026-10", "마감일: 2026-02-30T23:59"])
+def test_kst_default_does_not_supply_missing_or_invalid_year_date_time(monkeypatch, text):
+    result = adapter_result(monkeypatch, text, None, warnings=["날짜 또는 시간을 확인해 주세요."])
+    assert result.deadlines[0].due_at is None
+    assert result.warnings == ["날짜 또는 시간을 확인해 주세요."]
+
+
+def test_old_timezone_notice_is_supported_without_rewriting_source(monkeypatch):
+    from app.services.extraction import STRUCTURED_DATE_NOTICES
+
+    text = "마감일 (validThrough): 2026-10-29T23:59\n" + STRUCTURED_DATE_NOTICES[1]
+    result = adapter_result(monkeypatch, text, None, evidence="2026-10-29T23:59",
+                            warnings=[STRUCTURED_DATE_NOTICES[1]])
+    assert result.deadlines[0].due_at.isoformat() == "2026-10-29T23:59:00+09:00"
+    assert result.warnings == []
+
+
+def test_policy_does_not_suppress_other_warnings_or_choose_among_dates(monkeypatch):
+    warning = "접수 기간이 충돌합니다."
+    result = adapter_result(monkeypatch, "마감일: 2026-10-29T23:59", None, warnings=[warning])
+    assert result.deadlines[0].due_at is not None and result.warnings == [warning]
+    result = adapter_result(monkeypatch, "마감일: 2026-10-29T23:59 또는 2026-10-30T23:59",
+                            None, warnings=[warning])
+    assert result.deadlines[0].due_at is None and result.warnings == [warning]
 
 
 def test_processing_conflict_and_missing_extraction():
