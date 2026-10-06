@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Loading, ErrorNotice } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
@@ -15,8 +15,9 @@ import {
 export function AutoDeadlineForm() {
   const hydrated = useHydrated();
   const { user } = useAuth();
+  const entry = useSearchParams().get("new") ?? "direct";
   return hydrated && user ? (
-    <RegistrationSession key={user.id} userId={user.id} />
+    <RegistrationSession key={`${user.id}:${entry}`} userId={user.id} />
   ) : (
     <Loading />
   );
@@ -24,22 +25,32 @@ export function AutoDeadlineForm() {
 
 function RegistrationSession({ userId }: { userId: string }) {
   const storageKey = `plancatch.auto-deadline.${userId}`;
-  const [draft, setDraft] = useState<RegistrationDraft>(() => {
-    try {
-      const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null");
-      if (
-        saved &&
-        typeof saved.title === "string" &&
-        typeof saved.url === "string" &&
-        typeof saved.sourceId === "string" &&
-        (saved.analysisId === undefined || typeof saved.analysisId === "string")
-      )
-        return saved;
-    } catch {
-      /* Storage unavailable: the current page can still register. */
-    }
-    return { title: "", url: "" };
-  });
+  const [draft, setDraft] = useState<RegistrationDraft>({ title: "", url: "" });
+  const [resumeDraft, setResumeDraft] = useState<RegistrationDraft | null>(
+    () => {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null");
+        if (
+          saved &&
+          typeof saved.title === "string" &&
+          typeof saved.url === "string" &&
+          typeof saved.sourceId === "string" &&
+          saved.sourceId.trim() &&
+          (saved.analysisId === undefined ||
+            typeof saved.analysisId === "string")
+        )
+          return {
+            title: saved.title,
+            url: saved.url,
+            sourceId: saved.sourceId,
+            analysisId: saved.analysisId,
+          };
+      } catch {
+        /* Storage unavailable: the current page can still register. */
+      }
+      return null;
+    },
+  );
   const [consent, setConsent] = useState(false);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState("");
@@ -50,12 +61,28 @@ function RegistrationSession({ userId }: { userId: string }) {
   const router = useRouter();
   useEffect(() => () => controller.current?.abort(), []);
   function save(next: RegistrationDraft) {
+    // A late response from a hidden/unmounted route must not overwrite a new run.
+    if (controller.current?.signal.aborted) return;
     setDraft(next);
+    setResumeDraft(null);
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
       /* No credentials or extracted text are stored. */
     }
+  }
+  function reset() {
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {
+      /* Optional storage. */
+    }
+    setDraft({ title: "", url: "" });
+    setResumeDraft(null);
+    setConsent(false);
+    setReviewId("");
+    setError("");
+    setProgress("");
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -104,6 +131,10 @@ function RegistrationSession({ userId }: { userId: string }) {
         } catch {
           /* Optional resume storage. */
         }
+        setDraft({ title: "", url: "" });
+        setResumeDraft(null);
+        setConsent(false);
+        setProgress("");
         router.replace(`/deadlines/${encodeURIComponent(result.id)}`);
       }
     } catch (err) {
@@ -126,6 +157,29 @@ function RegistrationSession({ userId }: { userId: string }) {
       />
       <form className="card form-card" onSubmit={submit}>
         <fieldset disabled={busy}>
+          {resumeDraft && (
+            <section className="notice" aria-label="이전 등록 재개">
+              <p>
+                중단된 등록이 남아 있습니다. 새 일정은 아래에 입력하거나, 이전
+                등록을 이어서 진행할 수 있습니다. 기존 서버 자료는 삭제하지
+                않습니다.
+              </p>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setDraft(resumeDraft);
+                  setResumeDraft(null);
+                  setConsent(false);
+                  setReviewId("");
+                  setError("");
+                  setProgress("");
+                }}
+              >
+                이전 등록 이어서
+              </button>
+            </section>
+          )}
           <label>
             일정 제목
             <input
@@ -225,21 +279,7 @@ function RegistrationSession({ userId }: { userId: string }) {
         </p>
       )}
       {draft.sourceId && !busy && (
-        <button
-          className="secondary"
-          onClick={() => {
-            try {
-              sessionStorage.removeItem(storageKey);
-            } catch {
-              /* Optional storage. */
-            }
-            setDraft({ title: "", url: "" });
-            setConsent(false);
-            setReviewId("");
-            setError("");
-            setProgress("");
-          }}
-        >
+        <button className="secondary" onClick={reset}>
           다른 일정 입력
         </button>
       )}
