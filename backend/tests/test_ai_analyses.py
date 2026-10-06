@@ -187,6 +187,76 @@ def test_real_adapter_validates_schema_and_evidence(monkeypatch):
         original(TEXT, "test-model")
 
 
+@pytest.mark.parametrize("expires,ambiguous", [
+    ("2026-10-31", True), ("2026-10-31T23:59", True),
+    ("2026-10-31T23:59:00+09:00", False),
+])
+def test_html_metadata_ambiguity_is_enforced_even_if_model_guesses(monkeypatch, expires, ambiguous):
+    from app.services import extraction
+    from tests.test_job_metadata import JOB, JOB_URL, job_markup
+
+    text = extraction.parse_page(job_markup({**JOB, "validThrough": expires}), "text/html", JOB_URL).text
+    proposal = {**PROPOSAL, "due_at": "2026-10-31T23:59:00+09:00", "evidence_text": expires}
+    envelope = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{
+        "text": json.dumps({"deadlines": [proposal], "warnings": []}),
+    }]}}]}
+    monkeypatch.setattr(service, "provider_request", lambda *a: envelope)
+    result = REAL_ANALYZE_TEXT(text, "test-model")
+    if ambiguous:
+        assert result.deadlines[0].due_at is None
+        assert any(item in result.warnings for item in extraction.STRUCTURED_DATE_NOTICES)
+    else:
+        assert result.deadlines[0].due_at.isoformat() == proposal["due_at"]
+        assert result.warnings == []
+
+
+def test_job_metadata_is_stored_and_requires_manual_date_confirmation(monkeypatch):
+    from app.services import extraction
+    from tests.test_job_metadata import JOB_URL, job_markup
+
+    original_url = JOB_URL + "?Oem_Code=C1&logpath=1#seq=0"
+    headers = auth_headers(f"metadata-{uuid.uuid4().hex}@example.com")
+    response = client.post("/api/sources", headers=headers, json={
+        "source_type": "url", "original_url": original_url, "title": "내 공고 제목",
+    })
+    source_id = response.json()["id"]
+    monkeypatch.setattr(extraction, "public_target", lambda *a: ("www.jobkorea.co.kr", 443, "8.8.8.8"))
+    monkeypatch.setattr(extraction, "check_robots", lambda *a: None)
+    monkeypatch.setattr(extraction, "fetch_once", lambda *a: (200, {"content-type": "text/html"}, job_markup()))
+    assert client.post(f"/api/sources/{source_id}/analyze", headers=headers).status_code == 202
+    source = client.get(f"/api/sources/{source_id}", headers=headers).json()
+    assert source["processing_status"] == "extracted"
+    assert source["title"] == "내 공고 제목" and source["original_url"] == original_url
+    assert "2026-10-31T23:59" in source["extracted_text"]
+    proposal = {**PROPOSAL, "due_at": "2026-10-31T23:59:00+09:00", "evidence_text": "2026-10-31T23:59"}
+    envelope = {"candidates": [{"finishReason": "STOP", "content": {"parts": [{
+        "text": json.dumps({"deadlines": [proposal], "warnings": []}),
+    }]}}]}
+    monkeypatch.setattr(service, "provider_request", lambda *a: envelope)
+    monkeypatch.setattr(service, "analyze_text", REAL_ANALYZE_TEXT)
+    response = client.post(f"/api/sources/{source_id}/ai-analyses", headers=headers,
+                           json={"allow_external_ai": True})
+    assert response.status_code == 202
+    path = f"/api/ai-analyses/{response.json()['id']}"
+    analysis = client.get(path, headers=headers).json()
+    assert analysis["status"] == "ready" and analysis["warnings"]
+    assert analysis["input_text"] == source["extracted_text"]
+    assert analysis["candidates"][0]["due_at"] is None
+    assert analysis["candidates"][0]["selected"] is False
+    assert client.post(path + "/auto-register", headers=headers, json={
+        "revision": 1, "title": "내 공고 제목", "confirm_auto_registration": True,
+    }).status_code == 422
+    assert client.post(path + "/approve", headers=headers, json={"revision": 1}).status_code == 422
+    assert client.get("/api/deadlines", headers=headers).json() == []
+    payload = edit_payload(analysis)
+    payload["candidates"][0].update(due_at=proposal["due_at"], selected=True, title="내 공고 제목")
+    assert client.patch(path, headers=headers, json=payload).status_code == 200
+    assert client.post(path + "/approve", headers=headers, json={"revision": 2}).status_code == 200
+    deadlines = client.get("/api/deadlines", headers=headers).json()
+    assert len(deadlines) == 1 and deadlines[0]["title"] == "내 공고 제목"
+    assert deadlines[0]["source_id"] == source_id
+
+
 def test_processing_conflict_and_missing_extraction():
     from app.models.analysis import Analysis
 
