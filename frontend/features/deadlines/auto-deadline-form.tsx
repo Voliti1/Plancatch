@@ -88,7 +88,8 @@ function RegistrationSession({ userId }: { userId: string }) {
     if (value === draft[field]) return;
     if (draft.sourceId) {
       // Never reuse a saved source/analysis for changed input or alter its data.
-      setResumeDraft(draft);
+      // Keep the accepted resume prompt dismissed while editing. The previous
+      // draft stays in sessionStorage until the new source is actually created.
       setDraft({ title: draft.title, url: draft.url, [field]: value });
       setProgress(
         "입력을 변경하여 새 등록으로 진행합니다. 이전 자료와 분석은 그대로 유지됩니다.",
