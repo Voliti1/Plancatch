@@ -42,7 +42,16 @@ export function SourceExtractedContent({ text }: { text: string }) {
             type="button"
             className="secondary"
             aria-haspopup="dialog"
-            onClick={() => dialog.current?.showModal()}
+            onClick={() => {
+              const modal = dialog.current;
+              if (!modal) return;
+              // Preserve an existing scrollbar gap, but never introduce one
+              // on overlay-scrollbar/mobile/narrow layouts.
+              modal.dataset.reserveGutter = String(
+                window.innerWidth > document.documentElement.clientWidth,
+              );
+              modal.showModal();
+            }}
           >
             자세히 보기
           </button>

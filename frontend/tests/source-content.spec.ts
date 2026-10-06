@@ -252,6 +252,36 @@ const cases = [
     deadline: "미정",
   },
 ];
+test.describe("narrow desktop viewport", () => {
+  test.use({
+    viewport: { width: 412, height: 915 },
+    isMobile: false,
+    hasTouch: false,
+  });
+  test("opening the modal never introduces an extra scrollbar gap", async ({
+    page,
+  }) => {
+    await openSource(page);
+    const trigger = page.getByRole("button", {
+      name: "자세히 보기",
+      exact: true,
+    });
+    await trigger.scrollIntoViewIfNeeded();
+    const before = await page.locator(".source-detail").boundingBox();
+    const gap = await page.evaluate(
+      () => innerWidth - document.documentElement.clientWidth,
+    );
+    await trigger.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toHaveAttribute(
+      "data-reserve-gutter",
+      String(gap > 0),
+    );
+    expect(await page.locator(".source-detail").boundingBox()).toEqual(before);
+    await page.keyboard.press("Escape");
+    expect(await page.locator(".source-detail").boundingBox()).toEqual(before);
+  });
+});
 for (const value of cases) {
   test(`summary parser: ${value.name}`, () => {
     expect(extractedSummary(value.text)).toEqual({

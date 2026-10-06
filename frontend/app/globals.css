@@ -62,6 +62,8 @@
 }
 html:has(.source-content-dialog[open]) {
   overflow: hidden;
+}
+html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
   scrollbar-gutter: stable;
 }
 .source-content-dialog {
