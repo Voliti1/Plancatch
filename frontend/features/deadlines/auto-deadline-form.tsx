@@ -84,6 +84,22 @@ function RegistrationSession({ userId }: { userId: string }) {
     setError("");
     setProgress("");
   }
+  function edit(field: "title" | "url", value: string) {
+    if (value === draft[field]) return;
+    if (draft.sourceId) {
+      // Never reuse a saved source/analysis for changed input or alter its data.
+      setResumeDraft(draft);
+      setDraft({ title: draft.title, url: draft.url, [field]: value });
+      setProgress(
+        "입력을 변경하여 새 등록으로 진행합니다. 이전 자료와 분석은 그대로 유지됩니다.",
+      );
+    } else {
+      setDraft({ ...draft, [field]: value });
+    }
+    setConsent(false);
+    setReviewId("");
+    setError("");
+  }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current || !consent) return;
@@ -187,10 +203,7 @@ function RegistrationSession({ userId }: { userId: string }) {
               required
               maxLength={255}
               value={draft.title}
-              readOnly={!!draft.sourceId}
-              onChange={(event) =>
-                setDraft({ ...draft, title: event.target.value })
-              }
+              onChange={(event) => edit("title", event.target.value)}
               placeholder="예: 프로젝트 최종 보고서 제출"
             />
           </label>
@@ -201,10 +214,7 @@ function RegistrationSession({ userId }: { userId: string }) {
               type="url"
               required
               value={draft.url}
-              readOnly={!!draft.sourceId}
-              onChange={(event) =>
-                setDraft({ ...draft, url: event.target.value })
-              }
+              onChange={(event) => edit("url", event.target.value)}
               placeholder="https://…"
             />
           </label>
@@ -231,8 +241,9 @@ function RegistrationSession({ userId }: { userId: string }) {
           </label>
           {draft.sourceId && !busy && (
             <p className="small muted">
-              이전에 시작한 자료를 이어서 처리합니다. 제목과 URL은 유지되며, 새
-              자료를 중복 생성하지 않습니다.
+              입력을 그대로 두면 이전 자료를 이어서 처리하며 중복 생성하지
+              않습니다. 제목이나 URL을 수정하면 기존 자료는 유지하고 새 등록으로
+              진행합니다.
             </p>
           )}
           {progress && (
