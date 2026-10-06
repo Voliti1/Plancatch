@@ -14,6 +14,7 @@ import type { Source } from "@/types/api";
 import { SourceExtraction } from "./source-extraction";
 import { processingError } from "@/features/analyses/errors";
 import { SourceAnalyses } from "@/features/analyses/source-analyses";
+import { SourceExtractedContent } from "./source-extracted-content";
 
 export function SourceDetail({ id }: { id: string }) {
   const loader = useCallback(async () => {
@@ -137,12 +138,7 @@ export function SourceDetail({ id }: { id: string }) {
                     </section>
                   )}
                   {data.extracted_text !== null && (
-                    <section className="source-content">
-                      <h3>추출된 내용</h3>
-                      <p className="source-text">
-                        {data.extracted_text || "추출된 내용이 없습니다."}
-                      </p>
-                    </section>
+                    <SourceExtractedContent text={data.extracted_text} />
                   )}
                   {data.source_type === "url" || data.source_type === "text" ? (
                     <button

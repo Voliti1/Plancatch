@@ -41,8 +41,11 @@ test("source detail, URL edit, cancel and confirmed deletion", async ({
   ).toBeVisible();
   await expect(page.getByText("처리 완료", { exact: true })).toBeVisible();
   await expect(
-    page.getByText("제출은 10월 1일까지입니다.", { exact: true }),
+    page.getByRole("button", { name: "자세히 보기", exact: true }),
   ).toBeVisible();
+  await expect(
+    page.getByText("제출은 10월 1일까지입니다.", { exact: true }),
+  ).not.toBeVisible();
   await page.getByRole("button", { name: "자료 수정", exact: true }).click();
   await page.getByLabel("자료 제목 (선택)").fill("취소할 제목");
   await page.getByRole("button", { name: "취소", exact: true }).click();
@@ -68,9 +71,13 @@ test("source detail, URL edit, cancel and confirmed deletion", async ({
   await expect(
     page.getByRole("link", { name: /https:\/\/example.com\/updated/ }),
   ).toHaveAttribute("href", "https://example.com/updated?notice=1");
+  await page.getByRole("button", { name: "자세히 보기", exact: true }).click();
   await expect(
-    page.getByText("제출은 10월 1일까지입니다.", { exact: true }),
+    page
+      .getByRole("dialog")
+      .getByText("제출은 10월 1일까지입니다.", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "자세히 보기 닫기" }).click();
   await page.screenshot({
     path: test.info().outputPath("source-detail.png"),
     fullPage: true,

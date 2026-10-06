@@ -278,9 +278,16 @@ test("oversized input is blocked and changed extraction requires fresh consent",
   await page
     .getByRole("button", { name: "원문 다시 추출", exact: true })
     .click();
+  await expect(page.locator(".source-content-dialog .source-text")).toHaveText(
+    "[테스트] 새로 추출한 원문입니다.",
+  );
+  await page.getByRole("button", { name: "자세히 보기", exact: true }).click();
   await expect(
-    page.getByText("[테스트] 새로 추출한 원문입니다.", { exact: true }),
+    page
+      .getByRole("dialog")
+      .getByText("[테스트] 새로 추출한 원문입니다.", { exact: true }),
   ).toBeVisible();
+  await page.getByRole("button", { name: "자세히 보기 닫기" }).click();
   await expect(
     page.getByRole("checkbox", { name: /Google Gemini/ }),
   ).not.toBeChecked();
