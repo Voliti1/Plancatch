@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/provider";
 import { deadlinesApi } from "@/features/deadlines/api";
 import { sourcesApi } from "@/features/sources/api";
 import { DeadlineRows } from "@/features/deadlines/deadline-list";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import { useResource } from "@/lib/api/use-resource";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
@@ -16,7 +16,6 @@ const load = async () => {
   return { deadlines, sources };
 };
 export default function DashboardPage() {
-  const router = useRouter();
   const { user } = useAuth();
   const { data, loading, error, reload } = useResource(load);
   return (
@@ -35,19 +34,9 @@ export default function DashboardPage() {
             눈앞의 계획으로.
           </h2>
           <p>링크 하나, 메모 한 줄부터 시작해 보세요.</p>
-          <Link
-            className="button"
-            href="/deadlines/auto"
-            onNavigate={(event) => {
-              event.preventDefault();
-              // A new key also resets a route preserved by client navigation.
-              // This is a UI identity, not a security token (HTTP is supported).
-              const entry = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
-              router.push(`/deadlines/auto?new=${entry}`);
-            }}
-          >
+          <NewRegistrationLink className="button">
             새 일정 등록하기 ↗
-          </Link>
+          </NewRegistrationLink>
         </div>
         <div className="hero-art" aria-hidden>
           <div className="paper paper-back" />

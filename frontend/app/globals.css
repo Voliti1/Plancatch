@@ -432,7 +432,8 @@ small {
   display: grid;
   gap: 8px;
 }
-.sidebar nav a {
+.sidebar nav a,
+.sidebar-new-registration {
   padding: 12px 15px;
   border-radius: 9px;
   color: #5f6b7c;
@@ -440,6 +441,19 @@ small {
   gap: 13px;
   font-size: 14px;
   font-weight: 600;
+}
+.sidebar-new-registration {
+  margin-top: 30px;
+  background: var(--blue);
+  color: var(--white);
+  align-items: center;
+  justify-content: center;
+}
+.sidebar-new-registration:hover {
+  background: #244dcb;
+}
+.sidebar-new-registration + .nav-caption {
+  margin-top: 22px;
 }
 .sidebar nav a span {
   font-size: 19px;
@@ -1065,9 +1079,15 @@ textarea {
   }
   .sidebar nav {
     grid-column: 1/-1;
-    grid-row: 2;
+    grid-row: 3;
     display: flex;
     gap: 6px;
+  }
+  .sidebar-new-registration {
+    grid-column: 1/-1;
+    grid-row: 2;
+    margin: 0;
+    font-size: 12px;
   }
   .sidebar nav a {
     flex: 1;
@@ -1081,6 +1101,8 @@ textarea {
     display: none;
   }
   .account {
+    grid-column: 2;
+    grid-row: 1;
     margin: 0;
     padding: 0;
     border: 0;

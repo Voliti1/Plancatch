@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
@@ -40,6 +41,9 @@ export default function WorkspaceLayout({
           <span className="logo">P</span>PlanCatch
           <span className="brand-dot">.</span>
         </Link>
+        <NewRegistrationLink className="sidebar-new-registration">
+          새 일정 등록하기
+        </NewRegistrationLink>
         <p className="nav-caption">MY WORKSPACE</p>
         <nav aria-label="주 메뉴">
           {nav.map(([href, icon, label]) => (

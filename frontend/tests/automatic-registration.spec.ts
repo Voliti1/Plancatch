@@ -185,6 +185,8 @@ test("new registration starts editable even with a saved interrupted registratio
   await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
     previous.url,
   );
+  await expect(page.getByLabel("일정 제목", { exact: true })).toBeEditable();
+  await expect(page.getByLabel("원본 URL", { exact: true })).toBeEditable();
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page
     .getByRole("button", { name: "다른 일정 입력", exact: true })
@@ -235,6 +237,159 @@ test("new registration does not retain unsubmitted inputs after dashboard naviga
   await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page.getByLabel("일정 제목", { exact: true }).fill("[테스트] 새 입력");
+});
+
+for (const changed of ["title", "url"] as const) {
+  test(`editing a resumed ${changed} uses a new source and analysis after renewed consent`, async ({
+    page,
+  }) => {
+    const counts = await automaticApi(page);
+    await login(page);
+    const previous = {
+      title:
+        changed === "title"
+          ? "[테스트] 이전 제목"
+          : "[테스트] 사용자 지정 일정",
+      url: "https://example.com/old",
+      sourceId: "previous-source",
+      analysisId: "previous-analysis",
+    };
+    await page.evaluate(
+      ({ key, draft }) => sessionStorage.setItem(key, JSON.stringify(draft)),
+      { key: storageKey, draft: previous },
+    );
+    await page
+      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "이전 등록 이어서", exact: true })
+      .click();
+    await expect(page.getByLabel("일정 제목", { exact: true })).toBeEditable();
+    await expect(page.getByLabel("원본 URL", { exact: true })).toBeEditable();
+    await page.getByRole("checkbox").check();
+    await page
+      .getByLabel(changed === "title" ? "일정 제목" : "원본 URL", {
+        exact: true,
+      })
+      .fill(
+        changed === "title"
+          ? "[테스트] 사용자 지정 일정"
+          : "https://example.com/changed",
+      );
+    await expect(page.getByRole("checkbox")).not.toBeChecked();
+    await expect(
+      page.getByRole("button", { name: "일정 등록", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("link", { name: "저장된 원본 자료 확인 →" }),
+    ).toHaveCount(0);
+    expect(
+      await page.evaluate(
+        (key) => JSON.parse(sessionStorage.getItem(key)!),
+        storageKey,
+      ),
+    ).toEqual(previous);
+    expect(counts.create).toBe(0);
+    await page.getByRole("checkbox").check();
+    await page.getByRole("button", { name: "일정 등록", exact: true }).click();
+    await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
+    expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+  });
+}
+
+test("editing after a review result clears the old result and requires fresh consent", async ({
+  page,
+}) => {
+  const counts = await automaticApi(page, "review");
+  await fill(page);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "일정 등록", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+  ).toBeVisible();
+  await page
+    .getByLabel("원본 URL", { exact: true })
+    .fill("https://example.com/revised");
+  await expect(
+    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await expect(
+    page.getByRole("button", { name: "일정 등록", exact: true }),
+  ).toBeDisabled();
+  await expect(
+    page.getByText(
+      "입력을 변경하여 새 등록으로 진행합니다. 이전 자료와 분석은 그대로 유지됩니다.",
+    ),
+  ).toBeVisible();
+  await page
+    .getByRole("button", { name: "이전 등록 이어서", exact: true })
+    .click();
+  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
+    "https://example.com/notice",
+  );
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+});
+
+test("blue sidebar registration matches menu typography and opens a fresh form from any workspace page", async ({
+  page,
+}) => {
+  await mockApi(page);
+  await login(page);
+  const button = page.getByRole("link", {
+    name: "새 일정 등록하기",
+    exact: true,
+  });
+  await expect(button).toBeVisible();
+  const styles = await page.locator(".sidebar").evaluate((sidebar) => {
+    const button = sidebar.querySelector(".sidebar-new-registration")!;
+    const menu = sidebar.querySelector("nav a")!;
+    const caption = sidebar.querySelector(".nav-caption")!;
+    const buttonStyle = getComputedStyle(button),
+      menuStyle = getComputedStyle(menu);
+    const typography = (style: CSSStyleDeclaration) => [
+      style.fontFamily,
+      style.fontSize,
+      style.fontWeight,
+      style.lineHeight,
+    ];
+    return {
+      button: typography(buttonStyle),
+      menu: typography(menuStyle),
+      blue: buttonStyle.backgroundColor,
+      white: buttonStyle.color,
+      above:
+        button.getBoundingClientRect().bottom <=
+        (getComputedStyle(caption).display === "none"
+          ? menu
+          : caption
+        ).getBoundingClientRect().top,
+      overflow:
+        document.documentElement.scrollWidth >
+        document.documentElement.clientWidth + 1,
+    };
+  });
+  expect(styles.button).toEqual(styles.menu);
+  expect(styles.blue).toBe("rgb(48, 94, 232)");
+  expect(styles.white).toBe("rgb(255, 255, 255)");
+  expect(styles.above).toBe(true);
+  expect(styles.overflow).toBe(false);
+  for (const menu of ["원본 자료", "작업"]) {
+    await page.getByRole("link", { name: menu, exact: true }).click();
+    await button.click();
+    await expect(
+      page.getByRole("heading", { name: "자동 일정 등록", exact: true }),
+    ).toBeVisible();
+    await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+    await page
+      .getByLabel("일정 제목", { exact: true })
+      .fill("[테스트] 이전 화면 입력");
+    const before = page.url();
+    await button.click();
+    await expect(page).not.toHaveURL(before);
+    await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("원본 URL", { exact: true })).toBeEditable();
+  }
 });
 
 test("malformed resume storage and another user's draft cannot lock a new form", async ({
