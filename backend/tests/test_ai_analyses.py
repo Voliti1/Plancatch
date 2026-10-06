@@ -333,12 +333,13 @@ def test_kst_default_does_not_supply_missing_or_invalid_year_date_time(monkeypat
     assert result.warnings == ["날짜 또는 시간을 확인해 주세요."]
 
 
-def test_old_timezone_notice_is_supported_without_rewriting_source(monkeypatch):
+@pytest.mark.parametrize("info", sorted(service.DEFAULT_TIMEZONE_INFORMATION))
+def test_old_timezone_notice_is_supported_without_rewriting_source(monkeypatch, info):
     from app.services.extraction import STRUCTURED_DATE_NOTICES
 
     text = "마감일 (validThrough): 2026-10-29T23:59\n" + STRUCTURED_DATE_NOTICES[1]
     result = adapter_result(monkeypatch, text, None, evidence="2026-10-29T23:59",
-                            warnings=[STRUCTURED_DATE_NOTICES[1]])
+                            warnings=[info])
     assert result.deadlines[0].due_at.isoformat() == "2026-10-29T23:59:00+09:00"
     assert result.warnings == []
 
@@ -350,6 +351,18 @@ def test_policy_does_not_suppress_other_warnings_or_choose_among_dates(monkeypat
     result = adapter_result(monkeypatch, "마감일: 2026-10-29T23:59 또는 2026-10-30T23:59",
                             None, warnings=[warning])
     assert result.deadlines[0].due_at is None and result.warnings == [warning]
+
+
+def test_default_info_is_not_removed_without_complete_evidence_or_when_time_is_missing(monkeypatch):
+    from app.services.extraction import STRUCTURED_DATE_NOTICES
+
+    info = "원문 마감일에 시간대가 명시되지 않아 기본 시간대(+09:00)가 적용되었습니다."
+    text = "마감일: 2026-10-29\n" + STRUCTURED_DATE_NOTICES[0]
+    result = adapter_result(monkeypatch, text, "2026-10-29T23:59:00+09:00", warnings=[info])
+    assert result.deadlines[0].due_at is None
+    assert info in result.warnings and STRUCTURED_DATE_NOTICES[0] in result.warnings
+    result = adapter_result(monkeypatch, "접수 마감: 날짜 미정", None, warnings=[info])
+    assert result.deadlines[0].due_at is None and result.warnings == [info]
 
 
 def test_processing_conflict_and_missing_extraction():

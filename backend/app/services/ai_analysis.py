@@ -32,6 +32,11 @@ TEXTUAL_TIMEZONE = re.compile(
     re.IGNORECASE,
 )
 DATE_CONFLICT_NOTICE = "주의: AI 결과의 마감 날짜·시간이 원문 근거와 다릅니다. 확인이 필요합니다."
+DEFAULT_TIMEZONE_INFORMATION = frozenset({
+    STRUCTURED_DATE_NOTICES[1],
+    # Observed informational provider wording, not an unresolved date warning.
+    "원문 마감일에 시간대가 명시되지 않아 기본 시간대(+09:00)가 적용되었습니다.",
+})
 
 
 class AIError(Exception):
@@ -161,7 +166,9 @@ def analyze_text(text: str, model: str) -> ProviderResult:
             "to Asia/Seoul (UTC+09:00): when the year, date and time are explicit but the timezone "
             "is absent, use +09:00 without a missing-timezone warning. This is a service policy, "
             "not a claim that the source specifies KST. An old extraction notice requesting "
-            "timezone confirmation is superseded by this policy. Respect any explicitly stated "
+            "timezone confirmation is superseded by this policy. Do not copy extraction notices "
+            "or explain this default in warnings: warnings are for unresolved factual problems only. "
+            "Respect any explicitly stated "
             "timezone/offset instead; never replace it with KST. Include the complete original "
             "date/time and any stated zone in exact evidence_text. If the year, date or time "
             "is missing/ambiguous, or timezone statements conflict, use null and record warnings. "
@@ -189,8 +196,9 @@ def analyze_text(text: str, model: str) -> ProviderResult:
             raise AIError("ai_evidence_not_in_source")
         default_applied = apply_timezone_policy(result, text)
         if default_applied and all(item.due_at is not None for item in result.deadlines):
-            # Only retire the exact legacy extraction notice, not arbitrary AI warnings.
-            result.warnings = [item for item in result.warnings if item != STRUCTURED_DATE_NOTICES[1]]
+            # Only retire exact known policy notices after evidence-based KST
+            # validation. Unknown warnings must still block automatic registration.
+            result.warnings = [item for item in result.warnings if item not in DEFAULT_TIMEZONE_INFORMATION]
         notices = [STRUCTURED_DATE_NOTICES[0]] if STRUCTURED_DATE_NOTICES[0] in text.splitlines() else []
         if notices:
             # A timezone default cannot supply a missing clock time. Keep the
