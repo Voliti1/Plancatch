@@ -239,6 +239,74 @@ test("new registration does not retain unsubmitted inputs after dashboard naviga
   await page.getByLabel("일정 제목", { exact: true }).fill("[테스트] 새 입력");
 });
 
+for (const field of ["일정 제목", "원본 URL"]) {
+  test(`resumed ${field} stays focused without reopening the resume prompt on first edit`, async ({
+    page,
+  }) => {
+    await mockApi(page);
+    await login(page);
+    const previous = {
+      title: "[테스트] 이전 일정",
+      url: "https://example.com/previous",
+      sourceId: "previous-source",
+      analysisId: "previous-analysis",
+    };
+    await page.evaluate(
+      ({ key, draft }) => sessionStorage.setItem(key, JSON.stringify(draft)),
+      { key: storageKey, draft: previous },
+    );
+    await page
+      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "이전 등록 이어서", exact: true })
+      .click();
+    const input = page.getByLabel(field, { exact: true });
+    await input.click();
+    await expect(
+      page.getByRole("region", { name: "이전 등록 재개" }),
+    ).toHaveCount(0);
+    const before = await input.boundingBox();
+    await input.press("ControlOrMeta+A");
+    await input.press("Backspace");
+    await expect(input).toBeFocused();
+    await expect(input).toHaveValue("");
+    await expect(
+      page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
+    ).toHaveCount(0);
+    const after = await input.boundingBox();
+    expect(after!.y).toBeCloseTo(before!.y, 0);
+    await input.pressSequentially(
+      field === "일정 제목" ? "New title" : "https://example.com/changed",
+    );
+    await expect(input).toBeFocused();
+    await expect(
+      page.getByRole("region", { name: "이전 등록 재개" }),
+    ).toHaveCount(0);
+    await expect(
+      page.getByLabel(field === "일정 제목" ? "원본 URL" : "일정 제목", {
+        exact: true,
+      }),
+    ).toHaveValue(field === "일정 제목" ? previous.url : previous.title);
+    expect(
+      await page.evaluate(
+        (key) => JSON.parse(sessionStorage.getItem(key)!),
+        storageKey,
+      ),
+    ).toEqual(previous);
+    await page.reload();
+    await page
+      .getByRole("button", { name: "이전 등록 이어서", exact: true })
+      .click();
+    await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue(
+      previous.title,
+    );
+    await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
+      previous.url,
+    );
+  });
+}
+
 for (const changed of ["title", "url"] as const) {
   test(`editing a resumed ${changed} uses a new source and analysis after renewed consent`, async ({
     page,
@@ -322,6 +390,10 @@ test("editing after a review result clears the old result and requires fresh con
       "입력을 변경하여 새 등록으로 진행합니다. 이전 자료와 분석은 그대로 유지됩니다.",
     ),
   ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
+  ).toHaveCount(0);
+  await page.reload();
   await page
     .getByRole("button", { name: "이전 등록 이어서", exact: true })
     .click();
