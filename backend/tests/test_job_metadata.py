@@ -27,8 +27,9 @@ def test_inert_metadata_restores_same_job_deadline_and_provenance(data):
     assert "마감일 (validThrough): 2026-10-31T23:59" in document.text
     assert "제조팀 모집" in document.text
     assert "지원 서류 제출" in document.text
-    assert service.STRUCTURED_DATE_NOTICES[1] in document.text
-    assert "+09:00" not in document.text
+    assert service.DEFAULT_TIMEZONE_POLICY in document.text
+    assert service.STRUCTURED_DATE_NOTICES[1] not in document.text
+    assert "마감일 (validThrough): 2026-10-31T23:59+09:00" not in document.text
 
 
 @pytest.mark.parametrize("kind", ["JobPosting", ["Thing", "JobPosting"],
@@ -39,7 +40,7 @@ def test_schema_type_forms_are_supported(kind):
 
 @pytest.mark.parametrize("expires,notice", [
     ("2026-10-31", service.STRUCTURED_DATE_NOTICES[0]),
-    ("2026-10-31T23:59", service.STRUCTURED_DATE_NOTICES[1]),
+    ("2026-10-31T23:59", service.DEFAULT_TIMEZONE_POLICY),
     ("2026-10-31T23:59:00+09:00", None), ("2026-10-31T14:59:00Z", None),
 ])
 def test_raw_date_and_offset_are_preserved_never_filled_in(expires, notice):

@@ -19,7 +19,11 @@ MAX_JSON_LD = 100_000
 MAX_JSON_LD_BLOCKS = 16
 STRUCTURED_DATE_NOTICES = (
     "주의: 원문에는 마감 날짜만 있고 시간과 시간대가 없습니다. 사용자 확인이 필요합니다.",
+    # Keep the old notice recognizable for already stored source snapshots.
     "주의: 원문 마감일에 시간대가 명시되지 않았습니다. 사용자 확인이 필요합니다.",
+)
+DEFAULT_TIMEZONE_POLICY = (
+    "서비스 처리 기준: 날짜와 시간이 있고 시간대만 없으면 한국 시간(Asia/Seoul, UTC+09:00)으로 처리합니다."
 )
 USER_AGENT = "PlanCatchBot/0.1"
 
@@ -324,7 +328,7 @@ def structured_job_text(blocks: list[str], source_url: str | None) -> str:
     if not isinstance(parsed, datetime):
         lines.append(STRUCTURED_DATE_NOTICES[0])
     elif parsed.utcoffset() is None:
-        lines.append(STRUCTURED_DATE_NOTICES[1])
+        lines.append(DEFAULT_TIMEZONE_POLICY)
     description = item.get("description")
     if isinstance(description, str):
         parser = PageParser()

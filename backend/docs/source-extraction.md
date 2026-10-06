@@ -57,12 +57,13 @@ match that path ID. This adapter never changes or fetches an identity link.
 
 Validated ISO `validThrough` is appended with a clear JSON-LD provenance label,
 job title, page URL and sanitized description. Dates and offsets are preserved
-verbatim: no current year, end-of-day time or Korean timezone is filled in.
-Date-only/timezone-free values add explicit Korean review notices. The AI adapter
-also enforces those notices: all proposed dates in such an input remain null and
-unselected until a user enters/confirms a complete datetime in the review screen,
-even if the model guessed an offset or omitted its own warnings. Opt-in automatic
-registration therefore remains blocked; manual review/edit/approval still works.
+verbatim: no current year, end-of-day time or offset is added to the original evidence.
+Date-only values still add a Korean review notice: the AI adapter keeps proposals
+null/unselected until the user supplies the missing clock time, even if the model
+invented 23:59. A complete date/time without a zone instead adds a service-policy
+disclosure and is interpreted as Asia/Seoul (UTC+09:00) during analysis. This is
+not a claim that the website specifies KST. Explicit source offsets/zones are
+respected; conflicting dates/offsets or other warnings still block auto-registration.
 
 JSON-LD capture is limited to 16 blocks and 100,000 characters in total; each
 graph walk is limited to 128 nodes and depth 8. Malformed/oversized/unrelated
@@ -75,10 +76,12 @@ For the observed public JobKorea job 50076426, the original HTML contains
 `validThrough: 2026-10-31T23:59`; visible job text lives in a hidden streamed
 container in the initial HTML. The old extractor dropped that text and all scripts,
 so the AI never received the deadline. The metadata supplies the missing evidence,
-but not a timezone, so this page requires explicit user confirmation.
+and the service now supplies its documented KST default for the absent timezone.
 
 Existing stored extracts are not rewritten automatically. Re-extract the original
-Source, then start a new analysis; a prior Analysis keeps its own original snapshot.
+Source when new evidence is needed, then start a new analysis; a prior Analysis
+keeps its own original snapshot. New analysis of a previously stored complete ISO
+datetime also supports the old missing-timezone notice without rewriting the Source.
 No DB migration, frontend change, secret change or security-group update is needed.
 
 Limits: 2 simultaneous jobs per application process, 2 MB response,
