@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
-import { login, mockApi } from "./fixtures";
+import { login, mockApi, user } from "./fixtures";
 import type { Source, Deadline } from "../types/api";
 import type { Analysis } from "../types/analysis";
 
@@ -144,6 +144,171 @@ async function fill(page: Page) {
     .fill("https://example.com/notice");
 }
 
+const storageKey = `plancatch.auto-deadline.${user.id}`;
+
+test("new registration starts editable even with a saved interrupted registration", async ({
+  page,
+}) => {
+  await mockApi(page);
+  await login(page);
+  const previous = {
+    title: "[테스트] 이전 일정",
+    url: "https://example.com/previous",
+    sourceId: "previous-source",
+    analysisId: "previous-analysis",
+  };
+  await page.evaluate(
+    ({ key, draft }) => sessionStorage.setItem(key, JSON.stringify(draft)),
+    { key: storageKey, draft: previous },
+  );
+  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+  await page
+    .getByLabel("일정 제목", { exact: true })
+    .fill("[테스트] 새로운 일정");
+  await page
+    .getByLabel("원본 URL", { exact: true })
+    .fill("https://example.com/new");
+  expect(
+    await page.evaluate(
+      (key) => JSON.parse(sessionStorage.getItem(key)!),
+      storageKey,
+    ),
+  ).toEqual(previous);
+  await page
+    .getByRole("button", { name: "이전 등록 이어서", exact: true })
+    .click();
+  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue(
+    previous.title,
+  );
+  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
+    previous.url,
+  );
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await page
+    .getByRole("button", { name: "다른 일정 입력", exact: true })
+    .click();
+  await page
+    .getByLabel("일정 제목", { exact: true })
+    .fill("[테스트] 다시 입력");
+});
+
+test("reopening new registration resets preserved route fields and review state", async ({
+  page,
+}) => {
+  const counts = await automaticApi(page, "review");
+  await fill(page);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "일정 등록", exact: true }).click();
+  await expect(
+    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+  ).toBeVisible();
+  const firstUrl = page.url();
+  await page.getByRole("link", { name: "← 대시보드" }).click();
+  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await expect(page).not.toHaveURL(firstUrl);
+  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await expect(
+    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+  ).toHaveCount(0);
+  await page
+    .getByLabel("일정 제목", { exact: true })
+    .fill("[테스트] 두 번째 일정");
+  await page
+    .getByLabel("원본 URL", { exact: true })
+    .fill("https://example.com/second");
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+});
+
+test("new registration does not retain unsubmitted inputs after dashboard navigation", async ({
+  page,
+}) => {
+  await mockApi(page);
+  await fill(page);
+  await page.getByRole("checkbox").check();
+  await page.getByRole("link", { name: "← 대시보드" }).click();
+  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+  await expect(page.getByRole("checkbox")).not.toBeChecked();
+  await page.getByLabel("일정 제목", { exact: true }).fill("[테스트] 새 입력");
+});
+
+test("malformed resume storage and another user's draft cannot lock a new form", async ({
+  page,
+}) => {
+  await mockApi(page);
+  await login(page);
+  await page.evaluate((key) => {
+    sessionStorage.setItem(
+      key,
+      '{"title":"bad","url":"https://example.com","sourceId":42}',
+    );
+    sessionStorage.setItem(
+      "plancatch.auto-deadline.other-user",
+      JSON.stringify({
+        title: "other",
+        url: "https://example.com",
+        sourceId: "other-source",
+      }),
+    );
+  }, storageKey);
+  await page.goto("/deadlines/auto");
+  await expect(
+    page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByLabel("일정 제목", { exact: true })
+    .fill("[테스트] 직접 접속");
+  await page
+    .getByLabel("원본 URL", { exact: true })
+    .fill("https://example.com/direct");
+  await page.reload();
+  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+});
+
+test("new input creates its own source rather than resuming a saved source", async ({
+  page,
+}) => {
+  const counts = await automaticApi(page);
+  await login(page);
+  await page.evaluate(
+    (key) =>
+      sessionStorage.setItem(
+        key,
+        JSON.stringify({
+          title: "old",
+          url: "https://example.com/old",
+          sourceId: "old-source",
+        }),
+      ),
+    storageKey,
+  );
+  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await page
+    .getByLabel("일정 제목", { exact: true })
+    .fill("[테스트] 사용자 지정 일정");
+  await page
+    .getByLabel("원본 URL", { exact: true })
+    .fill("https://example.com/new");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "일정 등록", exact: true }).click();
+  await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+  await page.getByRole("link", { name: "대시보드", exact: true }).click();
+  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+  await expect(
+    page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
+  ).toHaveCount(0);
+  await page
+    .getByLabel("원본 URL", { exact: true })
+    .fill("https://example.com/next");
+});
+
 test("dashboard automatic registration consent, pipeline, requested title and reload", async ({
   page,
 }) => {
@@ -213,6 +378,10 @@ test("lost success response and refresh resume do not duplicate source, AI or de
   ).toBeVisible();
   expect(counts.register).toBe(1);
   await page.reload();
+  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+  await page
+    .getByRole("button", { name: "이전 등록 이어서", exact: true })
+    .click();
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue(
     "[테스트] 사용자 지정 일정",
   );
