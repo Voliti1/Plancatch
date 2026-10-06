@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.models.analysis import Analysis
 from app.schemas.analysis import ProviderResult
+from app.services.extraction import STRUCTURED_DATE_NOTICES
 
 MAX_INPUT = 40_000
 slots = BoundedSemaphore(1)
@@ -125,6 +126,13 @@ def analyze_text(text: str, model: str) -> ProviderResult:
         result = ProviderResult.model_validate_json(output)
         if any(item.evidence_text not in text for item in result.deadlines):
             raise AIError("ai_evidence_not_in_source")
+        notices = [notice for notice in STRUCTURED_DATE_NOTICES if notice in text.splitlines()]
+        if notices:
+            # HTML metadata may omit time/zone. Enforce review even if the model
+            # invents an offset or omits warnings; do not silently choose KST.
+            for item in result.deadlines:
+                item.due_at = None
+            result.warnings = list(dict.fromkeys(notices + result.warnings))[:30]
         return result
     except (KeyError, IndexError, TypeError, ValidationError) as exc:
         raise AIError("ai_invalid_result") from exc

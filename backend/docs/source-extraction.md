@@ -39,6 +39,48 @@ origins, credentials, ports, extra query fields and conflicting canonical links
 are not followed. No generic canonical crawler, AJAX calls, cookies, login or
 automatic iframe fetching are enabled. The stored original_url remains unchanged.
 
+### Same-page structured job evidence
+
+The extractor reads HTML already downloaded under the existing policy. In addition
+to visible main/body text, it now reads inert inline `application/ld+json` blocks
+containing Schema.org `JobPosting` records. No JavaScript is executed, no JSON-LD
+context or metadata URL is fetched, and arbitrary scripts/hidden body content are
+still excluded. No general browser, AJAX, iframe or login bypass is introduced.
+
+Only a record whose `url`, `@id`, or fallback `mainEntityOfPage` identifies the
+fetched page is usable. Conflicting references, other jobs/hosts, credentials,
+ports, invalid dates and incompatible multiple same-page records are ignored.
+Generic query parameters remain part of the page identity. JobKorea's numeric
+`/Recruit/GI_Read/{id}` path permits its query-free metadata URL when the submitted
+URL contains tracking/search parameters; a supplied posting identifier must also
+match that path ID. This adapter never changes or fetches an identity link.
+
+Validated ISO `validThrough` is appended with a clear JSON-LD provenance label,
+job title, page URL and sanitized description. Dates and offsets are preserved
+verbatim: no current year, end-of-day time or Korean timezone is filled in.
+Date-only/timezone-free values add explicit Korean review notices. The AI adapter
+also enforces those notices: all proposed dates in such an input remain null and
+unselected until a user enters/confirms a complete datetime in the review screen,
+even if the model guessed an offset or omitted its own warnings. Opt-in automatic
+registration therefore remains blocked; manual review/edit/approval still works.
+
+JSON-LD capture is limited to 16 blocks and 100,000 characters in total; each
+graph walk is limited to 128 nodes and depth 8. Malformed/oversized/unrelated
+metadata does not replace usable visible content. Combined text retains the
+existing 100,000-character extraction and 40,000-character AI input limits.
+An empty page may be extracted only when usable same-page job evidence exists.
+Other JavaScript-only pages still require manual text input or future rendering.
+
+For the observed public JobKorea job 50076426, the original HTML contains
+`validThrough: 2026-10-31T23:59`; visible job text lives in a hidden streamed
+container in the initial HTML. The old extractor dropped that text and all scripts,
+so the AI never received the deadline. The metadata supplies the missing evidence,
+but not a timezone, so this page requires explicit user confirmation.
+
+Existing stored extracts are not rewritten automatically. Re-extract the original
+Source, then start a new analysis; a prior Analysis keeps its own original snapshot.
+No DB migration, frontend change, secret change or security-group update is needed.
+
 Limits: 2 simultaneous jobs per application process, 2 MB response,
 100,000 characters, at most 3 followed redirects, 8-second socket timeout,
 30-second HTTP read budget. OS DNS resolution may outlast that budget.
