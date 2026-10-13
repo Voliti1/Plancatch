@@ -7,6 +7,8 @@ const deadline: Deadline = {
   id: "deadline-1",
   title: "최종 발표",
   due_at: "2026-10-10T00:00:00Z",
+  safety_buffer_minutes: null,
+  safe_due_at: null,
   source_id: null,
   deadline_type: null,
   description: null,

@@ -124,6 +124,7 @@ test("editing a title preserves deadline seconds", async ({ page }) => {
   await login(page);
   const deadline = {
     id: "precision-check", title: "초 단위 마감", due_at: "2026-10-01T00:30:45.123Z",
+    safety_buffer_minutes: null, safe_due_at: null,
     source_id: null, deadline_type: null, description: null, confidence: null,
     evidence_text: null, is_confirmed: false,
     created_at: "2026-09-16T00:00:00Z", updated_at: "2026-09-16T00:00:00Z",
