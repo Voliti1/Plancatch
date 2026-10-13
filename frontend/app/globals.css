@@ -171,6 +171,30 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
   margin: 0;
   font-size: 12px;
 }
+.remaining-period {
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.remaining-period strong,
+.remaining-period span {
+  display: block;
+  margin-top: 6px;
+}
+.source-period h2 {
+  font-size: 18px;
+}
+.source-period dl {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.5fr) minmax(0, 1fr);
+  gap: 10px 16px;
+  font-size: 14px;
+}
+.source-period dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
 .analysis-consent {
   align-items: start;
   margin: 22px 0;

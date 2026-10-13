@@ -8,9 +8,12 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    computed_field,
     field_validator,
     model_validator,
 )
+
+from app.services.saramin_period import read_period
 
 
 class Proposal(BaseModel):
@@ -97,6 +100,14 @@ class AutoRegistrationRequest(DecisionRequest):
         return value.strip()
 
 
+class SourcePeriod(BaseModel):
+    start_text: str | None
+    end_text: str | None
+    deadline_at: AwareDatetime | None
+    remaining_text: str | None
+    has_conflict: bool
+
+
 class AnalysisResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     id: uuid.UUID
@@ -111,3 +122,9 @@ class AnalysisResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def source_period(self) -> SourcePeriod | None:
+        period = read_period(self.input_text)
+        return SourcePeriod(**period) if period else None
