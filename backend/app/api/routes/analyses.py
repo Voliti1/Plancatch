@@ -26,6 +26,7 @@ from app.services.ai_analysis import (
     process_analysis,
     slots,
 )
+from app.services.html_analysis import HTML_MODEL, matching_period
 
 router = APIRouter(tags=["ai-analyses"])
 
@@ -59,7 +60,9 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
                                          Analysis.status == "processing")) is not None:
         raise HTTPException(409, "Source analysis is already processing")
     try:
-        model = configured_model()
+        model = (HTML_MODEL if source.source_type == "url"
+                 and matching_period(source.extracted_text, source.original_url) is not None
+                 else configured_model())
     except AIError as exc:
         raise HTTPException(503, str(exc)) from exc
     if not slots.acquire(blocking=False):

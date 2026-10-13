@@ -1,5 +1,12 @@
 import type { AnalysisStatus } from "@/types/analysis";
-export function analysisStatusLabel(status: AnalysisStatus): string {
+export const isHtmlAnalysis = (model: string | undefined) =>
+  model === "html:saramin:v1";
+export function analysisStatusLabel(
+  status: AnalysisStatus,
+  model?: string,
+): string {
+  if (isHtmlAnalysis(model) && status === "processing") return "HTML 확인 중";
+  if (isHtmlAnalysis(model) && status === "failed") return "HTML 확인 실패";
   return (
     {
       processing: "AI 분석 중",

@@ -14,8 +14,10 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.analysis import Analysis
+from app.models.source import Source
 from app.schemas.analysis import ProviderResult
 from app.services.extraction import DEFAULT_TIMEZONE_POLICY, STRUCTURED_DATE_NOTICES
+from app.services.html_analysis import HTML_MODEL, analyze_period
 from app.services.saramin_period import CONFLICT as PERIOD_CONFLICT
 from app.services.saramin_period import UNRESOLVED as PERIOD_UNRESOLVED
 from app.services.saramin_period import read_period
@@ -253,8 +255,23 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
                 return
             # Do not hold a row lock across the provider request.
             source_text, model = analysis.input_text, analysis.model
+            html_source = None
+            if model == HTML_MODEL:
+                source = db.get(Source, analysis.source_id)
+                if (source is not None and source.user_id == analysis.user_id
+                        and source.source_type == "url" and source.processing_status == "extracted"
+                        and source.extracted_text == source_text):
+                    html_source = (source.original_url, source.title)
         try:
-            result = analyze_text(source_text, model)
+            if model == HTML_MODEL:
+                if html_source is None:
+                    raise AIError("ai_input_invalid")
+                try:
+                    result = analyze_period(source_text, *html_source)
+                except ValueError as exc:
+                    raise AIError("ai_input_invalid") from exc
+            else:
+                result = analyze_text(source_text, model)
             candidates = [dict(item.model_dump(mode="json"), id=str(uuid.uuid4()),
                                selected=item.due_at is not None) for item in result.deadlines]
             values = {"status": "ready", "candidates": candidates,

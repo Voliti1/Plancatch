@@ -223,6 +223,10 @@ function RegistrationSession({ userId }: { userId: string }) {
             공개 HTML·텍스트 페이지만 지원합니다. 로그인 필요 페이지,
             PDF·이미지, JavaScript 실행이 필요한 페이지는 읽지 않습니다.
           </p>
+          <p className="muted small">
+            사람인 접수기간을 확인할 수 있으면 HTML에서 직접 읽어 등록합니다. 그
+            외에는 동의한 범위에서 Gemini로 분석합니다.
+          </p>
           <p className="notice">
             명확한 마감일 후보가 하나일 때 입력한 제목으로 자동 등록합니다. 여러
             후보·날짜 누락·AI 주의사항이 있으면 검토 화면에서 직접 확인합니다.
@@ -236,8 +240,8 @@ function RegistrationSession({ userId }: { userId: string }) {
               onChange={(event) => setConsent(event.target.checked)}
             />
             <span>
-              추출 원문 전체를 Google Gemini로 전송하고, 명확한 마감일 하나를
-              자동 등록하는 데 동의합니다.
+              HTML 직접 분석이 불가능하면 추출 원문 전체를 Google Gemini로
+              전송하고, 명확한 마감일 하나를 자동 등록하는 데 동의합니다.
             </span>
           </label>
           {draft.sourceId && !busy && (

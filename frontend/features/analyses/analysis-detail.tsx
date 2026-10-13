@@ -9,7 +9,7 @@ import { formatSeoul } from "@/lib/date/seoul";
 import type { Analysis } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
-import { analysisStatusLabel } from "./display";
+import { analysisStatusLabel, isHtmlAnalysis } from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
 import {
   RemainingPeriod,
@@ -42,6 +42,7 @@ const isProcessing = (analysis: Analysis) => analysis.status === "processing";
 function AnalysisSession({ initial }: { initial: Analysis }) {
   const now = usePeriodClock();
   const [data, setData] = useState(initial);
+  const fromHtml = isHtmlAnalysis(data.model);
   const [notice, setNotice] = useState("");
   const read = useCallback(
     (signal: AbortSignal) => analysesApi.get(initial.id, signal),
@@ -63,16 +64,24 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         ← 원본 자료 상세
       </Link>
       <PageHeading
-        eyebrow="AI DEADLINE REVIEW"
-        title="AI 마감일 검토"
+        eyebrow={fromHtml ? "HTML DEADLINE REVIEW" : "AI DEADLINE REVIEW"}
+        title={fromHtml ? "마감일 검토" : "AI 마감일 검토"}
         description="원문과 근거를 비교하고 필요한 마감일만 승인하세요."
       />
       <p>
-        <span className="tag">{analysisStatusLabel(data.status)}</span>{" "}
+        <span className="tag">
+          {analysisStatusLabel(data.status, data.model)}
+        </span>{" "}
         <span className="small muted">
           분석 요청 {formatSeoul(data.created_at)}
         </span>
       </p>
+      {fromHtml && (
+        <p className="success">
+          사람인 HTML 직접 분석 방식입니다. Gemini를 호출하거나 원문을 외부 AI에
+          전송하지 않습니다.
+        </p>
+      )}
       {notice && (
         <p className="success" role="status">
           {notice}
@@ -80,7 +89,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
       )}
       {isProcessing(data) && (
         <p className="notice" role="status">
-          AI가 마감일 후보를 분석하고 있습니다. 완료될 때까지 상태를 확인합니다.
+          {fromHtml
+            ? "HTML 접수기간을 확인하고 있습니다."
+            : "AI가 마감일 후보를 분석하고 있습니다. 완료될 때까지 상태를 확인합니다."}
         </p>
       )}
       {poll.error && <ErrorNotice message={poll.error} retry={poll.resume} />}
@@ -167,8 +178,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         <section className="card analysis-review">
           <h2>마감일 후보</h2>
           <p className="small muted">
-            AI 신뢰도는 모델의 참고값이며 사실의 정확도를 보장하지 않습니다.
-            원문을 직접 확인해 주세요.
+            {fromHtml
+              ? "HTML에 명시된 마감일을 사용합니다. 기업이 마감일을 변경할 수 있으므로 원문도 확인해 주세요."
+              : "AI 신뢰도는 모델의 참고값이며 사실의 정확도를 보장하지 않습니다. 원문을 직접 확인해 주세요."}
           </p>
           {data.status === "ready" ? (
             <ReviewEditor
@@ -197,7 +209,10 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
                   {candidate.description && (
                     <p className="analysis-text">{candidate.description}</p>
                   )}
-                  <CandidateEvidence candidate={candidate} />
+                  <CandidateEvidence
+                    candidate={candidate}
+                    fromHtml={fromHtml}
+                  />
                 </article>
               ))}
               {!isProcessing(data) && data.candidates.length === 0 && (
