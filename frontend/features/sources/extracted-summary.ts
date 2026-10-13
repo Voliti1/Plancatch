@@ -11,7 +11,7 @@ export function extractedSummary(text: string) {
   const companyLabel =
     /^(?:회사명|기업명|업체명|채용 회사)(?:\s*[:：]\s*(.*)|\s+(.+))?$/;
   const deadlineLabel =
-    /^(?:마감(?:일|\s*일시|\s*시간)|접수\s*(?:마감(?:일|\s*일시)?|종료(?:일)?|기한)|지원\s*마감(?:일)?|제출\s*기한|validThrough)(?:\s*\(validThrough\))?(?:\s*[:：]\s*(.*)|\s+(.+))?$/i;
+    /^(?:마감(?:일|\s*일시|\s*시간)|접수\s*(?:마감(?:일|\s*일시)?|종료(?:일)?|기한)|지원\s*마감(?:일)?|제출\s*기한|validThrough)(?:\s*(?:\(validThrough\)|원문))?(?:\s*[:：]\s*(.*)|\s+(.+))?$/i;
   const dateValue =
     /(?:\d{4}\s*(?:[.\-/]|년)\s*\d{1,2}|\d{1,2}\s*(?:[.\-/]|월)\s*\d{1,2}|채용\s*시\s*마감|상시\s*(?:채용|모집)|미정)/;
   for (let index = 0; index < lines.length; index++) {
@@ -35,7 +35,11 @@ export function extractedSummary(text: string) {
       !/(?:모집|공고|마감|https?:|[<>])/.test(line)
     )
       corporateNames.push(line);
-    const deadline = line.match(deadlineLabel);
+    // The generated ISO line is a service normalization, not a second printed
+    // closing date. Keep the explicitly labelled original value in the summary.
+    const deadline = line.startsWith("마감일 (정규화):")
+      ? null
+      : line.match(deadlineLabel);
     if (deadline) {
       const value = deadline[1] || deadline[2] || lines[index + 1];
       if (value && value.length <= 120 && dateValue.test(value))

@@ -357,8 +357,13 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             raise ExtractionError("requires_login")
         text = "\n".join(parser.main or parser.body)
         job_text = structured_job_text(parser.json_ld_blocks, source_url)
+        from app.services.saramin_period import period_text
+
+        saramin_text = period_text(decoded, source_url)
         if job_text:
             text = "\n\n".join(part for part in (text, job_text) if part)
+        if saramin_text:
+            text = "\n\n".join(part for part in (text, saramin_text) if part)
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")

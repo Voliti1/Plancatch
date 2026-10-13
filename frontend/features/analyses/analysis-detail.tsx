@@ -11,6 +11,11 @@ import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
 import { analysisStatusLabel } from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
+import {
+  RemainingPeriod,
+  SourcePeriodSummary,
+  usePeriodClock,
+} from "./remaining-period";
 
 export function AnalysisDetail({ id }: { id: string }) {
   const loader = useCallback(async () => {
@@ -35,6 +40,7 @@ export function AnalysisDetail({ id }: { id: string }) {
 }
 const isProcessing = (analysis: Analysis) => analysis.status === "processing";
 function AnalysisSession({ initial }: { initial: Analysis }) {
+  const now = usePeriodClock();
   const [data, setData] = useState(initial);
   const [notice, setNotice] = useState("");
   const read = useCallback(
@@ -114,6 +120,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           </ul>
         </section>
       )}
+      {data.source_period && (
+        <SourcePeriodSummary period={data.source_period} now={now} />
+      )}
       {data.status === "approved" && (
         <section className="card analysis-approved">
           <h2>마감일 등록 완료</h2>
@@ -165,6 +174,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
             <ReviewEditor
               key={`${data.id}-${data.revision}`}
               analysis={data}
+              now={now}
               onUpdated={(result, message) => {
                 setData(result);
                 setNotice(message);
@@ -183,6 +193,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
                       ? formatSeoul(candidate.due_at)
                       : "마감일 확인 필요"}
                   </p>
+                  <RemainingPeriod dueAt={candidate.due_at} now={now} />
                   {candidate.description && (
                     <p className="analysis-text">{candidate.description}</p>
                   )}

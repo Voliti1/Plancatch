@@ -10,6 +10,7 @@ import type {
 } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError } from "./errors";
+import { RemainingPeriod } from "./remaining-period";
 
 type Draft = {
   id: string;
@@ -58,9 +59,11 @@ export function CandidateEvidence({
 }
 export function ReviewEditor({
   analysis,
+  now,
   onUpdated,
 }: {
   analysis: Analysis;
+  now: number | null;
   onUpdated: (data: Analysis, message: string) => void;
 }) {
   const [drafts, setDrafts] = useState(() => analysis.candidates.map(draftOf));
@@ -135,6 +138,17 @@ export function ReviewEditor({
       <fieldset disabled={busy}>
         {drafts.map((draft, index) => {
           const original = analysis.candidates[index];
+          const dateChanged =
+            draft.due !==
+            (original.due_at ? toSeoulInput(original.due_at) : "");
+          let countdownDate = original.due_at;
+          if (dateChanged) {
+            try {
+              countdownDate = draft.due ? seoulInputToUtc(draft.due) : null;
+            } catch {
+              countdownDate = null;
+            }
+          }
           return (
             <article className="analysis-candidate" key={draft.id}>
               <h3>후보 {index + 1}</h3>
@@ -175,6 +189,11 @@ export function ReviewEditor({
                   후보를 제외해 주세요.
                 </p>
               )}
+              <RemainingPeriod
+                dueAt={countdownDate}
+                now={now}
+                editing={dateChanged}
+              />
               <label htmlFor={`${formId}-${index}-description`}>
                 후보 {index + 1} 설명 (선택)
               </label>
