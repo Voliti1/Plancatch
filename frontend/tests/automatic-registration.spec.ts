@@ -102,6 +102,8 @@ async function automaticApi(
         source_id: "auto-source",
         title: source!.title!,
         due_at: "2026-10-15T09:00:00Z",
+        safety_buffer_minutes: null,
+        safe_due_at: null,
         deadline_type: null,
         description: null,
         confidence: 0.9,
@@ -554,6 +556,10 @@ test("dashboard automatic registration consent, pipeline, requested title and re
   await expect(page.getByLabel("마감 일시 (한국 시간)")).toHaveValue(
     "2026-10-15T18:00",
   );
+  await expect(page.getByLabel("저장된 마감일")).toContainText("미설정");
+  await expect(
+    page.getByLabel("안전 마감일 사용", { exact: true }),
+  ).not.toBeChecked();
   await page.reload();
   await expect(page.getByLabel("마감 제목")).toHaveValue(
     "[테스트] 사용자 지정 일정",
