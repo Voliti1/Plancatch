@@ -56,6 +56,11 @@ export function SourceAnalyses({
         추출한 원문에서 마감일 후보를 찾습니다. 분석 결과를 직접 검토하고
         승인해야 실제 마감일이 등록됩니다.
       </p>
+      <p className="small muted">
+        사람인 URL의 접수기간을 확인할 수 있으면 HTML 값으로 직접 분석하며
+        Gemini에 전송하지 않습니다. 그 외에는 아래 동의 범위에서 AI로
+        분석합니다.
+      </p>
       {!extracted && (
         <p className="notice">
           원문 추출이 완료되어야 분석을 시작할 수 있습니다.
@@ -81,8 +86,8 @@ export function SourceAnalyses({
           }
         />
         <span id={consentId}>
-          이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데
-          동의합니다.
+          HTML 직접 분석을 사용할 수 없는 경우 이 자료의 추출 원문 전체를 Google
+          Gemini에 전송하여 분석하는 데 동의합니다.
         </span>
       </label>
       <button
@@ -138,7 +143,7 @@ function AnalysisHistory({
             <li key={item.id}>
               <Link href={`/analyses/${encodeURIComponent(item.id)}`}>
                 {formatSeoul(item.created_at)} ·{" "}
-                {analysisStatusLabel(item.status)} →
+                {analysisStatusLabel(item.status, item.model)} →
               </Link>
             </li>
           ))}

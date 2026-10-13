@@ -11,6 +11,7 @@ import type {
 import { analysesApi } from "./api";
 import { analysisError } from "./errors";
 import { RemainingPeriod } from "./remaining-period";
+import { isHtmlAnalysis } from "./display";
 
 type Draft = {
   id: string;
@@ -43,16 +44,19 @@ function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
 }
 export function CandidateEvidence({
   candidate,
+  fromHtml = false,
 }: {
   candidate: AnalysisCandidate;
+  fromHtml?: boolean;
 }) {
   return (
     <div className="candidate-evidence">
       <h4>원문 근거</h4>
       <p className="analysis-text">{candidate.evidence_text}</p>
       <p className="small muted">
-        AI 신뢰도 참고값 {Math.round(candidate.confidence * 100)}% · 정확도를
-        보장하지 않습니다.
+        {fromHtml
+          ? "HTML에 명시된 접수기간을 직접 확인한 결과입니다. AI 추정값이 아닙니다."
+          : `AI 신뢰도 참고값 ${Math.round(candidate.confidence * 100)}% · 정확도를 보장하지 않습니다.`}
       </p>
     </div>
   );
@@ -206,7 +210,10 @@ export function ReviewEditor({
                   update(index, { description: event.target.value })
                 }
               />
-              <CandidateEvidence candidate={original} />
+              <CandidateEvidence
+                candidate={original}
+                fromHtml={isHtmlAnalysis(analysis.model)}
+              />
             </article>
           );
         })}

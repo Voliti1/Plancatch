@@ -176,6 +176,7 @@ def read_period(text: str) -> dict | None:
     if remaining and not re.fullmatch(r"[0-9]{1,5}일 (?:[01]\d|2[0-3]):[0-5]\d:[0-5]\d", remaining):
         remaining = None
     return {"start_text": start, "end_text": end,
+            "source_url": value("공고 URL: "),
             "deadline_at": parsed if parsed and iso == parsed.replace(tzinfo=None).isoformat()
             and CONFLICT not in lines else None,
             "remaining_text": remaining, "has_conflict": CONFLICT in lines}
