@@ -1279,7 +1279,8 @@ textarea {
     font-size: 12px;
   }
   .sidebar nav a {
-    flex: 1;
+    flex: 1 1 140px;
+    white-space: nowrap;
     justify-content: center;
     padding: 10px 8px;
     font-size: 12px;
