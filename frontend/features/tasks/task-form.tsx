@@ -7,6 +7,7 @@ import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { ScheduleType, Task, TaskInput } from "@/types/task";
 import { loadDeadlineOptions } from "./deadline-options";
+import "./calendar-task-form.css";
 
 function optionalUtc(value: string, original: string | null): string | null {
   if (!value) return null;
@@ -23,6 +24,7 @@ export function TaskForm({
   onCancel,
   submitLabel = "작업 등록",
   disabled = false,
+  variant = "task",
 }: {
   initial?: Task;
   deadlineId?: string;
@@ -30,7 +32,10 @@ export function TaskForm({
   onCancel: () => void;
   submitLabel?: string;
   disabled?: boolean;
+  variant?: "task" | "calendar";
 }) {
+  const simple = variant === "calendar";
+  const requireTimes = simple && !initial;
   const hydrated = useHydrated();
   const descriptionId = useId();
   const deadlineLabelId = useId();
@@ -47,7 +52,7 @@ export function TaskForm({
   );
   const [priority, setPriority] = useState(initial?.priority ?? 3);
   const [scheduleType, setScheduleType] = useState<ScheduleType>(
-    initial?.schedule_type ?? "flexible",
+    initial?.schedule_type ?? (simple ? "fixed" : "flexible"),
   );
   const [start, setStart] = useState(
     initial?.earliest_start ? toSeoulInput(initial.earliest_start) : "",
@@ -67,7 +72,12 @@ export function TaskForm({
     setBusy(true);
     setError("");
     try {
-      if (!title.trim()) throw new Error("작업명을 입력해 주세요.");
+      if (!title.trim())
+        throw new Error(
+          simple ? "일정명을 입력해 주세요." : "작업명을 입력해 주세요.",
+        );
+      if (requireTimes && (!start || !end))
+        throw new Error("시작 일시와 종료 일시를 입력해 주세요.");
       const estimated = minutes === "" ? null : Number(minutes);
       if (
         estimated !== null &&
@@ -83,7 +93,11 @@ export function TaskForm({
       const earliest = optionalUtc(start, initial?.earliest_start ?? null);
       const latest = optionalUtc(end, initial?.latest_end ?? null);
       if (earliest && latest && new Date(earliest) >= new Date(latest))
-        throw new Error("최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.");
+        throw new Error(
+          simple
+            ? "종료 일시는 시작 일시보다 늦게 설정해 주세요."
+            : "최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.",
+        );
       await onSave({
         title: title.trim(),
         deadline_id: deadline || null,
@@ -103,8 +117,132 @@ export function TaskForm({
     }
   }
 
+  const settings = (
+    <>
+      <label>
+        <span id={deadlineLabelId}>연결할 마감일</span>
+        <select
+          name="deadline_id"
+          aria-labelledby={deadlineLabelId}
+          value={deadline}
+          onChange={(event) => setDeadline(event.target.value)}
+        >
+          <option value="">연결 안 함</option>
+          {deadline && !options.data?.some((item) => item.id === deadline) && (
+            <option value={deadline}>
+              마감일을 확인할 수 없습니다 — 다시 선택해 주세요
+            </option>
+          )}
+          {options.data?.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.title}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="form-grid">
+        <label>
+          예상 소요시간 (분, 선택)
+          <input
+            name="estimated_minutes"
+            type="number"
+            min={1}
+            max={2147483647}
+            step={1}
+            value={minutes}
+            onChange={(event) => setMinutes(event.target.value)}
+            placeholder="예: 60"
+          />
+        </label>
+        <label>
+          <span id={priorityLabelId}>우선순위</span>
+          <select
+            name="priority"
+            aria-labelledby={priorityLabelId}
+            value={priority}
+            onChange={(event) => setPriority(Number(event.target.value))}
+          >
+            {[1, 2, 3, 4, 5].map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
+      <label>
+        <span id={typeLabelId}>작업 유형</span>
+        <select
+          name="schedule_type"
+          aria-labelledby={typeLabelId}
+          value={scheduleType}
+          onChange={(event) =>
+            setScheduleType(event.target.value as ScheduleType)
+          }
+        >
+          <option value="flexible">유동 작업</option>
+          <option value="fixed">고정 일정</option>
+        </select>
+      </label>
+    </>
+  );
+  const times = (
+    <div className="form-grid">
+      <label>
+        {simple ? "시작 일시" : "가능 시작 일시 (한국 시간, 선택)"}
+        <input
+          name="earliest_start"
+          type="datetime-local"
+          value={start}
+          onChange={(event) => setStart(event.target.value)}
+          required={requireTimes}
+        />
+      </label>
+      <label>
+        {simple ? "종료 일시" : "최종 완료 일시 (한국 시간, 선택)"}
+        <input
+          name="latest_end"
+          type="datetime-local"
+          value={end}
+          onChange={(event) => setEnd(event.target.value)}
+          required={requireTimes}
+        />
+      </label>
+    </div>
+  );
+  const descriptionField = (
+    <label>
+      <span id={descriptionId}>
+        {simple ? "메모 (선택)" : "작업 설명 (선택)"}
+      </span>
+      <textarea
+        name="description"
+        aria-labelledby={descriptionId}
+        rows={simple ? 2 : 4}
+        value={description}
+        onChange={(event) => setDescription(event.target.value)}
+        placeholder={simple ? "장소나 준비물 등을 적어보세요." : undefined}
+      />
+    </label>
+  );
+  const completion = (
+    <label className="checkbox">
+      <input
+        type="checkbox"
+        name="is_completed"
+        checked={completed}
+        onChange={(event) => setCompleted(event.target.checked)}
+      />
+      완료한 작업으로 표시
+    </label>
+  );
+
   return (
-    <form onSubmit={submit}>
+    <form
+      className={simple ? "calendar-task-form" : undefined}
+      onSubmit={submit}
+      noValidate={simple}
+    >
       {options.loading && <Loading />}
       {options.error && (
         <ErrorNotice
@@ -122,125 +260,51 @@ export function TaskForm({
         }
       >
         <label>
-          작업명
+          {simple ? "일정명" : "작업명"}
           <input
             name="title"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             required
             maxLength={255}
-            placeholder="예: 발표 자료 초안 작성"
-          />
-        </label>
-        <label>
-          <span id={deadlineLabelId}>연결할 마감일</span>
-          <select
-            name="deadline_id"
-            aria-labelledby={deadlineLabelId}
-            value={deadline}
-            onChange={(event) => setDeadline(event.target.value)}
-          >
-            <option value="">연결 안 함</option>
-            {deadline &&
-              !options.data?.some((item) => item.id === deadline) && (
-                <option value={deadline}>
-                  마감일을 확인할 수 없습니다 — 다시 선택해 주세요
-                </option>
-              )}
-            {options.data?.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.title}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="form-grid">
-          <label>
-            예상 소요시간 (분, 선택)
-            <input
-              name="estimated_minutes"
-              type="number"
-              min={1}
-              max={2147483647}
-              step={1}
-              value={minutes}
-              onChange={(event) => setMinutes(event.target.value)}
-              placeholder="예: 60"
-            />
-          </label>
-          <label>
-            <span id={priorityLabelId}>우선순위</span>
-            <select
-              name="priority"
-              aria-labelledby={priorityLabelId}
-              value={priority}
-              onChange={(event) => setPriority(Number(event.target.value))}
-            >
-              {[1, 2, 3, 4, 5].map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
-        <label>
-          <span id={typeLabelId}>작업 유형</span>
-          <select
-            name="schedule_type"
-            aria-labelledby={typeLabelId}
-            value={scheduleType}
-            onChange={(event) =>
-              setScheduleType(event.target.value as ScheduleType)
+            placeholder={
+              simple ? "예: 팀 프로젝트 회의" : "예: 발표 자료 초안 작성"
             }
-          >
-            <option value="flexible">유동 작업</option>
-            <option value="fixed">고정 일정</option>
-          </select>
-        </label>
-        <div className="form-grid">
-          <label>
-            가능 시작 일시 (한국 시간, 선택)
-            <input
-              name="earliest_start"
-              type="datetime-local"
-              value={start}
-              onChange={(event) => setStart(event.target.value)}
-            />
-          </label>
-          <label>
-            최종 완료 일시 (한국 시간, 선택)
-            <input
-              name="latest_end"
-              type="datetime-local"
-              value={end}
-              onChange={(event) => setEnd(event.target.value)}
-            />
-          </label>
-        </div>
-        <p className="muted small">
-          가능 기간과 작업 유형을 저장합니다. 실제 캘린더 배치와 자동 일정
-          생성은 준비 중입니다.
-        </p>
-        <label>
-          <span id={descriptionId}>작업 설명 (선택)</span>
-          <textarea
-            name="description"
-            aria-labelledby={descriptionId}
-            rows={4}
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
           />
         </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            name="is_completed"
-            checked={completed}
-            onChange={(event) => setCompleted(event.target.checked)}
-          />
-          완료한 작업으로 표시
-        </label>
+        {simple ? (
+          <>
+            {times}
+            <p className="muted small calendar-task-timezone">
+              한국 시간 기준{initial ? " · 시간은 비워 둘 수 있습니다." : ""}
+            </p>
+            {descriptionField}
+            <details className="calendar-task-settings">
+              <summary>상세 설정</summary>
+              <div>
+                {settings}
+                {completion}
+              </div>
+            </details>
+          </>
+        ) : (
+          <>
+            {settings}
+            {times}
+            <p className="muted small">
+              가능 기간과 작업 유형을 저장합니다. 실제 캘린더 배치와 자동 일정
+              생성은 준비 중입니다.
+            </p>
+            {descriptionField}
+            {completion}
+          </>
+        )}
+        {simple && (
+          <p className="muted small calendar-task-help">
+            입력한 시간은 일정의 가능 기간으로 저장됩니다. 캘린더 배치와 Google
+            Calendar 동기화는 아직 지원하지 않습니다.
+          </p>
+        )}
         {error && <ErrorNotice message={error} />}
         <div className="form-actions">
           <button type="button" className="secondary" onClick={onCancel}>
