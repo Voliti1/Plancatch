@@ -120,9 +120,23 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
   max-height: none;
   overflow: visible;
 }
+.analysis-overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 22px;
+  margin-top: 22px;
+}
+.analysis-overview.has-period {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
+}
+.analysis-overview > .source-period,
+.analysis-overview > .analysis-summary {
+  min-width: 0;
+  margin: 0;
+}
 .analysis-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 22px;
   align-items: start;
   margin-top: 22px;
@@ -131,6 +145,7 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
   min-width: 0;
 }
 .analysis-grid h2,
+.analysis-overview h2,
 .analysis-launch h2,
 .analysis-approved h2 {
   font-size: 18px;
@@ -234,7 +249,7 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
   margin-bottom: 12px;
 }
 @media (max-width: 1000px) {
-  .analysis-grid {
+  .analysis-overview.has-period {
     grid-template-columns: 1fr;
   }
 }
