@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
@@ -8,6 +8,14 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { formatSeoul } from "@/lib/date/seoul";
 import type { ScheduledEvent } from "@/types/scheduled-event";
 import { tasksApi } from "@/features/tasks/api";
+import {
+  emptyGoogleEvents,
+  googleOnDay,
+  readGoogleEvents,
+  withoutLocalDuplicates,
+  type GoogleEventsPage,
+} from "@/features/google-calendar/events";
+import { GoogleDayEvents } from "@/features/google-calendar/day-events";
 import { eventsApi } from "./api";
 import {
   addDays,
@@ -103,7 +111,31 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
   const [selected, setSelected] = useState(initialDate ?? todaySeoul);
   const [view, setView] = useState<"month" | "week">("month");
   const [showCancelled, setShowCancelled] = useState(false);
+  const [showGoogle, setShowGoogle] = useState(false);
   const days = calendarDays(selected, view);
+  const googleRange = useRef<{
+    key: string;
+    promise: Promise<GoogleEventsPage>;
+  } | null>(null);
+  const loadGoogle = useCallback(() => {
+    if (!showGoogle) {
+      googleRange.current = null;
+      return Promise.resolve(emptyGoogleEvents);
+    }
+    const range = calendarDays(selected, view);
+    const first = utcMidnight(range[0]);
+    const last = utcMidnight(addDays(range[range.length - 1], 1));
+    const key = first + ":" + last;
+    if (googleRange.current?.key === key) return googleRange.current.promise;
+    const promise = readGoogleEvents(first, last);
+    googleRange.current = { key, promise };
+    return promise;
+  }, [showGoogle, selected, view]);
+  const google = useResource(loadGoogle);
+  function refreshGoogle() {
+    googleRange.current = null;
+    google.reload();
+  }
   const load = useCallback(() => {
     const range = calendarDays(selected, view);
     return eventsApi.all({
@@ -115,6 +147,9 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
   const events = (data?.events ?? []).filter(
     (event) => showCancelled || event.status !== "cancelled",
   );
+  const googleRows = showGoogle
+    ? withoutLocalDuplicates(google.data?.events ?? [], events)
+    : [];
   const today = todaySeoul();
   return (
     <>
@@ -124,8 +159,8 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         description="직접 배치한 일정을 한국 시간으로 확인하세요."
       />
       <p className="notice small">
-        PlanCatch 내부 캘린더입니다. 자동 일정 배치와 Google Calendar
-        연결·동기화는 아직 지원하지 않습니다.
+        플랜캐치 배치와 구글 기본 캘린더를 함께 볼 수 있습니다. 구글 일정은 조회
+        전용이며, 등록·수정·삭제 전송과 자동 배치는 아직 지원하지 않습니다.
       </p>
       <section className="card calendar-card" aria-label="일정 캘린더">
         <div className="calendar-toolbar">
@@ -210,7 +245,22 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             />
             취소한 배치 포함
           </label>
-          <button className="text-button" disabled={loading} onClick={reload}>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={showGoogle}
+              onChange={(e) => setShowGoogle(e.target.checked)}
+            />
+            구글 일정 함께 보기
+          </label>
+          <button
+            className="text-button"
+            disabled={loading || (showGoogle && google.loading)}
+            onClick={() => {
+              reload();
+              if (showGoogle) refreshGoogle();
+            }}
+          >
             새로고침
           </button>
         </div>
@@ -221,6 +271,31 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             범위 내 첫 2,000건만 표시했습니다. 주간 보기로 조회 범위를 줄여
             주세요.
           </p>
+        )}
+        {showGoogle && (
+          <div className="google-calendar-status">
+            <p className="small muted">
+              연결한 구글 기본 캘린더에서 이 기간의 일정만 조회합니다. 개인
+              일정은 이 화면에서 변경하지 않습니다.
+            </p>
+            <Link href="/settings/google-calendar">구글 계정 연결 설정 →</Link>
+            {google.loading && <Loading />}
+            {google.error && (
+              <ErrorNotice message={google.error} retry={refreshGoogle} />
+            )}
+            {google.data?.has_more && (
+              <p role="status">
+                구글 일정은 첫 250건만 표시했습니다. 주간 보기로 기간을 줄여
+                주세요.
+              </p>
+            )}
+            {Boolean(google.data?.skipped_count) && (
+              <p role="status">
+                시간 형식을 확인할 수 없는 구글 일정{" "}
+                {google.data?.skipped_count}건은 표시하지 않았습니다.
+              </p>
+            )}
+          </div>
         )}
         <div className="calendar-weekdays" aria-hidden>
           {["일", "월", "화", "수", "목", "금", "토"].map((name) => (
@@ -233,7 +308,9 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           aria-label={view === "month" ? "월간 날짜" : "주간 날짜"}
         >
           {days.map((day) => {
-            const count = events.filter((event) => onDay(event, day)).length;
+            const count =
+              events.filter((event) => onDay(event, day)).length +
+              googleRows.filter((event) => googleOnDay(event, day)).length;
             return (
               <button
                 key={day}
@@ -276,6 +353,9 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             events={events}
             day={selected}
           />
+        )}
+        {showGoogle && !google.loading && !google.error && (
+          <GoogleDayEvents events={googleRows} day={selected} />
         )}
       </section>
     </>

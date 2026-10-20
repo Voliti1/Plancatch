@@ -1,7 +1,8 @@
 # Google Calendar 연결 화면
 
 - `/settings/google-calendar`, 로그인 사용자 전용. 주 메뉴에서 진입한다.
-- 실제 연결 API의 상태/연결 시작/해제만 사용. 일정 조회·등록·수정·동기화는 미구현.
+- 연결 API의 상태/연결 시작/해제를 사용. /calendar의 선택형 기본 구글 일정 조회를 추가했다.
+  일정 등록·수정·삭제 전송과 자동 동기화는 아직 미구현이다.
 - 연결 시작은 명시적 클릭만, credentials include로 HttpOnly PKCE/state 브라우저 쿠키 유지.
 - 응답 주소는 `https://accounts.google.com/o/oauth2/v2/auth`만 이동 허용한다.
   토큰/인증 코드/인증 URL을 저장하거나 로그로 출력하지 않는다.
