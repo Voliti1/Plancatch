@@ -9,6 +9,7 @@ import { useResource } from "@/lib/api/use-resource";
 import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
+import { TaskPlacements } from "@/features/calendar/task-placements";
 import "./schedule-overview.css";
 export function TaskDetail({ id }: { id: string }) {
   const loader = useCallback(() => tasksApi.get(id), [id]);
@@ -183,8 +184,8 @@ export function TaskDetail({ id }: { id: string }) {
                     </p>
                   </details>
                   <p className="muted small schedule-window-note">
-                    입력한 시간은 일정의 가능 기간입니다. 실제 캘린더 배치와
-                    동기화는 준비 중입니다.
+                    입력한 시간은 일정의 가능 기간입니다. 아래의 캘린더 배치에서
+                    실제 시간을 지정할 수 있습니다.
                   </p>
                   <div className="form-actions">
                     <button
@@ -212,6 +213,7 @@ export function TaskDetail({ id }: { id: string }) {
                 </>
               )}
             </section>
+            {!editing && <TaskPlacements task={data} />}
             {!editing && (
               <section className="card danger-zone schedule-detail-danger">
                 <div>
