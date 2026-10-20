@@ -1,0 +1,9 @@
+.manual-registration-card {
+  max-width: 720px;
+}
+.manual-registration-card .manual-registration-heading {
+  margin-bottom: 8px;
+}
+.manual-registration-card > p {
+  margin: 0 0 26px;
+}

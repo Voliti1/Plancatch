@@ -97,8 +97,8 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
     is_completed: false,
   });
   await expect(page).toHaveURL(/\/tasks\/task-1$/);
-  await page.getByRole("button", { name: "작업 수정", exact: true }).click();
-  await page.getByLabel("작업명", { exact: true }).fill("취소할 수정");
+  await page.getByRole("button", { name: "일정 수정", exact: true }).click();
+  await page.getByLabel("일정명", { exact: true }).fill("취소할 수정");
   await page.getByRole("button", { name: "취소", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "발표 초안 작성", exact: true }),
@@ -109,8 +109,9 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   await page.getByRole("button", { name: "완료 처리", exact: true }).click();
   expect((await complete).postDataJSON()).toEqual({ is_completed: true });
   await expect(
-    page.getByText("작업을 완료했습니다.", { exact: true }),
+    page.getByText("일정을 완료했습니다.", { exact: true }),
   ).toBeVisible();
+  await page.getByText("상세 정보", { exact: true }).click();
   await expect(page.getByText("완료 일시", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "연결된 마감일 보기" }).click();
   await expect(
@@ -128,12 +129,12 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
     page.getByRole("button", { name: "발표 초안 작성 완료 처리", exact: true }),
   ).toBeVisible();
   await page.getByRole("link", { name: "발표 초안 작성", exact: true }).click();
-  await page.getByRole("button", { name: "작업 삭제", exact: true }).click();
+  await page.getByRole("button", { name: "일정 삭제", exact: true }).click();
   await page.getByRole("button", { name: "취소", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "발표 초안 작성", exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "작업 삭제", exact: true }).click();
+  await page.getByRole("button", { name: "일정 삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(
@@ -150,8 +151,8 @@ test("task editing preserves time precision and supports clearing optional field
   await seed(page, [seedTask]);
   await login(page);
   await page.goto("/tasks/seed-task");
-  await page.getByRole("button", { name: "작업 수정", exact: true }).click();
-  await page.getByLabel("작업명", { exact: true }).fill("제목만 변경");
+  await page.getByRole("button", { name: "일정 수정", exact: true }).click();
+  await page.getByLabel("일정명", { exact: true }).fill("제목만 변경");
   const update = page.waitForRequest((request) => request.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   const payload = (await update).postDataJSON();
@@ -171,12 +172,13 @@ test("task editing preserves time precision and supports clearing optional field
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
-  await page.getByRole("button", { name: "작업 수정", exact: true }).click();
+  await page.getByRole("button", { name: "일정 수정", exact: true }).click();
+  await page.getByText("상세 설정", { exact: true }).click();
   await page.getByLabel("연결할 마감일", { exact: true }).selectOption("");
   await page.getByLabel("예상 소요시간 (분, 선택)").fill("");
-  await page.getByLabel("가능 시작 일시 (한국 시간, 선택)").fill("");
-  await page.getByLabel("최종 완료 일시 (한국 시간, 선택)").fill("");
-  await page.getByLabel("작업 설명 (선택)").fill("");
+  await page.getByLabel("시작 일시", { exact: true }).fill("");
+  await page.getByLabel("종료 일시", { exact: true }).fill("");
+  await page.getByLabel("메모 (선택)").fill("");
   const clear = page.waitForRequest((request) => request.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await clear).postDataJSON()).toMatchObject({
@@ -188,6 +190,7 @@ test("task editing preserves time precision and supports clearing optional field
   });
   await expect(page.getByText("변경 사항을 저장했습니다.")).toBeVisible();
   await page.reload();
+  await page.getByText("상세 정보", { exact: true }).click();
   await expect(page.getByText("연결된 마감일이 없습니다.")).toBeVisible();
 });
 
@@ -283,6 +286,7 @@ test("deadline choices load all pages and invalid task input keeps the form", as
   await page.getByLabel("최종 완료 일시 (한국 시간, 선택)").fill("");
   await page.getByRole("button", { name: "작업 등록", exact: true }).click();
   await expect(page).toHaveURL(/\/tasks\/task-1$/);
+  await page.getByText("상세 정보", { exact: true }).click();
   await expect(page.getByText("연결된 마감일 보기 →")).toBeVisible();
 });
 
@@ -304,13 +308,13 @@ test("completion and save failures preserve values and deletion conflict is expl
   await expect(
     page.getByRole("button", { name: "완료 처리", exact: true }),
   ).toBeEnabled();
-  await page.getByRole("button", { name: "작업 수정", exact: true }).click();
-  await page.getByLabel("작업명", { exact: true }).fill("유지할 입력");
+  await page.getByRole("button", { name: "일정 수정", exact: true }).click();
+  await page.getByLabel("일정명", { exact: true }).fill("유지할 입력");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "작업 저장 실패" }),
   ).toBeVisible();
-  await expect(page.getByLabel("작업명", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("일정명", { exact: true })).toHaveValue(
     "유지할 입력",
   );
   await page.unroute("**/test-api/api/tasks/seed-task");
@@ -327,7 +331,7 @@ test("completion and save failures preserve values and deletion conflict is expl
         })
       : route.fallback(),
   );
-  await page.getByRole("button", { name: "작업 삭제", exact: true }).click();
+  await page.getByRole("button", { name: "일정 삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
   await expect(
     page
@@ -354,7 +358,7 @@ test("task routes protect access and show missing record, API retry and expirati
   await expect(
     page.getByRole("alert").filter({ hasText: "작업을 찾을 수 없습니다." }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "← 작업 목록" }).click();
+  await page.getByRole("link", { name: "전체 일정 보기 →" }).click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(
     page.getByRole("link", { name: "기존 작업", exact: true }),
@@ -412,5 +416,6 @@ test("deadline option error blocks submit and retries without losing task input"
   ).toBeTruthy();
   await page.getByRole("button", { name: "작업 등록", exact: true }).click();
   await expect(page).toHaveURL(/\/tasks\/task-1$/);
+  await page.getByText("상세 정보", { exact: true }).click();
   await expect(page.getByText("연결된 마감일이 없습니다.")).toBeVisible();
 });
