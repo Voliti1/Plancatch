@@ -1,0 +1,216 @@
+.source-registration {
+  max-width: 1100px;
+  margin-bottom: 24px;
+}
+.source-registration-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+}
+.source-registration h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.source-registration h3 {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+.source-registration-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+.source-registration-steps li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.source-registration-steps span {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--bg);
+}
+.source-registration-steps [aria-current] {
+  color: var(--blue);
+  font-weight: 600;
+}
+.source-registration-steps [aria-current] span {
+  background: var(--blue);
+  color: var(--white);
+}
+.source-registration-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: start;
+}
+.source-file-input,
+.source-registration-fields {
+  min-width: 0;
+}
+.source-file-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.source-file-heading h3 {
+  margin: 0;
+}
+.source-file-drop {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 310px;
+  padding: 28px 16px;
+  gap: 12px;
+  border: 2px dashed #aabce8;
+  border-radius: 12px;
+  background: #f8faff;
+  color: var(--ink);
+  text-align: center;
+  white-space: normal;
+}
+.source-file-drop:not(:disabled):hover,
+.source-file-drop.is-dragging {
+  background: var(--blue-soft);
+  border-color: var(--blue);
+  filter: none;
+}
+.source-file-drop strong {
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.source-file-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
+}
+.source-file-symbol {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--blue);
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+.source-file-symbol span {
+  border-left: 1px solid var(--line);
+  padding-left: 6px;
+}
+.source-file-picker {
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 17px;
+  font-size: 13px;
+}
+.source-file-help {
+  margin-top: 12px;
+}
+.source-file-error {
+  color: #ac3344;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.source-file-list {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+}
+.source-file-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.source-file-kind {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--blue);
+}
+.source-file-name {
+  min-width: 0;
+  flex: 1;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.source-file-name small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+}
+.source-file-remove {
+  padding: 8px;
+  min-height: 44px;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+.source-registration-fields {
+  display: grid;
+  gap: 20px;
+}
+.source-registration-fields label {
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--muted);
+}
+.source-registration-fields p {
+  margin: 7px 0 0;
+}
+.source-text-count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.source-registration-help {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  margin-top: 22px;
+}
+.source-registration-actions {
+  margin-top: 20px;
+}
+@media (max-width: 1000px) {
+  .source-registration-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .source-file-drop {
+    min-height: 240px;
+  }
+}
+@media (max-width: 480px) {
+  .source-registration {
+    padding: 20px 16px;
+  }
+  .source-registration-steps {
+    gap: 10px;
+    font-size: 11px;
+  }
+  .source-registration input,
+  .source-registration textarea {
+    font-size: 16px;
+  }
+}
