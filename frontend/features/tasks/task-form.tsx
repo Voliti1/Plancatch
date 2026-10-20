@@ -301,8 +301,9 @@ export function TaskForm({
         )}
         {simple && (
           <p className="muted small calendar-task-help">
-            입력한 시간은 일정의 가능 기간으로 저장됩니다. 저장 후 일정 상세에서
-            캘린더에 배치할 수 있습니다. Google Calendar 동기화는 준비 중입니다.
+            고정 일정은 입력한 시작·종료 시간에 캘린더에 표시됩니다. 유동 작업의
+            가능 기간은 일정으로 표시하지 않습니다. Google Calendar에는 전송하지
+            않습니다.
           </p>
         )}
         {error && <ErrorNotice message={error} />}

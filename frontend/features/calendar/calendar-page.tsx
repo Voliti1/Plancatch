@@ -16,6 +16,12 @@ import {
   type GoogleEventsPage,
 } from "@/features/google-calendar/events";
 import { GoogleDayEvents } from "@/features/google-calendar/day-events";
+import {
+  readRegistrations,
+  registrationHref,
+  registrationOnDay,
+  type CalendarRegistration,
+} from "./registrations";
 import { eventsApi } from "./api";
 import {
   addDays,
@@ -58,7 +64,11 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
       <ul className="calendar-agenda">
         {rows.slice(page * 20, (page + 1) * 20).map((event) => (
           <li key={event.id}>
-            <TaskTitle id={event.task_id} />
+            {event.task_title ? (
+              <strong>{event.task_title}</strong>
+            ) : (
+              <TaskTitle id={event.task_id} />
+            )}
             <p>
               <time dateTime={event.start_at}>
                 {formatSeoul(event.start_at)}
@@ -107,6 +117,71 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
   );
 }
 
+function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
+  const [page, setPage] = useState(0);
+  if (!entries.length) return null;
+  return (
+    <div className="registered-day-events">
+      <ul className="calendar-agenda">
+        {entries.slice(page * 20, (page + 1) * 20).map((item) => (
+          <li key={`${item.kind}:${item.id}`}>
+            <Link
+              href={registrationHref(item)}
+              className="registered-event-title"
+            >
+              {item.title}
+            </Link>
+            <p>
+              <time dateTime={item.start_at}>{formatSeoul(item.start_at)}</time>
+              {item.end_at && (
+                <>
+                  {" "}
+                  →{" "}
+                  <time dateTime={item.end_at}>{formatSeoul(item.end_at)}</time>
+                </>
+              )}
+            </p>
+            <div className="calendar-agenda-actions">
+              <span className={`tag registration-${item.kind}`}>
+                {item.kind === "deadline" ? "마감일" : "수동 일정"}
+              </span>
+              <span className="small muted">
+                {item.is_completed
+                  ? "완료"
+                  : !item.is_confirmed
+                    ? "확인 필요"
+                    : ""}
+              </span>
+              <Link href={registrationHref(item)}>상세 · 수정 →</Link>
+            </div>
+          </li>
+        ))}
+      </ul>
+      {entries.length > 20 && (
+        <div className="calendar-pagination">
+          <button
+            className="secondary"
+            disabled={page === 0}
+            onClick={() => setPage(page - 1)}
+          >
+            이전 등록 일정
+          </button>
+          <span>
+            {page + 1} / {Math.ceil(entries.length / 20)} 페이지
+          </span>
+          <button
+            className="secondary"
+            disabled={(page + 1) * 20 >= entries.length}
+            onClick={() => setPage(page + 1)}
+          >
+            다음 등록 일정
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function CalendarBody({ initialDate }: { initialDate?: string }) {
   const [selected, setSelected] = useState(initialDate ?? todaySeoul);
   const [view, setView] = useState<"month" | "week">("month");
@@ -144,23 +219,37 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
     });
   }, [selected, view]);
   const { data, loading, error, reload } = useResource(load);
+  const loadRegistered = useCallback(() => {
+    const range = calendarDays(selected, view);
+    return readRegistrations(
+      utcMidnight(range[0]),
+      utcMidnight(addDays(range[range.length - 1], 1)),
+    );
+  }, [selected, view]);
+  const registrations = useResource(loadRegistered);
+  const registered = registrations.data?.entries ?? [];
+  const registeredDay = registered.filter((item) =>
+    registrationOnDay(item, selected),
+  );
   const events = (data?.events ?? []).filter(
     (event) => showCancelled || event.status !== "cancelled",
   );
   const googleRows = showGoogle
     ? withoutLocalDuplicates(google.data?.events ?? [], events)
     : [];
+  const hasLocalSelected = events.some((event) => onDay(event, selected));
   const today = todaySeoul();
   return (
     <>
       <PageHeading
         eyebrow="MY CALENDAR"
         title="캘린더"
-        description="직접 배치한 일정을 한국 시간으로 확인하세요."
+        description="등록한 마감일과 수동 일정을 한국 시간으로 확인하세요."
       />
       <p className="notice small">
-        플랜캐치 배치와 구글 기본 캘린더를 함께 볼 수 있습니다. 구글 일정은 조회
-        전용이며, 등록·수정·삭제 전송과 자동 배치는 아직 지원하지 않습니다.
+        자료에서 등록한 마감일과 시작·종료 시간을 지정한 고정 일정이 표시됩니다.
+        별도로 캘린더에 배치할 필요가 없습니다. 구글 일정은 함께 보기만
+        지원합니다.
       </p>
       <section className="card calendar-card" aria-label="일정 캘린더">
         <div className="calendar-toolbar">
@@ -255,9 +344,12 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           </label>
           <button
             className="text-button"
-            disabled={loading || (showGoogle && google.loading)}
+            disabled={
+              loading || registrations.loading || (showGoogle && google.loading)
+            }
             onClick={() => {
               reload();
+              registrations.reload();
               if (showGoogle) refreshGoogle();
             }}
           >
@@ -265,6 +357,23 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           </button>
         </div>
         {error && <ErrorNotice message={error} retry={reload} />}
+        {registrations.error && (
+          <ErrorNotice
+            message={`등록한 마감일·수동 일정을 불러오지 못했습니다. ${registrations.error}`}
+            retry={registrations.reload}
+          />
+        )}
+        {registrations.loading && (
+          <p role="status" className="small muted">
+            등록 일정 불러오는 중…
+          </p>
+        )}
+        {registrations.data?.has_more && (
+          <p role="status">
+            등록한 마감일·수동 일정은 종류별 첫 1,000건을 표시합니다. 주간
+            보기로 기간을 줄여 주세요.
+          </p>
+        )}
         {loading && <Loading />}
         {data?.hasMore && (
           <p role="status">
@@ -308,9 +417,31 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           aria-label={view === "month" ? "월간 날짜" : "주간 날짜"}
         >
           {days.map((day) => {
-            const count =
-              events.filter((event) => onDay(event, day)).length +
-              googleRows.filter((event) => googleOnDay(event, day)).length;
+            const local = events.filter((event) => onDay(event, day));
+            const saved = registered.filter((item) =>
+              registrationOnDay(item, day),
+            );
+            const remote = googleRows.filter((event) =>
+              googleOnDay(event, day),
+            );
+            const bars = [
+              ...saved.map((item) => ({
+                key: `${item.kind}:${item.id}`,
+                title: item.title,
+                kind: item.kind,
+              })),
+              ...local.map((item) => ({
+                key: `placement:${item.id}`,
+                title: item.task_title || "플랜캐치 일정",
+                kind: item.status === "cancelled" ? "cancelled" : "placement",
+              })),
+              ...remote.map((item) => ({
+                key: `google:${item.id}`,
+                title: item.title,
+                kind: "google",
+              })),
+            ];
+            const count = bars.length;
             return (
               <button
                 key={day}
@@ -322,11 +453,29 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
                 onClick={() => setSelected(day)}
               >
                 <span>{Number(day.slice(8))}</span>
-                {!loading && !error && count > 0 && (
-                  <small>
-                    {count}
-                    <span className="calendar-count-unit">개 일정</span>
-                  </small>
+                {count > 0 && (
+                  <>
+                    <small className="calendar-event-count">
+                      {count}
+                      <span className="calendar-count-unit">개 일정</span>
+                    </small>
+                    <span className="calendar-day-bars">
+                      {bars.slice(0, 3).map((bar) => (
+                        <span
+                          key={bar.key}
+                          title={bar.title}
+                          className={`calendar-event-bar bar-${bar.kind}`}
+                        >
+                          {bar.title}
+                        </span>
+                      ))}
+                      {count > 3 && (
+                        <span className="calendar-more">
+                          +{count - 3}개 더 보기
+                        </span>
+                      )}
+                    </span>
+                  </>
                 )}
               </button>
             );
@@ -341,11 +490,21 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           <h2 id="selected-day-title">{dayLabel(selected)}</h2>
           <Link href="/tasks">등록한 일정 보기 →</Link>
         </div>
+        <RegisteredDay
+          key={`${selected}:${registeredDay.map((item) => item.id).join(",")}`}
+          entries={registeredDay}
+        />
         {loading ? (
           <Loading />
         ) : error ? (
           <p className="muted">
             위의 오류를 해결한 뒤 배치 내역을 확인해 주세요.
+          </p>
+        ) : registeredDay.length &&
+          !hasLocalSelected ? null : !hasLocalSelected &&
+          (registrations.loading || registrations.error) ? (
+          <p className="small muted">
+            등록 일정의 조회 상태를 위에서 확인해 주세요.
           </p>
         ) : (
           <DayEvents

@@ -39,6 +39,34 @@ export async function calendarApi(
 ) {
   await mockApi(page, [], { tasks });
   const events = initial.map((event) => ({ ...event }));
+  await page.route(
+    "**/test-api/api/calendar/registrations?**",
+    async (route) => {
+      const query = new URL(route.request().url()).searchParams;
+      const first = Date.parse(query.get("start_from")!),
+        last = Date.parse(query.get("end_before")!);
+      const entries = tasks
+        .filter(
+          (t) =>
+            !events.some((e) => e.task_id === t.id) &&
+            t.schedule_type === "fixed" &&
+            t.earliest_start &&
+            t.latest_end &&
+            Date.parse(t.earliest_start) < last &&
+            Date.parse(t.latest_end) > first,
+        )
+        .map((t) => ({
+          id: t.id,
+          kind: "fixed_task",
+          title: t.title,
+          start_at: t.earliest_start,
+          end_at: t.latest_end,
+          is_confirmed: true,
+          is_completed: t.is_completed,
+        }));
+      return route.fulfill({ json: { entries, has_more: false } });
+    },
+  );
   let nextId = 1;
   await page.route("**/test-api/api/scheduled-events**", async (route) => {
     const request = route.request();
