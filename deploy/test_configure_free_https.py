@@ -29,6 +29,12 @@ class ConfigurationTests(unittest.TestCase):
             self.assertNotIn("listen 443", conf)
             self.assertNotIn("return 308", conf)
 
+    def test_fallback_preserves_unmatched_http(self):
+        self.assertIn(b"listen 80 default_server;", module.FALLBACK_CONTENT)
+        self.assertIn(b'include /etc/nginx/default.d/plancatch.conf;', module.FALLBACK_CONTENT)
+        self.assertNotIn(b"return 308", module.FALLBACK_CONTENT)
+        self.assertTrue(module.FALLBACK.name.startswith("00-"))
+
     def test_tls_exact_domain_and_keep_challenge(self):
         for host in module.DOMAINS:
             conf = module.configuration(host, tls=True).decode()

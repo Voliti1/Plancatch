@@ -29,6 +29,14 @@ CONF = Path("/etc/nginx/conf.d")
 WEBROOT = Path("/var/lib/letsencrypt")
 HOOK = Path("/etc/letsencrypt/renewal-hooks/deploy/plancatch-nginx-reload")
 HOOK_CONTENT = b"#!/bin/sh\nset -eu\n/usr/sbin/nginx -t\n/usr/bin/systemctl reload nginx\n"
+FALLBACK = CONF / "00-plancatch-http-fallback.conf"
+FALLBACK_CONTENT = b'''# Preserve the original HTTP application for IP/unmatched hosts.
+server {
+    listen 80 default_server;
+    server_name "";
+    include /etc/nginx/default.d/plancatch.conf;
+}
+'''
 
 
 def target_path(domain):
@@ -153,6 +161,17 @@ def verify_https(domain):
             return certificate["notAfter"]
 
 
+def verify_original_http():
+    connection = http.client.HTTPConnection(IP, timeout=15)
+    try:
+        connection.request("GET", "/login")
+        response = connection.getresponse()
+        assert response.status == 200, "Original IP HTTP route changed"
+        assert b"PlanCatch" in response.read(2_000_000)
+    finally:
+        connection.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--domain", required=True, choices=sorted(DOMAINS))
@@ -172,7 +191,10 @@ def apply(domain, expected_commit):
     assert {item[4][0] for item in socket.getaddrinfo(domain, 80, type=socket.SOCK_STREAM)} == {IP}, "Unexpected DNS"
     assert not target.exists() and not target.is_symlink(), "Target exists; inspect instead of overwriting"
     assert not Path(f"/etc/letsencrypt/live/{domain}").exists(), "Certificate exists; inspect instead of reissuing"
-    others = {path: digest(path) for path in CONF.glob("*.conf")}
+    had_fallback = FALLBACK.exists()
+    assert not FALLBACK.is_symlink()
+    assert not had_fallback or FALLBACK.read_bytes() == FALLBACK_CONTENT, "Unexpected HTTP fallback"
+    others = {path: digest(path) for path in CONF.glob("*.conf") if path != FALLBACK}
     for path in others:
         host = next((host for host in DOMAINS - {domain} if target_path(host) == path), None)
         assert host and not path.is_symlink() and path.read_bytes() == configuration(host, tls=True), "Unrecognized virtual host"
@@ -197,15 +219,18 @@ def apply(domain, expected_commit):
     shutil.copy2("/etc/nginx/nginx.conf", backup / "nginx.conf")
     shutil.copy2("/etc/nginx/default.d/plancatch.conf", backup / "plancatch.conf")
     (backup / "before.json").write_text(json.dumps(before, indent=2) + "\n")
-    (backup / "managed-before.json").write_text(json.dumps({"vhosts": {str(p): h for p, h in others.items()}, "timer": initial_timer, "had_hook": had_hook}, indent=2) + "\n")
+    (backup / "managed-before.json").write_text(json.dumps({"vhosts": {str(p): h for p, h in others.items()}, "timer": initial_timer, "had_hook": had_hook, "had_fallback": had_fallback}, indent=2) + "\n")
     print(f"BACKUP={backup}", flush=True)
     challenge_dir = WEBROOT / ".well-known/acme-challenge"
     challenge_dir.mkdir(parents=True, mode=0o755, exist_ok=True)
     probe = challenge_dir / f"plancatch-probe-{uuid.uuid4().hex}"
     enabled_here = False
     try:
+        if not had_fallback:
+            atomic_write(FALLBACK, FALLBACK_CONTENT)
         atomic_write(target, configuration(domain))
         reload_nginx()
+        verify_original_http()
         probe.write_text("plancatch-http01-ready\n")
         probe.chmod(0o644)
         readiness(domain, probe)
@@ -231,6 +256,7 @@ def apply(domain, expected_commit):
         assert {path: digest(path) for path in others} == others, "Other hostname changed"
         run("systemctl", "is-active", "--quiet", "plancatch", "plancatch-frontend", "nginx")
         verify_https(domain)
+        verify_original_http()
         result = {"domain": domain, "expires": expires, "application_unchanged": True, "renewal_dry_run": True, "timer_enabled": True}
         (backup / "success.json").write_text(json.dumps(result, indent=2) + "\n")
         print("HTTPS_READY " + json.dumps(result), flush=True)
@@ -241,6 +267,8 @@ def apply(domain, expected_commit):
         if not had_hook:
             HOOK.unlink(missing_ok=True)
         target.unlink(missing_ok=True)
+        if not had_fallback:
+            FALLBACK.unlink(missing_ok=True)
         reload_nginx()
         assert snapshot() == before, "App/settings/build/PIDs drift during rollback"
         assert {path: digest(path) for path in others} == others
