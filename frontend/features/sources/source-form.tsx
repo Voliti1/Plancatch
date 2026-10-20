@@ -1,13 +1,14 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sourcesApi } from "./api";
 import { SourceFileInput } from "./source-file-input";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useHydrated } from "@/lib/use-hydrated";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import "./source-registration.css";
 export function SourceForm() {
   const hydrated = useHydrated();
@@ -18,6 +19,13 @@ export function SourceForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
   const router = useRouter();
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,8 +73,11 @@ export function SourceForm() {
             }
           : { source_type: "text", title: sourceTitle, original_text: text },
       );
-      router.push("/sources");
+      // A new keyed registration can replace this form while a save is in flight.
+      // Keep the saved source, but never redirect or update its replacement.
+      if (active.current) router.push("/sources");
     } catch (err) {
+      if (!active.current) return;
       setError(errorMessage(err));
       pending.current = false;
       setBusy(false);
@@ -130,6 +141,12 @@ export function SourceForm() {
                 <p id="source-url-help" className="small muted">
                   일정이 안내된 공지나 게시글 주소를 붙여 넣으세요.
                 </p>
+                <NewRegistrationLink
+                  className="text-button"
+                  href="/deadlines/auto"
+                >
+                  URL 자동 등록 화면 열기 →
+                </NewRegistrationLink>
               </section>
               <section aria-labelledby="source-text-heading">
                 <h3 id="source-text-heading">텍스트로 추가</h3>
