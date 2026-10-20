@@ -12,6 +12,7 @@ import { analysesApi } from "./api";
 import { analysisError } from "./errors";
 import { RemainingPeriod } from "./remaining-period";
 import { isHtmlAnalysis } from "./display";
+import { briefEvidence } from "./brief-evidence";
 
 type Draft = {
   id: string;
@@ -52,7 +53,7 @@ export function CandidateEvidence({
   return (
     <div className="candidate-evidence">
       <h4>원문 근거</h4>
-      <p className="analysis-text">{candidate.evidence_text}</p>
+      <p className="analysis-text">{briefEvidence(candidate.evidence_text)}</p>
       <p className="small muted">
         {fromHtml
           ? "HTML에 명시된 접수기간을 직접 확인한 결과입니다. AI 추정값이 아닙니다."
