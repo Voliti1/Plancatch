@@ -542,3 +542,8 @@ def test_provider_rejects_malformed_or_oversized_body(monkeypatch, raw):
     monkeypatch.setattr(google, "build_opener", lambda *_args: FakeOpener())
     with pytest.raises(google.CalendarProviderError):
         google._post(google.TOKEN_URL, {})
+
+def test_complete_has_fixed_frontend_return_link(setup):
+    response = setup.client.get("/api/integrations/google-calendar/complete?result=connected")
+    assert response.status_code == 200
+    assert 'href="/settings/google-calendar"' in response.text

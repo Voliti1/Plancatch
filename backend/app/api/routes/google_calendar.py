@@ -309,7 +309,8 @@ def complete(request: Request):
     return HTMLResponse(
         '<!doctype html><html lang="ko"><meta charset="utf-8"><title>PlanCatch Google 연결</title><h1>Google Calendar 연결</h1><p>'
         + message
-        + "</p><p>이 창을 닫고 플랜캐치로 돌아가세요. 이 단계에서는 캘린더 일정을 생성하거나 변경하지 않습니다.</p></html>",
+        + '</p><p><a href="/settings/google-calendar">플랜캐치에서 연결 상태 확인하기</a></p>'
+        + "<p>이 단계에서는 캘린더 일정을 생성하거나 변경하지 않습니다.</p></html>",
         headers={
             **SAFE_HEADERS,
             "X-Frame-Options": "DENY",
