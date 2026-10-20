@@ -95,8 +95,8 @@ export function GoogleCalendarConnectionPage() {
       <section className="card form-card" aria-label="구글 계정 연결 설정">
         <h2>Google Calendar 계정</h2>
         <p className="muted">
-          지금은 계정 연결만 지원합니다. 연결해도 일정이 자동 등록되거나 기존
-          Google 일정이 변경되지 않습니다.
+          연결 후 캘린더에서 구글 일정을 함께 볼 수 있습니다. 연결해도 일정이
+          자동 등록되거나 기존 Google 일정이 변경되지 않습니다.
         </p>
         {status.loading && <Loading />}
         {status.error && (

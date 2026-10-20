@@ -9,6 +9,7 @@ from urllib.parse import urlsplit
 
 from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import AwareDatetime
 from sqlalchemy import delete, select, update
 
 from app.api.dependencies import CurrentUser, DatabaseSession
@@ -19,7 +20,9 @@ from app.schemas.google_calendar import (
     GoogleConnectResponse,
     GoogleDisconnectResponse,
 )
+from app.schemas.google_event import GoogleEventsPage
 from app.services import google_calendar as google
+from app.services import google_events
 from app.services.google_completion import completion_response
 
 router = APIRouter(prefix=google.PREFIX, tags=["google-calendar"])
@@ -298,3 +301,45 @@ def disconnect_google(
 @router.get("/complete", response_class=HTMLResponse)
 def complete(request: Request):
     return completion_response(request.query_params.get("result", ""))
+
+
+@router.get("/events", response_model=GoogleEventsPage)
+def read_google_events(
+    current_user: CurrentUser,
+    db: DatabaseSession,
+    response: Response,
+    start_from: AwareDatetime,
+    end_before: AwareDatetime,
+):
+    response.headers.update(SAFE_HEADERS)
+    if not timedelta(0) < end_before - start_from <= timedelta(days=62):
+        raise HTTPException(422, "구글 일정 조회 기간은 0일 초과 62일 이하여야 합니다.")
+    config = _config()
+    _lock_user(db, current_user.id)
+    connection = db.get(GoogleCalendarConnection, current_user.id)
+    if connection is None:
+        raise HTTPException(409, "구글 계정을 먼저 연결해 주세요.")
+    if google.SCOPE not in connection.scopes.split() or (
+        connection.refresh_expires_at is not None
+        and _utc(connection.refresh_expires_at) <= datetime.now(UTC)
+    ):
+        raise HTTPException(409, "구글 계정을 다시 연결해 주세요.")
+    try:
+        refresh = google.decrypt(
+            config, current_user.id, "refresh", connection.refresh_token_ciphertext
+        )
+        token, rotated = google_events.refresh_access(config, refresh)
+        if rotated is not None:
+            connection.refresh_token_ciphertext = google.encrypt(
+                config, current_user.id, "refresh", rotated
+            )
+        # Keep a rotated credential even if the later read fails. A read already
+        # in flight may finish after disconnect, but never writes a calendar event.
+        db.commit()
+        return google_events.list_primary(token, _utc(start_from), _utc(end_before))
+    except google.CalendarProviderError:
+        raise HTTPException(
+            409, "연결 정보를 확인할 수 없습니다. 구글 계정을 다시 연결해 주세요."
+        ) from None
+    except google_events.GoogleEventsError as error:
+        raise HTTPException(error.status, str(error)) from None

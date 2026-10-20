@@ -197,3 +197,26 @@
     gap: 6px;
   }
 }
+.google-calendar-status {
+  padding: 16px;
+  margin-bottom: 18px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--blue-soft);
+  overflow-wrap: anywhere;
+}
+.google-calendar-status > a {
+  color: var(--blue);
+  font-size: 13px;
+}
+.google-day-events {
+  border-top: 1px solid var(--line);
+  margin-top: 22px;
+  padding-top: 20px;
+}
+.google-day-events h3 {
+  font-size: 16px;
+}
+.google-day-events strong {
+  overflow-wrap: anywhere;
+}
