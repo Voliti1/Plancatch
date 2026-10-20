@@ -10,7 +10,13 @@ import { PageHeading } from "@/components/page-heading";
 import { useHydrated } from "@/lib/use-hydrated";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import "./source-registration.css";
-export function SourceForm() {
+export function SourceForm({
+  embedded = false,
+  onBusyChange,
+}: {
+  embedded?: boolean;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const hydrated = useHydrated();
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
@@ -62,6 +68,7 @@ export function SourceForm() {
     }
     pending.current = true;
     setBusy(true);
+    onBusyChange?.(true);
     try {
       const sourceTitle = title.trim() || undefined;
       await sourcesApi.create(
@@ -81,18 +88,23 @@ export function SourceForm() {
       setError(errorMessage(err));
       pending.current = false;
       setBusy(false);
+      onBusyChange?.(false);
     }
   }
   return (
     <>
-      <Link className="back-link" href="/dashboard">
-        ← 대시보드
-      </Link>
-      <PageHeading
-        eyebrow="NEW SCHEDULE"
-        title="새 일정 등록"
-        description="일정이 담긴 자료를 등록하고, 상세 화면에서 원문 추출과 AI 검토를 이어가세요."
-      />
+      {!embedded && (
+        <>
+          <Link className="back-link" href="/dashboard">
+            ← 대시보드
+          </Link>
+          <PageHeading
+            eyebrow="NEW SCHEDULE"
+            title="새 일정 등록"
+            description="일정이 담긴 자료를 등록하고, 상세 화면에서 원문 추출과 AI 검토를 이어가세요."
+          />
+        </>
+      )}
       <form className="card source-registration" onSubmit={submit} noValidate>
         <div className="source-registration-heading">
           <h2>자료 입력</h2>

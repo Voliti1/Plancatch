@@ -9,7 +9,6 @@ const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
   ["/deadlines", "◷", "마감일"],
-  ["/tasks", "✓", "작업"],
 ];
 export default function WorkspaceLayout({
   children,

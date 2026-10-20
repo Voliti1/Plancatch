@@ -204,7 +204,13 @@ test("list filters, pagination and completion update refresh matching results", 
   }));
   await seed(page, tasks);
   await login(page);
-  await page.getByRole("link", { name: "작업", exact: true }).click();
+  await page
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .click();
+  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("link", { name: "등록한 일정 보기 →", exact: true })
+    .click();
   await page.getByRole("button", { name: "다음", exact: true }).click();
   await expect(
     page.getByRole("link", { name: "페이지 작업 50", exact: true }),

@@ -21,11 +21,15 @@ export function TaskForm({
   deadlineId,
   onSave,
   onCancel,
+  submitLabel = "작업 등록",
+  disabled = false,
 }: {
   initial?: Task;
   deadlineId?: string;
   onSave: (payload: TaskInput) => Promise<void>;
   onCancel: () => void;
+  submitLabel?: string;
+  disabled?: boolean;
 }) {
   const hydrated = useHydrated();
   const descriptionId = useId();
@@ -110,7 +114,11 @@ export function TaskForm({
       )}
       <fieldset
         disabled={
-          busy || !hydrated || options.loading || Boolean(options.error)
+          disabled ||
+          busy ||
+          !hydrated ||
+          options.loading ||
+          Boolean(options.error)
         }
       >
         <label>
@@ -239,7 +247,7 @@ export function TaskForm({
             취소
           </button>
           <button type="submit">
-            {busy ? "저장 중…" : initial ? "변경 사항 저장" : "작업 등록"}
+            {busy ? "저장 중…" : initial ? "변경 사항 저장" : submitLabel}
           </button>
         </div>
       </fieldset>

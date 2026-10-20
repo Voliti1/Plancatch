@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import { useCallback, useId, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
@@ -8,6 +7,7 @@ import { useResource } from "@/lib/api/use-resource";
 import type { ScheduleType } from "@/types/task";
 import { tasksApi } from "./api";
 import { TaskRows } from "./task-rows";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 
 export function TaskList() {
   const completedLabelId = useId();
@@ -24,9 +24,9 @@ export function TaskList() {
         title="작업"
         description="해야 할 일을 정리하고 하나씩 완료해 보세요."
         action={
-          <Link className="button" href="/tasks/new">
-            ＋ 작업 등록
-          </Link>
+          <NewRegistrationLink className="button" mode="manual">
+            ＋ 수동 일정 등록
+          </NewRegistrationLink>
         }
       />
       <div className="task-filters">
