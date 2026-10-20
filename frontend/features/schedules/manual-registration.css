@@ -1,5 +1,26 @@
 .manual-registration-card {
-  max-width: 720px;
+  width: 100%;
+  max-width: 1100px;
+  min-width: 0;
+}
+.manual-registration-kind {
+  display: flex;
+  gap: 8px;
+  margin: 0 0 24px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  width: min(100%, 320px);
+  background: var(--bg);
+}
+.manual-registration-kind button {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  font-size: 14px;
+}
+.calendar-task-form .manual-deadline-time {
+  grid-template-columns: minmax(0, 1fr);
 }
 .manual-registration-card .manual-registration-heading {
   margin-bottom: 8px;
