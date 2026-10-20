@@ -11,6 +11,7 @@ import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
 import { analysisStatusLabel, isHtmlAnalysis } from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
+import { ReviewSummary } from "./review-summary";
 import {
   RemainingPeriod,
   SourcePeriodSummary,
@@ -66,7 +67,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
       <PageHeading
         eyebrow={fromHtml ? "HTML DEADLINE REVIEW" : "AI DEADLINE REVIEW"}
         title={fromHtml ? "마감일 검토" : "AI 마감일 검토"}
-        description="원문과 근거를 비교하고 필요한 마감일만 승인하세요."
+        description="추출된 마감일과 짧은 근거를 확인하고 필요한 마감일만 승인하세요."
       />
       <p>
         <span className="tag">
@@ -167,14 +168,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         </p>
       )}
       <div className="analysis-grid">
-        <section className="card analysis-snapshot">
-          <h2>분석에 사용한 원문</h2>
-          <p className="small muted">
-            분석 시점에 저장한 원문입니다. 이후 자료 수정 내용과 다를 수
-            있습니다.
-          </p>
-          <p className="analysis-text">{data.input_text}</p>
-        </section>
+        <ReviewSummary analysis={data} />
         <section className="card analysis-review">
           <h2>마감일 후보</h2>
           <p className="small muted">
