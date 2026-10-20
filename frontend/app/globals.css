@@ -122,7 +122,7 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
 }
 .analysis-grid {
   display: grid;
-  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  grid-template-columns: minmax(0, 0.6fr) minmax(0, 1.4fr);
   gap: 22px;
   align-items: start;
   margin-top: 22px;
@@ -140,11 +140,6 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
   overflow-wrap: anywhere;
   line-height: 1.8;
   font-size: 14px;
-}
-.analysis-snapshot .analysis-text {
-  max-height: 65vh;
-  overflow-y: auto;
-  padding-right: 8px;
 }
 .analysis-candidate {
   padding: 22px 0;
@@ -241,9 +236,6 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
 @media (max-width: 1000px) {
   .analysis-grid {
     grid-template-columns: 1fr;
-  }
-  .analysis-snapshot .analysis-text {
-    max-height: 35vh;
   }
 }
 .task-filters {

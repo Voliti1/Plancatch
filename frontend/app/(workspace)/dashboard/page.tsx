@@ -34,9 +34,14 @@ export default function DashboardPage() {
             눈앞의 계획으로.
           </h2>
           <p>링크 하나, 메모 한 줄부터 시작해 보세요.</p>
-          <NewRegistrationLink className="button">
-            새 일정 등록하기 ↗
-          </NewRegistrationLink>
+          <div className="form-actions">
+            <NewRegistrationLink className="button">
+              새 일정 등록하기 ↗
+            </NewRegistrationLink>
+            <Link className="button secondary" href="/sources/new">
+              자료 등록하기 ↗
+            </Link>
+          </div>
         </div>
         <div className="hero-art" aria-hidden>
           <div className="paper paper-back" />
