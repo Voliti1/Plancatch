@@ -7,6 +7,7 @@ import { PageHeading } from "@/components/page-heading";
 import { SourceForm } from "@/features/sources/source-form";
 import { TaskForm } from "@/features/tasks/task-form";
 import { tasksApi } from "@/features/tasks/api";
+import { deadlinesApi } from "@/features/deadlines/api";
 import "./manual-registration.css";
 
 type RegistrationMode = "source" | "manual";
@@ -148,6 +149,20 @@ export function ScheduleRegistration({
               variant="calendar"
               submitLabel="일정 등록"
               disabled={saving}
+              onSaveDeadline={async (payload) => {
+                setSaving(true);
+                try {
+                  const deadline = await deadlinesApi.create(payload);
+                  if (active.current)
+                    router.push(
+                      `/deadlines/${encodeURIComponent(deadline.id)}`,
+                    );
+                } catch (error) {
+                  if (!active.current) return;
+                  setSaving(false);
+                  throw error;
+                }
+              }}
               onCancel={() => selectMode("source")}
               onSave={async (payload) => {
                 setSaving(true);

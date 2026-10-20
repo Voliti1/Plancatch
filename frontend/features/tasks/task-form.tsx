@@ -6,6 +6,7 @@ import { useResource } from "@/lib/api/use-resource";
 import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { ScheduleType, Task, TaskInput } from "@/types/task";
+import type { DeadlineInput } from "@/types/api";
 import { loadDeadlineOptions } from "./deadline-options";
 import "./calendar-task-form.css";
 
@@ -21,6 +22,7 @@ export function TaskForm({
   initial,
   deadlineId,
   onSave,
+  onSaveDeadline,
   onCancel,
   submitLabel = "작업 등록",
   disabled = false,
@@ -29,12 +31,18 @@ export function TaskForm({
   initial?: Task;
   deadlineId?: string;
   onSave: (payload: TaskInput) => Promise<void>;
+  onSaveDeadline?: (payload: DeadlineInput) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
   disabled?: boolean;
   variant?: "task" | "calendar";
 }) {
   const simple = variant === "calendar";
+  const [registrationKind, setRegistrationKind] = useState<"task" | "deadline">(
+    "task",
+  );
+  const canChooseKind = simple && !initial && Boolean(onSaveDeadline);
+  const isDeadline = canChooseKind && registrationKind === "deadline";
   const requireTimes = simple && !initial;
   const hydrated = useHydrated();
   const descriptionId = useId();
@@ -76,6 +84,19 @@ export function TaskForm({
         throw new Error(
           simple ? "일정명을 입력해 주세요." : "작업명을 입력해 주세요.",
         );
+      if (isDeadline && onSaveDeadline) {
+        if (!end) throw new Error("종료 일시를 입력해 주세요.");
+        await onSaveDeadline({
+          title: title.trim(),
+          due_at: seoulInputToUtc(end),
+          description: description.trim() || null,
+          source_id: null,
+          deadline_type: null,
+          safety_buffer_minutes: null,
+          is_confirmed: true,
+        });
+        return;
+      }
       if (requireTimes && (!start || !end))
         throw new Error("시작 일시와 종료 일시를 입력해 주세요.");
       const estimated = minutes === "" ? null : Number(minutes);
@@ -187,17 +208,19 @@ export function TaskForm({
     </>
   );
   const times = (
-    <div className="form-grid">
-      <label>
-        {simple ? "시작 일시" : "가능 시작 일시 (한국 시간, 선택)"}
-        <input
-          name="earliest_start"
-          type="datetime-local"
-          value={start}
-          onChange={(event) => setStart(event.target.value)}
-          required={requireTimes}
-        />
-      </label>
+    <div className={`form-grid ${isDeadline ? "manual-deadline-time" : ""}`}>
+      {!isDeadline && (
+        <label>
+          {simple ? "시작 일시" : "가능 시작 일시 (한국 시간, 선택)"}
+          <input
+            name="earliest_start"
+            type="datetime-local"
+            value={start}
+            onChange={(event) => setStart(event.target.value)}
+            required={requireTimes}
+          />
+        </label>
+      )}
       <label>
         {simple ? "종료 일시" : "최종 완료 일시 (한국 시간, 선택)"}
         <input
@@ -243,8 +266,42 @@ export function TaskForm({
       onSubmit={submit}
       noValidate={simple}
     >
-      {options.loading && <Loading />}
-      {options.error && (
+      {canChooseKind && (
+        <div
+          className="manual-registration-kind"
+          role="group"
+          aria-label="등록 종류"
+        >
+          <button
+            type="button"
+            className={registrationKind === "task" ? "selected" : "secondary"}
+            aria-pressed={registrationKind === "task"}
+            disabled={disabled || busy || !hydrated}
+            onClick={() => {
+              setRegistrationKind("task");
+              setError("");
+            }}
+          >
+            할 일
+          </button>
+          <button
+            type="button"
+            className={
+              registrationKind === "deadline" ? "selected" : "secondary"
+            }
+            aria-pressed={registrationKind === "deadline"}
+            disabled={disabled || busy || !hydrated}
+            onClick={() => {
+              setRegistrationKind("deadline");
+              setError("");
+            }}
+          >
+            마감일
+          </button>
+        </div>
+      )}
+      {!isDeadline && options.loading && <Loading />}
+      {!isDeadline && options.error && (
         <ErrorNotice
           message={`마감일 목록을 불러오지 못했습니다. ${options.error}`}
           retry={options.reload}
@@ -255,8 +312,7 @@ export function TaskForm({
           disabled ||
           busy ||
           !hydrated ||
-          options.loading ||
-          Boolean(options.error)
+          (!isDeadline && (options.loading || Boolean(options.error)))
         }
       >
         <label>
@@ -279,13 +335,15 @@ export function TaskForm({
               한국 시간 기준{initial ? " · 시간은 비워 둘 수 있습니다." : ""}
             </p>
             {descriptionField}
-            <details className="calendar-task-settings">
-              <summary>상세 설정</summary>
-              <div>
-                {settings}
-                {completion}
-              </div>
-            </details>
+            {!isDeadline && (
+              <details className="calendar-task-settings">
+                <summary>상세 설정</summary>
+                <div>
+                  {settings}
+                  {completion}
+                </div>
+              </details>
+            )}
           </>
         ) : (
           <>
@@ -301,9 +359,15 @@ export function TaskForm({
         )}
         {simple && (
           <p className="muted small calendar-task-help">
-            고정 일정은 입력한 시작·종료 시간에 캘린더에 표시됩니다. 유동 작업의
-            가능 기간은 일정으로 표시하지 않습니다. Google Calendar에는 전송하지
-            않습니다.
+            {isDeadline ? (
+              "입력한 종료 일시를 마감일로 저장하고 캘린더에 표시합니다. Google Calendar에는 전송하지 않습니다."
+            ) : (
+              <>
+                고정 일정은 입력한 시작·종료 시간에 캘린더에 표시됩니다. 유동
+                작업의 가능 기간은 일정으로 표시하지 않습니다. Google
+                Calendar에는 전송하지 않습니다.
+              </>
+            )}
           </p>
         )}
         {error && <ErrorNotice message={error} />}
@@ -312,11 +376,17 @@ export function TaskForm({
             취소
           </button>
           <button type="submit">
-            {busy ? "저장 중…" : initial ? "변경 사항 저장" : submitLabel}
+            {busy
+              ? "저장 중…"
+              : initial
+                ? "변경 사항 저장"
+                : isDeadline
+                  ? "마감일 등록"
+                  : submitLabel}
           </button>
         </div>
       </fieldset>
-      {options.error && (
+      {!isDeadline && options.error && (
         <button type="button" className="secondary" onClick={onCancel}>
           돌아가기
         </button>
