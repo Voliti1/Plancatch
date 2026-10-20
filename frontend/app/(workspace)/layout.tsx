@@ -10,6 +10,7 @@ const nav = [
   ["/sources", "▤", "원본 자료"],
   ["/deadlines", "◷", "마감일"],
   ["/calendar", "▦", "캘린더"],
+  ["/settings/google-calendar", "↗", "구글 캘린더 연결"],
 ];
 export default function WorkspaceLayout({
   children,

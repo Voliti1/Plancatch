@@ -524,6 +524,7 @@ small {
   position: sticky;
   top: 0;
   height: 100vh;
+  overflow-y: auto;
   background: var(--white);
   border-right: 1px solid var(--line);
   display: flex;
@@ -1268,6 +1269,7 @@ textarea {
     grid-column: 1/-1;
     grid-row: 3;
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
   }
   .sidebar-new-registration {
@@ -1277,7 +1279,8 @@ textarea {
     font-size: 12px;
   }
   .sidebar nav a {
-    flex: 1;
+    flex: 1 1 140px;
+    white-space: nowrap;
     justify-content: center;
     padding: 10px 8px;
     font-size: 12px;

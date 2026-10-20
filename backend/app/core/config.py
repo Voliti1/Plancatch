@@ -25,7 +25,9 @@ class Settings(BaseSettings):
     gemini_api_key: SecretStr | None = None
     gemini_model: str | None = None
     google_client_id: str | None = None
-    google_client_secret: str | None = None
+    google_client_secret: SecretStr | None = None
+    google_calendar_redirect_uri: str | None = None
+    google_calendar_token_key: SecretStr | None = None
 
     model_config = SettingsConfigDict(
         env_file=".env",
