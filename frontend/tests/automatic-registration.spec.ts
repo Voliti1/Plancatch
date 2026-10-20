@@ -132,9 +132,21 @@ async function automaticApi(
   return counts;
 }
 
+async function openAutomaticRegistration(page: Page, fromSidebar = false) {
+  await page
+    .getByRole("link", {
+      name: fromSidebar ? "새 일정 등록하기" : "새 일정 등록하기 ↗",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("link", { name: "URL 자동 등록 화면 열기 →", exact: true })
+    .click();
+}
+
 async function fill(page: Page) {
   await login(page);
-  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await openAutomaticRegistration(page);
   await expect(
     page.getByRole("heading", { name: "자동 일정 등록" }),
   ).toBeVisible();
@@ -163,7 +175,7 @@ test("new registration starts editable even with a saved interrupted registratio
     ({ key, draft }) => sessionStorage.setItem(key, JSON.stringify(draft)),
     { key: storageKey, draft: previous },
   );
-  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
   await page
@@ -210,7 +222,7 @@ test("reopening new registration resets preserved route fields and review state"
   ).toBeVisible();
   const firstUrl = page.url();
   await page.getByRole("link", { name: "← 대시보드" }).click();
-  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await openAutomaticRegistration(page);
   await expect(page).not.toHaveURL(firstUrl);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
@@ -234,7 +246,7 @@ test("new registration does not retain unsubmitted inputs after dashboard naviga
   await fill(page);
   await page.getByRole("checkbox").check();
   await page.getByRole("link", { name: "← 대시보드" }).click();
-  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
   await expect(page.getByRole("checkbox")).not.toBeChecked();
@@ -257,9 +269,7 @@ for (const field of ["일정 제목", "원본 URL"]) {
       ({ key, draft }) => sessionStorage.setItem(key, JSON.stringify(draft)),
       { key: storageKey, draft: previous },
     );
-    await page
-      .getByRole("link", { name: "새 일정 등록하기", exact: true })
-      .click();
+    await openAutomaticRegistration(page, true);
     await page
       .getByRole("button", { name: "이전 등록 이어서", exact: true })
       .click();
@@ -268,7 +278,10 @@ for (const field of ["일정 제목", "원본 URL"]) {
     await expect(
       page.getByRole("region", { name: "이전 등록 재개" }),
     ).toHaveCount(0);
-    const before = await input.boundingBox();
+    // Mobile focus/keyboard handling may scroll the viewport without moving the form.
+    const before = await input.evaluate(
+      (element) => element.getBoundingClientRect().top + window.scrollY,
+    );
     await input.press("ControlOrMeta+A");
     await input.press("Backspace");
     await expect(input).toBeFocused();
@@ -276,8 +289,10 @@ for (const field of ["일정 제목", "원본 URL"]) {
     await expect(
       page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
     ).toHaveCount(0);
-    const after = await input.boundingBox();
-    expect(after!.y).toBeCloseTo(before!.y, 0);
+    const after = await input.evaluate(
+      (element) => element.getBoundingClientRect().top + window.scrollY,
+    );
+    expect(after).toBeCloseTo(before, 0);
     await input.pressSequentially(
       field === "일정 제목" ? "New title" : "https://example.com/changed",
     );
@@ -328,9 +343,7 @@ for (const changed of ["title", "url"] as const) {
       ({ key, draft }) => sessionStorage.setItem(key, JSON.stringify(draft)),
       { key: storageKey, draft: previous },
     );
-    await page
-      .getByRole("link", { name: "새 일정 등록하기", exact: true })
-      .click();
+    await openAutomaticRegistration(page, true);
     await page
       .getByRole("button", { name: "이전 등록 이어서", exact: true })
       .click();
@@ -405,7 +418,7 @@ test("editing after a review result clears the old result and requires fresh con
   expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
 });
 
-test("blue sidebar registration matches menu typography and opens a fresh form from any workspace page", async ({
+test("blue sidebar registration matches menu typography and opens a fresh shared form from any workspace page", async ({
   page,
 }) => {
   await mockApi(page);
@@ -452,16 +465,22 @@ test("blue sidebar registration matches menu typography and opens a fresh form f
     await page.getByRole("link", { name: menu, exact: true }).click();
     await button.click();
     await expect(
-      page.getByRole("heading", { name: "자동 일정 등록", exact: true }),
+      page.getByRole("heading", { name: "새 일정 등록", exact: true }),
     ).toBeVisible();
-    await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
-    await page
-      .getByLabel("일정 제목", { exact: true })
-      .fill("[테스트] 이전 화면 입력");
+    await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("");
+    await page.getByLabel("자료 제목 (선택)").fill("[테스트] 이전 화면 입력");
+    await page.getByLabel("PDF·JPG 파일 입력", { exact: true }).setInputFiles({
+      name: "[테스트] 이전화면.pdf",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4 test-only"),
+    });
     const before = page.url();
     await button.click();
     await expect(page).not.toHaveURL(before);
-    await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("");
+    await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(
+      0,
+    );
     await expect(page.getByLabel("원본 URL", { exact: true })).toBeEditable();
   }
 });
@@ -516,7 +535,7 @@ test("new input creates its own source rather than resuming a saved source", asy
       ),
     storageKey,
   );
-  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await openAutomaticRegistration(page);
   await page
     .getByLabel("일정 제목", { exact: true })
     .fill("[테스트] 사용자 지정 일정");
@@ -528,7 +547,7 @@ test("new input creates its own source rather than resuming a saved source", asy
   await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
   expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
   await page.getByRole("link", { name: "대시보드", exact: true }).click();
-  await page.getByRole("link", { name: "새 일정 등록하기 ↗" }).click();
+  await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
@@ -638,7 +657,5 @@ test("source library still offers manual URL and text saving alongside automatic
   await expect(
     page.getByRole("button", { name: "자료 저장", exact: true }),
   ).toBeVisible();
-  await expect(
-    page.getByLabel("원본 텍스트", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByLabel("원본 텍스트", { exact: true })).toBeVisible();
 });
