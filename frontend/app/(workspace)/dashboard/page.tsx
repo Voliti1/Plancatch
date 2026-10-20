@@ -8,6 +8,7 @@ import { NewRegistrationLink } from "@/features/deadlines/new-registration-link"
 import { useResource } from "@/lib/api/use-resource";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
+import { DashboardSchedules } from "@/features/tasks/dashboard-schedules";
 const load = async () => {
   const [deadlines, sources] = await Promise.all([
     deadlinesApi.list(),
@@ -55,6 +56,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+      <DashboardSchedules />
       {loading ? (
         <Loading />
       ) : error ? (
