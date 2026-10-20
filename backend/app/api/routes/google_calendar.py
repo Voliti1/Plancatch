@@ -20,6 +20,7 @@ from app.schemas.google_calendar import (
     GoogleDisconnectResponse,
 )
 from app.services import google_calendar as google
+from app.services.google_completion import completion_response
 
 router = APIRouter(prefix=google.PREFIX, tags=["google-calendar"])
 logger = logging.getLogger(__name__)
@@ -296,25 +297,4 @@ def disconnect_google(
 
 @router.get("/complete", response_class=HTMLResponse)
 def complete(request: Request):
-    messages = {
-        "connected": "Google Calendar 연결 요청을 처리했습니다. 플랜캐치에서 연결 상태를 확인해 주세요.",
-        "cancelled": "Google Calendar 연결이 취소되었거나 더 새로운 연결 요청이 있습니다.",
-        "insufficient_scope": "캘린더 권한이 승인되지 않았습니다. 연결을 다시 시작해 주세요.",
-        "refresh_token_missing": "연결 유지에 필요한 인증 정보를 받지 못했습니다. 연결을 다시 시작해 주세요.",
-    }
-    message = messages.get(
-        request.query_params.get("result", ""),
-        "Google 연결을 완료하지 못했습니다. 플랜캐치에서 다시 시도해 주세요.",
-    )
-    return HTMLResponse(
-        '<!doctype html><html lang="ko"><meta charset="utf-8"><title>PlanCatch Google 연결</title><h1>Google Calendar 연결</h1><p>'
-        + message
-        + '</p><p><a href="/settings/google-calendar">플랜캐치에서 연결 상태 확인하기</a></p>'
-        + "<p>이 단계에서는 캘린더 일정을 생성하거나 변경하지 않습니다.</p></html>",
-        headers={
-            **SAFE_HEADERS,
-            "X-Frame-Options": "DENY",
-            "X-Content-Type-Options": "nosniff",
-            "Content-Security-Policy": "default-src 'none'; base-uri 'none'; frame-ancestors 'none'",
-        },
-    )
+    return completion_response(request.query_params.get("result", ""))
