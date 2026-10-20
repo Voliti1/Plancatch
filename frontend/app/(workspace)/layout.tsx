@@ -9,6 +9,7 @@ const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
   ["/deadlines", "◷", "마감일"],
+  ["/calendar", "▦", "캘린더"],
 ];
 export default function WorkspaceLayout({
   children,
@@ -63,7 +64,7 @@ export default function WorkspaceLayout({
         </nav>
         <div className="coming">
           <span className="tag">준비 중</span>
-          <p>자동 일정 · 캘린더</p>
+          <p>자동 일정 · Google 연동</p>
           <small>
             계획의 다음 단계도
             <br />곧 이곳에서 함께해요.

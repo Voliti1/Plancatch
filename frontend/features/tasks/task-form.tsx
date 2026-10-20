@@ -292,8 +292,8 @@ export function TaskForm({
             {settings}
             {times}
             <p className="muted small">
-              가능 기간과 작업 유형을 저장합니다. 실제 캘린더 배치와 자동 일정
-              생성은 준비 중입니다.
+              가능 기간과 작업 유형을 저장합니다. 실제 시간은 저장 후 일정
+              상세에서 캘린더에 배치할 수 있습니다. 자동 배치는 준비 중입니다.
             </p>
             {descriptionField}
             {completion}
@@ -301,8 +301,8 @@ export function TaskForm({
         )}
         {simple && (
           <p className="muted small calendar-task-help">
-            입력한 시간은 일정의 가능 기간으로 저장됩니다. 캘린더 배치와 Google
-            Calendar 동기화는 아직 지원하지 않습니다.
+            입력한 시간은 일정의 가능 기간으로 저장됩니다. 저장 후 일정 상세에서
+            캘린더에 배치할 수 있습니다. Google Calendar 동기화는 준비 중입니다.
           </p>
         )}
         {error && <ErrorNotice message={error} />}
