@@ -1,5 +1,12 @@
 # PlanCatch backend
 
+## Google Calendar connection
+
+Account connection/status/disconnection is separate from event synchronization.
+See [setup, API contract and frontend handoff](docs/google-calendar-connection.md).
+Production activation requires HTTPS, server-only credentials and migration 0007;
+the earlier one-time OAuth probe did not save a connection.
+
 ## Local setup
 
 Create and activate a Python 3.12 virtual environment, then install the dependencies:
