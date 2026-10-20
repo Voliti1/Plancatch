@@ -23,8 +23,8 @@ export function SourceList() {
         }
       />
       <div className="notice subtle">
-        URL과 텍스트를 저장할 수 있습니다. 파일 업로드와 AI 분석은 준비
-        중입니다.
+        URL과 텍스트를 저장할 수 있습니다. 파일 업로드는 준비 중이며, 원문
+        추출과 AI 검토는 자료 상세 화면에서 진행합니다.
       </div>
       <SourcePage key={page} page={page} onChange={setPage} />
     </>

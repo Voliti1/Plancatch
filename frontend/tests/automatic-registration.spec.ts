@@ -625,7 +625,7 @@ test("lost success response and refresh resume do not duplicate source, AI or de
   expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
 });
 
-test("source library still offers the unchanged manual source form", async ({
+test("source library still offers manual URL and text saving alongside automatic registration", async ({
   page,
 }) => {
   await mockApi(page);
@@ -633,12 +633,12 @@ test("source library still offers the unchanged manual source form", async ({
   await page.getByRole("link", { name: "원본 자료", exact: true }).click();
   await page.getByRole("link", { name: "＋ 자료 등록" }).click();
   await expect(
-    page.getByRole("heading", { name: "자료 등록", exact: true }),
+    page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "자료 저장", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "텍스트", exact: true }),
+    page.getByLabel("원본 텍스트", { exact: true }),
   ).toBeVisible();
 });

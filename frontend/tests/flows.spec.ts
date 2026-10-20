@@ -44,7 +44,6 @@ test("URL and text source registration and empty list", async ({ page }) => {
   await page.getByRole("button", { name: "자료 저장" }).click();
   await expect(page.getByRole("heading", { name: "수업 공지" })).toBeVisible();
   await page.getByRole("link", { name: "＋ 자료 등록" }).click();
-  await page.getByRole("button", { name: "텍스트", exact: true }).click();
   await page.getByLabel("원본 텍스트").fill("다음 주 발표 자료 제출");
   await page.getByRole("button", { name: "자료 저장" }).click();
   await page.getByText("텍스트 내용 보기").click();
