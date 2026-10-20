@@ -7,6 +7,7 @@ import { PageHeading } from "@/components/page-heading";
 import { SourceForm } from "@/features/sources/source-form";
 import { TaskForm } from "@/features/tasks/task-form";
 import { tasksApi } from "@/features/tasks/api";
+import "./manual-registration.css";
 
 type RegistrationMode = "source" | "manual";
 
@@ -117,7 +118,7 @@ export function ScheduleRegistration({
         hidden={mode !== "manual"}
       >
         {manualOpened && (
-          <section className="card source-registration">
+          <section className="card source-registration manual-registration-card">
             <div className="manual-registration-heading">
               <h2>수동 일정 등록</h2>
               <Link
@@ -132,12 +133,13 @@ export function ScheduleRegistration({
               </Link>
             </div>
             <p className="small muted">
-              고정 일정·유동 작업의 이름, 소요시간과 가능 기간을 직접
-              입력하세요.
+              일정명과 시간을 입력하세요. 필요한 내용은 나중에 수정할 수
+              있습니다.
             </p>
             <TaskForm
               deadlineId={deadlineId}
-              submitLabel="수동 일정 등록"
+              variant="calendar"
+              submitLabel="일정 등록"
               disabled={saving}
               onCancel={() => selectMode("source")}
               onSave={async (payload) => {
