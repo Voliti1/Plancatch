@@ -18,7 +18,10 @@ export function DashboardSchedules() {
     >
       <div className="section-header">
         <h2 id="dashboard-schedules-title">등록한 일정</h2>
-        <Link href="/tasks">전체 일정 보기 →</Link>
+        <div className="calendar-dashboard-links">
+          <Link href="/calendar">캘린더 보기 →</Link>
+          <Link href="/tasks">전체 일정 보기 →</Link>
+        </div>
       </div>
       <p className="muted small">최근 등록순으로 최대 5개를 보여줍니다.</p>
       {loading ? (
@@ -69,8 +72,8 @@ export function DashboardSchedules() {
         </Empty>
       )}
       <p className="muted small schedule-window-note">
-        표시된 시간은 입력한 가능 기간입니다. 실제 캘린더 배치와 동기화는 준비
-        중입니다.
+        표시된 시간은 입력한 가능 기간입니다. 실제 배치 시간은 캘린더에서
+        확인하세요.
       </p>
     </section>
   );
