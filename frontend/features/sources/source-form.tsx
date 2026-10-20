@@ -8,6 +8,7 @@ import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useHydrated } from "@/lib/use-hydrated";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import "./source-registration.css";
 export function SourceForm() {
   const hydrated = useHydrated();
@@ -130,6 +131,12 @@ export function SourceForm() {
                 <p id="source-url-help" className="small muted">
                   일정이 안내된 공지나 게시글 주소를 붙여 넣으세요.
                 </p>
+                <NewRegistrationLink
+                  className="text-button"
+                  href="/deadlines/auto"
+                >
+                  URL 자동 등록 화면 열기 →
+                </NewRegistrationLink>
               </section>
               <section aria-labelledby="source-text-heading">
                 <h3 id="source-text-heading">텍스트로 추가</h3>

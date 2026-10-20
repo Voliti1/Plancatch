@@ -12,8 +12,18 @@ test("dashboard opens the separate registration screen with responsive inputs", 
   await expect(
     page.getByRole("button", { name: "PDF·JPG 파일 선택" }),
   ).toHaveCount(0);
-  await page.getByRole("link", { name: "자료 등록하기 ↗", exact: true }).click();
-  await expect(page).toHaveURL(/\/sources\/new$/);
+  const main = page.getByRole("main");
+  await expect(
+    main.getByRole("link", { name: "자료 등록하기 ↗", exact: true }),
+  ).toHaveCount(0);
+  const entry = main.getByRole("link", {
+    name: "새 일정 등록하기 ↗",
+    exact: true,
+  });
+  await expect(entry).toHaveCount(1);
+  await expect(entry).toHaveAttribute("href", "/sources/new");
+  await entry.click();
+  await expect(page).toHaveURL(/\/sources\/new\?new=.+$/);
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
