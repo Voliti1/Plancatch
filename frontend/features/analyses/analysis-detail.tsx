@@ -132,9 +132,14 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           </ul>
         </section>
       )}
-      {data.source_period && (
-        <SourcePeriodSummary period={data.source_period} now={now} />
-      )}
+      <div
+        className={`analysis-overview${data.source_period ? " has-period" : ""}`}
+      >
+        {data.source_period && (
+          <SourcePeriodSummary period={data.source_period} now={now} />
+        )}
+        <ReviewSummary analysis={data} />
+      </div>
       {data.status === "approved" && (
         <section className="card analysis-approved">
           <h2>마감일 등록 완료</h2>
@@ -168,7 +173,6 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         </p>
       )}
       <div className="analysis-grid">
-        <ReviewSummary analysis={data} />
         <section className="card analysis-review">
           <h2>마감일 후보</h2>
           <p className="small muted">
