@@ -12,8 +12,18 @@ test("dashboard opens the separate registration screen with responsive inputs", 
   await expect(
     page.getByRole("button", { name: "PDF·JPG 파일 선택" }),
   ).toHaveCount(0);
-  await page.getByRole("link", { name: "자료 등록하기 ↗", exact: true }).click();
-  await expect(page).toHaveURL(/\/sources\/new$/);
+  const main = page.getByRole("main");
+  await expect(
+    main.getByRole("link", { name: "자료 등록하기 ↗", exact: true }),
+  ).toHaveCount(0);
+  const entry = main.getByRole("link", {
+    name: "새 일정 등록하기 ↗",
+    exact: true,
+  });
+  await expect(entry).toHaveCount(1);
+  await expect(entry).toHaveAttribute("href", "/sources/new");
+  await entry.click();
+  await expect(page).toHaveURL(/\/sources\/new\?new=.+$/);
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
@@ -244,4 +254,60 @@ test("direct registration access still requires login", async ({ page }) => {
   await expect(
     page.getByRole("button", { name: "PDF·JPG 파일 선택" }),
   ).toHaveCount(0);
+});
+
+test("a late save response cannot navigate away from a fresh registration", async ({
+  page,
+}) => {
+  await login(page);
+  await page.goto("/sources/new");
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/test-api/api/sources", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    const body = route.request().postDataJSON();
+    await pending;
+    await route.fulfill({ status: 201, json: { id: "late-source", ...body } });
+  });
+  await page
+    .getByLabel("원본 URL", { exact: true })
+    .fill("https://example.com/old");
+  const sent = page.waitForRequest(
+    (request) =>
+      request.method() === "POST" && request.url().endsWith("/api/sources"),
+  );
+  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await sent;
+  try {
+    await page
+      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .click();
+    await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+    await page.getByLabel("자료 제목 (선택)").fill("유지할 새 입력");
+    const freshUrl = page.url();
+    const response = page.waitForResponse(
+      (reply) =>
+        reply.request().method() === "POST" &&
+        reply.url().endsWith("/api/sources"),
+    );
+    release();
+    await (await response).finished();
+    // Observe the unwanted navigation event, rather than asserting before the
+    // old request's continuation has had a chance to run.
+    const staleNavigation = await page
+      .waitForURL(/\/sources$/, { timeout: 1500 })
+      .then(
+        () => true,
+        () => false,
+      );
+    expect(staleNavigation).toBe(false);
+    await expect(page).toHaveURL(freshUrl);
+    await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue(
+      "유지할 새 입력",
+    );
+  } finally {
+    release();
+  }
 });

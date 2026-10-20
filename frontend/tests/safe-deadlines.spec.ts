@@ -24,7 +24,7 @@ async function open(page: Page, initial: Deadline[] = [deadline]) {
   await page.goto("/deadlines");
 }
 
-test("dashboard displays server safety dates and retains fresh automatic registration", async ({
+test("dashboard displays server safety dates and opens the shared registration screen", async ({
   page,
 }) => {
   await mockApi(page, [], { deadlines: [deadline] });
@@ -44,9 +44,9 @@ test("dashboard displays server safety dates and retains fresh automatic registr
     .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "자동 일정 등록" }),
+    page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("");
 });
 
 test("creating without safety sends null and a past deadline can be configured with a one-minute buffer", async ({
