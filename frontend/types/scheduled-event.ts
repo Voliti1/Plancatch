@@ -7,6 +7,7 @@ export interface ScheduledEventInput {
 }
 export interface ScheduledEvent extends Omit<ScheduledEventInput, "status"> {
   id: string;
+  task_title?: string | null;
   status: EditableEventStatus | "synced";
   is_user_approved: boolean;
   google_calendar_id: string | null;

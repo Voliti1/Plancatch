@@ -53,6 +53,46 @@ export async function mockApi(
       "Bearer test-only-placeholder",
     );
     if (path === "/api/auth/me") return route.fulfill({ json: user });
+    if (path === "/api/scheduled-events" && method === "GET")
+      return route.fulfill({ json: [] });
+    if (path === "/api/calendar/registrations" && method === "GET") {
+      const first = Date.parse(url.searchParams.get("start_from")!),
+        last = Date.parse(url.searchParams.get("end_before")!);
+      const entries = [
+        ...deadlines
+          .filter(
+            (d) => Date.parse(d.due_at) >= first && Date.parse(d.due_at) < last,
+          )
+          .map((d) => ({
+            id: d.id,
+            kind: "deadline",
+            title: d.title,
+            start_at: d.due_at,
+            end_at: null,
+            is_confirmed: d.is_confirmed,
+            is_completed: false,
+          })),
+        ...tasks
+          .filter(
+            (t) =>
+              t.schedule_type === "fixed" &&
+              t.earliest_start &&
+              t.latest_end &&
+              Date.parse(t.earliest_start) < last &&
+              Date.parse(t.latest_end) > first,
+          )
+          .map((t) => ({
+            id: t.id,
+            kind: "fixed_task",
+            title: t.title,
+            start_at: t.earliest_start,
+            end_at: t.latest_end,
+            is_confirmed: true,
+            is_completed: t.is_completed,
+          })),
+      ];
+      return route.fulfill({ json: { entries, has_more: false } });
+    }
     if (path === "/api/sources") {
       if (method === "POST") {
         const source = {

@@ -44,6 +44,7 @@ class ScheduledEventResponse(BaseModel):
 
     id: uuid.UUID
     task_id: uuid.UUID
+    task_title: str | None = None
     start_at: datetime
     end_at: datetime
     status: Literal["recommended", "approved", "synced", "cancelled"]
