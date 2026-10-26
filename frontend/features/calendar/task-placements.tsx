@@ -11,6 +11,7 @@ import { eventsApi } from "./api";
 import { lockedEvent, statusLabel } from "./dates";
 import { EventForm } from "./event-form";
 import "./calendar.css";
+import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 
 export function TaskPlacements({ task }: { task: Task }) {
   const load = useCallback(
@@ -54,8 +55,8 @@ export function TaskPlacements({ task }: { task: Task }) {
         <Link href="/calendar">캘린더 보기 →</Link>
       </div>
       <p className="small muted">
-        배치 버튼으로 확정한 시간만 캘린더에 저장합니다. Google Calendar에는
-        전송하지 않습니다.
+        배치 버튼으로 확정한 시간만 플랜캐치 캘린더에 저장합니다. Google에는
+        아래 전송 미리보기에서 확인한 뒤 별도로 등록합니다.
       </p>
       {message && (
         <p role="status" className="success">
@@ -147,6 +148,16 @@ export function TaskPlacements({ task }: { task: Task }) {
                         </button>
                       </div>
                     )}
+                    {event.status === "approved" &&
+                      !editor &&
+                      !confirmation && (
+                        <GoogleExportPanel
+                          key={`${event.id}-${event.updated_at}`}
+                          kind="event"
+                          itemId={event.id}
+                          disabled={busy}
+                        />
+                      )}
                   </li>
                 ))}
               </ul>

@@ -11,6 +11,7 @@ import { formatSeoul } from "@/lib/date/seoul";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { DeadlineTasks } from "@/features/tasks/deadline-tasks";
+import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 export function DeadlineDetail({ id }: { id: string }) {
   const loader = useCallback(() => deadlinesApi.get(id), [id]);
   const { data, loading, error, reload } = useResource(loader);
@@ -55,6 +56,12 @@ export function DeadlineDetail({ id }: { id: string }) {
           </div>
         )}
       </section>
+      <GoogleExportPanel
+        key={`${id}-${data.updated_at}`}
+        kind="deadline"
+        itemId={id}
+        disabled={deleting}
+      />
       <DeadlineTasks deadlineId={id} />
       <section className="card danger-zone">
         <div>

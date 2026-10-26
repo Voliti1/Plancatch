@@ -1,6 +1,7 @@
 import { api } from "@/lib/api/client";
 import { addDays, utcMidnight } from "@/features/calendar/dates";
 import type { ScheduledEvent } from "@/types/scheduled-event";
+import type { CalendarRegistration } from "@/features/calendar/registrations";
 
 export interface GoogleEvent {
   id: string;
@@ -9,6 +10,8 @@ export interface GoogleEvent {
   end_at: string | null;
   start_date: string | null;
   end_date: string | null;
+  local_kind?: "deadline" | "task" | "event" | null;
+  local_item_id?: string | null;
 }
 export interface GoogleEventsPage {
   events: GoogleEvent[];
@@ -40,13 +43,31 @@ export function googleOnDay(event: GoogleEvent, day: string): boolean {
 export function withoutLocalDuplicates(
   events: GoogleEvent[],
   local: ScheduledEvent[],
+  registered: CalendarRegistration[] = [],
 ) {
   return events.filter(
     (event) =>
+      !registered.some(
+        (row) =>
+          event.local_item_id === row.id &&
+          event.title === row.title &&
+          event.local_kind ===
+            (row.kind === "deadline" ? "deadline" : "task") &&
+          event.start_at &&
+          event.end_at &&
+          Date.parse(row.start_at) === Date.parse(event.start_at) &&
+          Date.parse(event.end_at) ===
+            (row.end_at
+              ? Date.parse(row.end_at)
+              : Date.parse(row.start_at) + 60000),
+      ) &&
       !local.some(
         (row) =>
-          row.google_calendar_id === "primary" &&
-          row.google_event_id === event.id &&
+          ((row.google_calendar_id === "primary" &&
+            row.google_event_id === event.id) ||
+            (event.local_kind === "event" &&
+              event.local_item_id === row.id &&
+              row.task_title === event.title)) &&
           event.start_at &&
           event.end_at &&
           Date.parse(row.start_at) === Date.parse(event.start_at) &&
