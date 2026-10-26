@@ -49,7 +49,7 @@ export function SourceList() {
       </div>
       <ListDeleteNotice
         deletion={deletion}
-        consequence="연결된 분석 기록도 삭제되며, 이미 등록된 마감일과 Google 일정은 유지됩니다."
+        consequence="마감일이 등록된 자료는 삭제할 수 없습니다. 삭제 가능한 자료의 분석 기록은 함께 삭제되며 Google 일정은 유지됩니다."
       />
       <SourcePage
         key={`${page}:${version}`}

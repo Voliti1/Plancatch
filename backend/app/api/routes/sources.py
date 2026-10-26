@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy import select, update
 
 from app.api.dependencies import CurrentUser, DatabaseSession
+from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.source import SourceCreate, SourceResponse, SourceUpdate
 from app.services.source_processing import process_source, slots
@@ -162,6 +163,8 @@ def delete_source(
     source = get_owned_source(source_id, current_user.id, db)
     if source.processing_status == "processing":
         raise HTTPException(status_code=409, detail="Source is currently processing")
+    if db.scalar(select(Deadline.id).where(Deadline.source_id == source.id).limit(1)) is not None:
+        raise HTTPException(status_code=409, detail="source_has_deadlines")
     db.delete(source)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

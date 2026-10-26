@@ -78,9 +78,10 @@ def test_deletion_foreign_key_rules():
     event_id = client.post("/api/scheduled-events", headers=auth, json={
         "task_id": task_id, "start_at": "2026-09-20T09:00:00Z", "end_at": "2026-09-20T10:00:00Z",
     }).json()["id"]
-    assert client.delete(f"/api/sources/{source_id}", headers=auth).status_code == 204
-    assert client.get(f"/api/deadlines/{deadline_id}", headers=auth).json()["source_id"] is None
+    assert client.delete(f"/api/sources/{source_id}", headers=auth).status_code == 409
+    assert client.get(f"/api/deadlines/{deadline_id}", headers=auth).json()["source_id"] == source_id
     assert client.delete(f"/api/deadlines/{deadline_id}", headers=auth).status_code == 204
+    assert client.delete(f"/api/sources/{source_id}", headers=auth).status_code == 204
     assert client.get(f"/api/tasks/{task_id}", headers=auth).json()["deadline_id"] is None
     assert client.delete(f"/api/tasks/{task_id}", headers=auth).status_code == 204
     assert client.get(f"/api/scheduled-events/{event_id}", headers=auth).status_code == 404

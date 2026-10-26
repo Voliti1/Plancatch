@@ -50,7 +50,7 @@ def validate_owned_source(
         select(Source.id).where(
             Source.id == source_id,
             Source.user_id == user_id,
-        ),
+        ).with_for_update(),
     )
     if owned_source_id is None:
         raise HTTPException(
