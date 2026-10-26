@@ -13,7 +13,8 @@
   align-items: center;
   gap: 8px;
 }
-.list-delete-count {
+.list-delete-selection .list-delete-count {
+  font-size: 11pt;
   white-space: nowrap;
 }
 .list-delete-controls .danger.secondary {
