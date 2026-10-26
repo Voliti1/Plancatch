@@ -4,7 +4,9 @@ from fastapi import APIRouter
 
 from app.api.routes.analyses import router as analyses_router
 from app.api.routes.auth import router as auth_router
-from app.api.routes.calendar_registrations import router as calendar_registrations_router
+from app.api.routes.calendar_registrations import (
+    router as calendar_registrations_router,
+)
 from app.api.routes.deadlines import router as deadlines_router
 from app.api.routes.google_calendar import router as google_calendar_router
 from app.api.routes.health import router as health_router

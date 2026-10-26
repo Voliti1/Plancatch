@@ -15,7 +15,7 @@ test("consent, analysis polling, full candidate save and selected approval persi
   expect(state.starts).toBe(0);
   await page
     .getByRole("checkbox", {
-      name: "HTML 직접 분석을 사용할 수 없는 경우 이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다.",
+      name: "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다.",
       exact: true,
     })
     .check();

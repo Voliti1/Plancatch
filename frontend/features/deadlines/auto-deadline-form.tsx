@@ -140,7 +140,7 @@ function RegistrationSession({ userId }: { userId: string }) {
       if (result.kind === "review") {
         setReviewId(result.id);
         setProgress(
-          "날짜가 여러 개이거나 확인할 내용이 있어 자동 등록하지 않았습니다. 분석 결과를 검토해 주세요.",
+          "HTML에서 읽은 날짜를 확인해 주세요. 검토 화면에서 선택·승인해야 마감일이 등록됩니다.",
         );
       } else {
         try {
@@ -224,14 +224,13 @@ function RegistrationSession({ userId }: { userId: string }) {
             PDF·이미지, JavaScript 실행이 필요한 페이지는 읽지 않습니다.
           </p>
           <p className="muted small">
-            사람인 접수기간을 확인할 수 있으면 HTML에서 직접 읽어 등록합니다. 그
-            외에는 동의한 범위에서 Gemini로 분석합니다.
+            URL의 HTML에서 날짜를 직접 읽습니다. Gemini 등 외부 AI로 원문을
+            전송하지 않습니다.
           </p>
           <p className="notice">
-            명확한 마감일 후보가 하나일 때 입력한 제목으로 자동 등록합니다. 여러
-            후보·날짜 누락·AI 주의사항이 있으면 검토 화면에서 직접 확인합니다.
-            작업 생성·자동 배치·Google Calendar 동기화는 하지 않습니다. AI
-            추출에는 오류가 있을 수 있으니 등록된 날짜를 원문과 확인해 주세요.
+            날짜가 하나여도 검토 후 승인해야 등록됩니다. 여러 날짜는 선택지로
+            제공하고, 채용 시 마감이나 날짜 누락은 직접 일시를 입력해야 합니다.
+            작업 생성·자동 배치·Google Calendar 동기화는 하지 않습니다.
           </p>
           <label className="checkbox analysis-consent">
             <input
@@ -240,8 +239,7 @@ function RegistrationSession({ userId }: { userId: string }) {
               onChange={(event) => setConsent(event.target.checked)}
             />
             <span>
-              HTML 직접 분석이 불가능하면 추출 원문 전체를 Google Gemini로
-              전송하고, 명확한 마감일 하나를 자동 등록하는 데 동의합니다.
+              HTML에서 읽은 날짜를 원문과 비교하고, 검토 후 등록하겠습니다.
             </span>
           </label>
           {draft.sourceId && !busy && (
@@ -262,7 +260,7 @@ function RegistrationSession({ userId }: { userId: string }) {
               className="button"
               href={`/analyses/${encodeURIComponent(reviewId)}`}
             >
-              AI 결과 검토하기 →
+              마감일 검토하기 →
             </Link>
           ) : (
             <button type="submit" disabled={!consent}>

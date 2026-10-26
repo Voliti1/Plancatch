@@ -107,4 +107,4 @@ def test_previously_login_required_public_job_can_be_retried(monkeypatch):
     assert result["error_message"] is None
     assert result["original_url"] == PUBLIC_RELAY
     assert result["title"] == "My selected title"
-    assert result["extracted_text"] == "마감일\n2026.10.01 23:59"
+    assert result["extracted_text"].startswith("마감일\n2026.10.01 23:59\n\n")

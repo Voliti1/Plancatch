@@ -29,9 +29,11 @@ export function SourceAnalyses({
   const router = useRouter();
   const consentId = useId();
   const textLength = Array.from(source.extracted_text ?? "").length;
+  const urlOnly = source.source_type === "url";
   const extracted = source.processing_status === "extracted" && textLength > 0;
   const consent = extracted && consentText === source.extracted_text;
-  const allowed = extracted && textLength <= 40000 && !hasProcessing;
+  const allowed =
+    extracted && (urlOnly || textLength <= 40000) && !hasProcessing;
   async function start() {
     if (pending.current || !consent || !allowed || disabled) return;
     pending.current = true;
@@ -39,7 +41,7 @@ export function SourceAnalyses({
     onBusy(true);
     setError("");
     try {
-      const result = await analysesApi.start(source.id);
+      const result = await analysesApi.start(source.id, undefined, !urlOnly);
       router.push(`/analyses/${encodeURIComponent(result.id)}`);
     } catch (err) {
       setError(analysisError(err));
@@ -51,15 +53,15 @@ export function SourceAnalyses({
   }
   return (
     <section className="card form-card analysis-launch">
-      <h2>2. AI 마감일 분석</h2>
+      <h2>{urlOnly ? "2. HTML 마감일 확인" : "2. AI 마감일 분석"}</h2>
       <p className="muted">
         추출한 원문에서 마감일 후보를 찾습니다. 분석 결과를 직접 검토하고
         승인해야 실제 마감일이 등록됩니다.
       </p>
       <p className="small muted">
-        사람인 URL의 접수기간을 확인할 수 있으면 HTML 값으로 직접 분석하며
-        Gemini에 전송하지 않습니다. 그 외에는 아래 동의 범위에서 AI로
-        분석합니다.
+        {urlOnly
+          ? "URL 자료는 저장된 HTML에서 날짜를 직접 읽습니다. 외부 AI에 전송하지 않으며, 날짜를 확인한 뒤 승인해야 등록됩니다."
+          : "텍스트 자료는 동의한 원문을 Gemini로 분석합니다."}
       </p>
       {!extracted && (
         <p className="notice">
@@ -68,11 +70,11 @@ export function SourceAnalyses({
       )}
       {extracted && (
         <p className="small muted">
-          추출한 원문 {textLength.toLocaleString("ko-KR")}자 · 분석 한도
-          40,000자
+          추출한 원문 {textLength.toLocaleString("ko-KR")}자
+          {!urlOnly && " · 분석 한도 40,000자"}
         </p>
       )}
-      {textLength > 40000 && (
+      {!urlOnly && textLength > 40000 && (
         <ErrorNotice message="원문이 AI 분석 한도 40,000자를 초과했습니다. 필요한 내용을 나누어 새 텍스트 자료로 등록해 주세요. 원문을 자동으로 자르지 않습니다." />
       )}
       <label className="checkbox analysis-consent">
@@ -86,15 +88,16 @@ export function SourceAnalyses({
           }
         />
         <span id={consentId}>
-          HTML 직접 분석을 사용할 수 없는 경우 이 자료의 추출 원문 전체를 Google
-          Gemini에 전송하여 분석하는 데 동의합니다.
+          {urlOnly
+            ? "HTML에서 읽은 날짜를 직접 검토한 후 등록하겠습니다."
+            : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
         </span>
       </label>
       <button
         disabled={disabled || busy || !consent || !allowed}
         onClick={() => void start()}
       >
-        {busy ? "분석 요청 중…" : "AI 분석 시작"}
+        {busy ? "분석 요청 중…" : urlOnly ? "HTML 마감일 확인" : "AI 분석 시작"}
       </button>
       {error && <ErrorNotice message={error} />}
       <div className="analysis-history">

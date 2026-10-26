@@ -117,11 +117,12 @@ class PeriodParser(PageParser):
         super().handle_endtag(tag)
 
 
-def period_text(html: str, url: str | None) -> str:
+def period_text(html: str, url: str | None, parser: PeriodParser | None = None) -> str:
     if not url or not is_job_url(url):
         return ""
-    parser = PeriodParser()
-    parser.feed(html)
+    if parser is None:
+        parser = PeriodParser()
+        parser.feed(html)
     pairs = [pair for section in parser.sections for pair in section["pairs"]]
     if not pairs:
         return ""  # Timer-only content never creates an absolute deadline.
@@ -137,6 +138,8 @@ def period_text(html: str, url: str | None) -> str:
         lines.append(f"시작일 원문: {start}")
     if end:
         lines.append(f"마감일 원문: {end}")
+    elif len(ends) > 1:
+        lines.extend(f"마감일 후보 원문: {value}" for value in sorted(ends))
     if end_at and not conflict:
         lines.append(f"마감일 (정규화): {end_at.replace(tzinfo=None).isoformat()}")
         lines.append(DEFAULT_TIMEZONE_POLICY)

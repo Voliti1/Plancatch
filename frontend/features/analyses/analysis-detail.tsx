@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
@@ -41,10 +42,21 @@ export function AnalysisDetail({ id }: { id: string }) {
 }
 const isProcessing = (analysis: Analysis) => analysis.status === "processing";
 function AnalysisSession({ initial }: { initial: Analysis }) {
+  const router = useRouter();
   const now = usePeriodClock();
   const [data, setData] = useState(initial);
   const fromHtml = isHtmlAnalysis(data.model);
   const [notice, setNotice] = useState("");
+  const [recovering, setRecovering] = useState(false);
+  const [recoveryError, setRecoveryError] = useState("");
+  const recoveryPending = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
   const read = useCallback(
     (signal: AbortSignal) => analysesApi.get(initial.id, signal),
     [initial.id],
@@ -79,7 +91,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
       </p>
       {fromHtml && (
         <p className="success">
-          사람인 HTML 직접 분석 방식입니다. Gemini를 호출하거나 원문을 외부 AI에
+          URL의 HTML 직접 분석 방식입니다. Gemini를 호출하거나 원문을 외부 AI에
           전송하지 않습니다.
         </p>
       )}
@@ -119,6 +131,43 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           </Link>
         </p>
       )}
+      {data.status === "failed" &&
+      (data.date_choices?.length || data.source_period) ? (
+        <section className="card">
+          <h2>읽어 온 날짜로 검토 계속하기</h2>
+          <p>
+            기존 오류 기록은 유지합니다. 같은 원문을 외부 AI에 보내지 않고 새
+            HTML 검토를 만듭니다.
+          </p>
+          <ul>
+            {data.date_choices?.map((choice) => (
+              <li key={choice.id}>{choice.raw_text}</li>
+            ))}
+          </ul>
+          <button
+            disabled={recovering}
+            onClick={async () => {
+              if (recoveryPending.current) return;
+              recoveryPending.current = true;
+              setRecovering(true);
+              setRecoveryError("");
+              try {
+                const result = await analysesApi.recoverHtml(data.id);
+                if (!active.current) return;
+                router.push(`/analyses/${encodeURIComponent(result.id)}`);
+              } catch (err) {
+                if (!active.current) return;
+                setRecoveryError(analysisError(err));
+                recoveryPending.current = false;
+                setRecovering(false);
+              }
+            }}
+          >
+            {recovering ? "검토 준비 중…" : "HTML 날짜로 검토 계속"}
+          </button>
+          {recoveryError && <ErrorNotice message={recoveryError} />}
+        </section>
+      ) : null}
       {data.warnings.length > 0 && (
         <section
           className="notice analysis-warnings"

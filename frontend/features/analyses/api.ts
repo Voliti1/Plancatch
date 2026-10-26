@@ -7,14 +7,16 @@ export const analysesApi = {
       `/api/sources/${encodeURIComponent(sourceId)}/ai-analyses?limit=10&offset=${offset}`,
       { signal },
     ),
-  start: (sourceId: string, signal?: AbortSignal) =>
+  start: (sourceId: string, signal?: AbortSignal, allowExternalAi = true) =>
     api<Analysis>(`/api/sources/${encodeURIComponent(sourceId)}/ai-analyses`, {
       method: "POST",
-      body: JSON.stringify({ allow_external_ai: true }),
+      body: JSON.stringify({ allow_external_ai: allowExternalAi }),
       signal,
     }),
   get: (id: string, signal?: AbortSignal) =>
     api<Analysis>(path(id), { signal }),
+  recoverHtml: (id: string) =>
+    api<Analysis>(`${path(id)}/recover-html`, { method: "POST" }),
   review: (id: string, revision: number, candidates: CandidateEdit[]) =>
     api<Analysis>(path(id), {
       method: "PATCH",

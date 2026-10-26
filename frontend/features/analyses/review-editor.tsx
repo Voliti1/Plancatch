@@ -20,6 +20,7 @@ type Draft = {
   due: string;
   description: string;
   selected: boolean;
+  chosenDue?: string;
 };
 const draftOf = (candidate: AnalysisCandidate): Draft => ({
   id: candidate.id,
@@ -36,9 +37,11 @@ function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
     title: draft.title.trim(),
     due_at: !draft.due
       ? null
-      : original.due_at && draft.due === toSeoulInput(original.due_at)
-        ? original.due_at
-        : seoulInputToUtc(draft.due),
+      : draft.chosenDue && draft.due === toSeoulInput(draft.chosenDue)
+        ? draft.chosenDue
+        : original.due_at && draft.due === toSeoulInput(original.due_at)
+          ? original.due_at
+          : seoulInputToUtc(draft.due),
     description: draft.description.trim() || null,
     selected: draft.selected,
   };
@@ -77,6 +80,7 @@ export function ReviewEditor({
   const [conflict, setConflict] = useState(false);
   const [confirmReject, setConfirmReject] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
+  const [choiceNotice, setChoiceNotice] = useState("");
   const pending = useRef(false);
   const formId = useId();
   const dirty =
@@ -186,8 +190,62 @@ export function ReviewEditor({
                 id={`${formId}-${index}-due`}
                 type="datetime-local"
                 value={draft.due}
-                onChange={(event) => update(index, { due: event.target.value })}
+                onChange={(event) =>
+                  update(index, {
+                    due: event.target.value,
+                    chosenDue: undefined,
+                  })
+                }
               />
+              {(analysis.date_choices?.length ?? 0) > 0 && (
+                <div
+                  role="group"
+                  aria-label={`후보 ${index + 1} 읽은 날짜 선택`}
+                >
+                  <p className="small muted">
+                    HTML에서 읽은 날짜 중 마감일을 선택하세요.
+                  </p>
+                  <div className="review-secondary-actions">
+                    {analysis.date_choices!.map((choice) => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        className="secondary"
+                        aria-pressed={Boolean(
+                          choice.due_at &&
+                          draft.due === toSeoulInput(choice.due_at),
+                        )}
+                        onClick={() => {
+                          update(index, {
+                            due:
+                              choice.due_at && !analysis.is_open_ended
+                                ? toSeoulInput(choice.due_at)
+                                : "",
+                            selected: true,
+                            chosenDue: !analysis.is_open_ended
+                              ? (choice.due_at ?? undefined)
+                              : undefined,
+                          });
+                          setChoiceNotice(
+                            choice.due_at && !analysis.is_open_ended
+                              ? `선택한 날짜: ${choice.raw_text}. 검토 내용을 저장한 후 승인하세요.`
+                              : `선택한 원문: ${choice.raw_text}. 빠진 연도나 시간을 추측하지 않습니다. 마감 일시를 직접 입력해 주세요.`,
+                          );
+                        }}
+                      >
+                        {choice.raw_text}
+                        {!choice.due_at ? " · 일시 입력 필요" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {analysis.is_open_ended && (
+                <p className="notice small">
+                  채용 시 마감·상시 모집입니다. 원하는 마감 날짜와 시간을 직접
+                  입력해야 등록할 수 있습니다.
+                </p>
+              )}
               {!original.due_at && (
                 <p className="notice small">
                   원문에서 날짜를 확정하지 못했습니다. 마감일을 직접 확인하거나
@@ -224,6 +282,11 @@ export function ReviewEditor({
           </p>
         )}
         <div className="review-actions">
+          {choiceNotice && (
+            <p className="notice small" role="status">
+              {choiceNotice}
+            </p>
+          )}
           <p>
             {selected.length}개 선택 · 승인 전에는 실제 마감일이 생성되지
             않습니다.

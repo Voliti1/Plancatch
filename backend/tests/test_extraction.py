@@ -102,7 +102,9 @@ def test_public_relay_follows_same_job_canonical_under_existing_policy(monkeypat
     monkeypatch.setattr(service, "fetch_once", fetch)
     document = service.extract("url", PUBLIC_RELAY, None)
     assert document.title == "Public job"
-    assert document.text == "마감일\n2026.10.01 23:59"
+    assert document.text.startswith("마감일\n2026.10.01 23:59\n\n")
+    from app.services.url_deadlines import review_data
+    assert review_data(document.text, PUBLIC_RELAY)["choices"][0]["due_at"] == "2026-10-01T23:59:00+09:00"
     assert fetched == checked == [PUBLIC_RELAY, PUBLIC_JOB]
 
 
