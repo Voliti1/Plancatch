@@ -128,18 +128,27 @@ export function ListDeleteActions({
     <div className="list-actions">
       <div className="list-delete-controls">
         {deletion.mode && (
-          <button
-            type="button"
-            className={deletion.confirming ? "danger" : "danger secondary"}
-            disabled={deletion.busy || !deletion.selected.length}
-            onClick={() => void deletion.confirmOrDelete()}
-          >
-            {deletion.busy
-              ? "삭제 중…"
-              : deletion.confirming
-                ? "삭제 확인"
-                : "삭제"}
-          </button>
+          <div className="list-delete-selection">
+            <span
+              className="small muted list-delete-count"
+              role="status"
+              aria-live="polite"
+            >
+              {deletion.selected.length}개 선택
+            </span>
+            <button
+              type="button"
+              className={deletion.confirming ? "danger" : "danger secondary"}
+              disabled={deletion.busy || !deletion.selected.length}
+              onClick={() => void deletion.confirmOrDelete()}
+            >
+              {deletion.busy
+                ? "삭제 중…"
+                : deletion.confirming
+                  ? "삭제 확인"
+                  : "삭제"}
+            </button>
+          </div>
         )}
         <button
           type="button"
@@ -168,19 +177,15 @@ export function ListDeleteNotice({
 }) {
   return (
     <>
-      {deletion.mode && (
+      {deletion.mode && deletion.confirming && (
         <div className="notice list-delete-notice" role="status">
-          {deletion.selected.length}개 선택 · 항목 어디를 눌러도 선택하거나
-          해제할 수 있습니다.
-          {deletion.confirming && (
-            <p>
-              <strong>
-                선택한 {deletion.selected.length}개 항목을 삭제할까요?
-              </strong>{" "}
-              ‘삭제 확인’을 누르면 삭제됩니다. {consequence} 삭제한 항목은
-              복구할 수 없습니다.
-            </p>
-          )}
+          <p>
+            <strong>
+              선택한 {deletion.selected.length}개 항목을 삭제할까요?
+            </strong>{" "}
+            ‘삭제 확인’을 누르면 삭제됩니다. {consequence} 삭제한 항목은 복구할
+            수 없습니다.
+          </p>
         </div>
       )}
       {deletion.message && (

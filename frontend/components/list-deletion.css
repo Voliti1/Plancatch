@@ -8,6 +8,14 @@
 .list-actions {
   justify-content: flex-end;
 }
+.list-delete-selection {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.list-delete-count {
+  white-space: nowrap;
+}
 .list-delete-controls .danger.secondary {
   color: #b93831;
   background: #fff;
@@ -22,7 +30,7 @@
   margin-bottom: 20px;
 }
 .list-delete-notice p {
-  margin: 12px 0 0;
+  margin: 0;
 }
 .delete-selectable {
   cursor: pointer;
