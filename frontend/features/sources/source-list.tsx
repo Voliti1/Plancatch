@@ -16,8 +16,14 @@ import {
   type ListDeletion,
 } from "@/components/list-deletion";
 import type { Source } from "@/types/api";
+import {
+  HighlightTitle,
+  TitleSearch,
+  useTitleSearch,
+} from "@/components/title-search";
 export function SourceList() {
-  const [page, setPage] = useState(0);
+  const search = useTitleSearch();
+  const { page, query } = search;
   const [version, setVersion] = useState(0);
   const deletion = useListDeletion(sourcesApi.remove, () =>
     setVersion((value) => value + 1),
@@ -43,6 +49,18 @@ export function SourceList() {
           </ListDeleteActions>
         }
       />
+      <TitleSearch
+        label="원본 자료 제목 검색"
+        query={query}
+        disabled={deletion.busy}
+        onEdit={() => deletion.exit()}
+        onApply={(value) => {
+          if (!deletion.busy) {
+            deletion.exit();
+            search.apply(value);
+          }
+        }}
+      />
       <div className="notice subtle">
         URL과 텍스트를 저장하면 바로 원문 추출과 마감일 검토로 이어집니다. 기존
         자료는 상세 화면에서도 검토할 수 있습니다. 파일 업로드는 준비 중입니다.
@@ -52,13 +70,14 @@ export function SourceList() {
         consequence="마감일이 등록된 자료는 삭제할 수 없습니다. 삭제 가능한 자료의 분석 기록은 함께 삭제되며 Google 일정은 유지됩니다."
       />
       <SourcePage
-        key={`${page}:${version}`}
+        key={`${query}:${page}:${version}`}
         page={page}
+        query={query}
         deletion={deletion}
         onChange={(next) => {
           if (deletion.busy) return;
           deletion.exit();
-          setPage(next);
+          search.setPage(next);
         }}
       />
     </>
@@ -66,22 +85,31 @@ export function SourceList() {
 }
 function SourcePage({
   page,
+  query,
   onChange,
   deletion,
 }: {
   page: number;
+  query: string;
   onChange: (page: number) => void;
   deletion: ListDeletion;
 }) {
-  const loader = useCallback(() => sourcesApi.list(page * 50), [page]);
+  const loader = useCallback(
+    () => sourcesApi.list(page * 50, query),
+    [page, query],
+  );
   const { data, loading, error, reload } = useResource(loader);
   if (loading) return <Loading />;
   if (error) return <ErrorNotice message={error} retry={reload} />;
   return (
     <>
       {!data?.length ? (
-        <Empty title="등록된 자료가 없습니다">
-          자료를 등록하면 이곳에서 다시 확인할 수 있어요.
+        <Empty
+          title={query ? "검색 결과가 없습니다" : "등록된 자료가 없습니다"}
+        >
+          {query
+            ? "다른 제목으로 검색해 보세요."
+            : "자료를 등록하면 이곳에서 다시 확인할 수 있어요."}
         </Empty>
       ) : (
         <div className="source-grid">
@@ -94,10 +122,10 @@ function SourcePage({
                 label={source.title || "제목 없는 자료"}
                 className="card source-selectable"
               >
-                <SourceCard source={source} selecting />
+                <SourceCard source={source} query={query} selecting />
               </DeleteSelectable>
             ) : (
-              <SourceCard key={source.id} source={source} />
+              <SourceCard key={source.id} source={source} query={query} />
             ),
           )}
         </div>
@@ -113,9 +141,11 @@ function SourcePage({
 }
 function SourceCard({
   source,
+  query = "",
   selecting = false,
 }: {
   source: Source;
+  query?: string;
   selecting?: boolean;
 }) {
   return (
@@ -126,7 +156,12 @@ function SourceCard({
           {processingStatusLabel(source.processing_status)}
         </span>
       </div>
-      <h2>{source.title || "제목 없는 자료"}</h2>
+      <h2>
+        <HighlightTitle
+          title={source.title || "제목 없는 자료"}
+          query={query}
+        />
+      </h2>
       {source.original_url &&
         /^https?:\/\//i.test(source.original_url) &&
         (selecting ? (

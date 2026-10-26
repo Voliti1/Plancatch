@@ -55,12 +55,15 @@ def list_sources(
     db: DatabaseSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[str, Query(max_length=255)] = "",
 ) -> list[Source]:
     """List the authenticated user's source material, newest first."""
+    statement = select(Source).where(Source.user_id == current_user.id)
+    if query := q.strip():
+        statement = statement.where(Source.title.icontains(query, autoescape=True))
     return list(
         db.scalars(
-            select(Source)
-            .where(Source.user_id == current_user.id)
+            statement
             .order_by(Source.created_at.desc(), Source.id)
             .limit(limit)
             .offset(offset),
