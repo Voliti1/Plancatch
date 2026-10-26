@@ -124,7 +124,7 @@ test("PDF and JPG selection stays local and cannot be mistaken for an upload", a
     source_type: "url",
     original_url: "https://example.com/notice",
   });
-  await expect(page).toHaveURL(/\/sources$/);
+  await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
 });
 
 test("file drop deduplicates files and reload does not persist local selections", async ({
@@ -245,7 +245,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
     title: "테스트 자료",
     original_text: text,
   });
-  await expect(page).toHaveURL(/\/sources$/);
+  await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
 });
 
 test("direct registration access still requires login", async ({ page }) => {

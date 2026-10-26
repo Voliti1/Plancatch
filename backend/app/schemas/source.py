@@ -1,10 +1,18 @@
 """Source material API schemas."""
 
+import hashlib
 import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    AnyHttpUrl,
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    model_validator,
+)
 
 
 class SourceCreate(BaseModel):
@@ -49,3 +57,8 @@ class SourceResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def extracted_text_hash(self) -> str | None:
+        return hashlib.sha256(self.extracted_text.encode("utf-8")).hexdigest() if self.extracted_text is not None else None

@@ -7,10 +7,18 @@ export const analysesApi = {
       `/api/sources/${encodeURIComponent(sourceId)}/ai-analyses?limit=10&offset=${offset}`,
       { signal },
     ),
-  start: (sourceId: string, signal?: AbortSignal, allowExternalAi = true) =>
+  start: (
+    sourceId: string,
+    signal?: AbortSignal,
+    allowExternalAi = true,
+    inputHash?: string,
+  ) =>
     api<Analysis>(`/api/sources/${encodeURIComponent(sourceId)}/ai-analyses`, {
       method: "POST",
-      body: JSON.stringify({ allow_external_ai: allowExternalAi }),
+      body: JSON.stringify({
+        allow_external_ai: allowExternalAi,
+        ...(inputHash ? { input_hash: inputHash, reuse_existing: true } : {}),
+      }),
       signal,
     }),
   get: (id: string, signal?: AbortSignal) =>

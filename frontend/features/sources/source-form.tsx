@@ -71,7 +71,7 @@ export function SourceForm({
     onBusyChange?.(true);
     try {
       const sourceTitle = title.trim() || undefined;
-      await sourcesApi.create(
+      const source = await sourcesApi.create(
         originalUrl
           ? {
               source_type: "url",
@@ -82,7 +82,8 @@ export function SourceForm({
       );
       // A new keyed registration can replace this form while a save is in flight.
       // Keep the saved source, but never redirect or update its replacement.
-      if (active.current) router.push("/sources");
+      if (active.current)
+        router.push(`/sources/${encodeURIComponent(source.id)}/review`);
     } catch (err) {
       if (!active.current) return;
       setError(errorMessage(err));
@@ -101,7 +102,7 @@ export function SourceForm({
           <PageHeading
             eyebrow="NEW SCHEDULE"
             title="새 일정 등록"
-            description="일정이 담긴 자료를 등록하고, 상세 화면에서 원문 추출과 AI 검토를 이어가세요."
+            description="자료를 저장하면 바로 원문 추출과 마감일 검토를 이어갑니다."
           />
         </>
       )}
@@ -182,8 +183,9 @@ export function SourceForm({
             </div>
           </div>
           <p className="small muted source-registration-help">
-            URL 또는 텍스트 중 하나를 저장할 수 있어요. 자료 저장만으로 마감일이
-            생성되지는 않으며, 상세 화면에서 AI 검토 후 승인해야 합니다.
+            저장 후 바로 원문 추출과 마감일 검토로 이어집니다. URL은 HTML에서
+            날짜를 읽고, 텍스트는 AI 전송에 동의한 뒤 분석합니다. 검토 후
+            승인해야 마감일이 등록됩니다.
           </p>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions source-registration-actions">

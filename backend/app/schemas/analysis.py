@@ -48,6 +48,14 @@ class ProviderResult(BaseModel):
 class AnalysisRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     allow_external_ai: bool = Field(default=False, strict=True)
+    input_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    reuse_existing: bool = Field(default=False, strict=True)
+
+    @model_validator(mode="after")
+    def require_snapshot_for_reuse(self) -> "AnalysisRequest":
+        if self.reuse_existing and self.input_hash is None:
+            raise ValueError("input_hash is required to reuse a source review")
+        return self
 
 
 class DateChoice(BaseModel):
