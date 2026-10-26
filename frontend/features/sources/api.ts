@@ -1,7 +1,10 @@
 import { api, ApiError } from "@/lib/api/client";
 import type { Source, SourceInput, SourceUpdateInput } from "@/types/api";
 export const sourcesApi = {
-  list: (offset = 0) => api<Source[]>(`/api/sources?limit=50&offset=${offset}`),
+  list: (offset = 0, query = "") =>
+    api<Source[]>(
+      `/api/sources?limit=50&offset=${offset}&q=${encodeURIComponent(query)}`,
+    ),
   create: (payload: SourceInput, signal?: AbortSignal) =>
     api<Source>("/api/sources", {
       method: "POST",

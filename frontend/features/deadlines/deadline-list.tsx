@@ -11,6 +11,11 @@ import { PageHeading } from "@/components/page-heading";
 import { Pagination } from "@/components/pagination";
 import type { Deadline } from "@/types/api";
 import {
+  HighlightTitle,
+  TitleSearch,
+  useTitleSearch,
+} from "@/components/title-search";
+import {
   DeleteSelectable,
   ListDeleteActions,
   ListDeleteNotice,
@@ -20,9 +25,11 @@ import {
 export function DeadlineRows({
   deadlines,
   deletion,
+  query = "",
 }: {
   deadlines: Deadline[];
   deletion?: ListDeletion;
+  query?: string;
 }) {
   return (
     <div className="deadline-rows">
@@ -33,7 +40,9 @@ export function DeadlineRows({
               ◷
             </span>
             <div className="row-title">
-              <strong>{item.title}</strong>
+              <strong>
+                <HighlightTitle title={item.title} query={query} />
+              </strong>
               <DeadlineTimes deadline={item} compact />
               <span>{item.deadline_type || "일반"}</span>
             </div>
@@ -67,7 +76,8 @@ export function DeadlineRows({
   );
 }
 export function DeadlineList() {
-  const [page, setPage] = useState(0);
+  const search = useTitleSearch();
+  const { page, query } = search;
   const [creating, setCreating] = useState(false);
   const [version, setVersion] = useState(0);
   const deletion = useListDeletion(deadlinesApi.remove, () =>
@@ -98,6 +108,18 @@ export function DeadlineList() {
           </ListDeleteActions>
         }
       />
+      <TitleSearch
+        label="마감일 제목 검색"
+        query={query}
+        disabled={deletion.busy}
+        onEdit={() => deletion.exit()}
+        onApply={(value) => {
+          if (!deletion.busy) {
+            deletion.exit();
+            search.apply(value);
+          }
+        }}
+      />
       {creating && (
         <section className="card form-card">
           <h2>새 마감일</h2>
@@ -114,13 +136,14 @@ export function DeadlineList() {
         consequence="연결된 할 일과 Google 일정은 유지됩니다."
       />
       <DeadlinePage
-        key={`${page}:${version}`}
+        key={`${query}:${page}:${version}`}
         page={page}
+        query={query}
         deletion={deletion}
         onChange={(next) => {
           if (deletion.busy) return;
           deletion.exit();
-          setPage(next);
+          search.setPage(next);
         }}
       />
     </>
@@ -128,14 +151,19 @@ export function DeadlineList() {
 }
 function DeadlinePage({
   page,
+  query,
   onChange,
   deletion,
 }: {
   page: number;
+  query: string;
   onChange: (page: number) => void;
   deletion: ListDeletion;
 }) {
-  const loader = useCallback(() => deadlinesApi.list(page * 50), [page]);
+  const loader = useCallback(
+    () => deadlinesApi.list(page * 50, query),
+    [page, query],
+  );
   const { data, error, loading, reload } = useResource(loader);
   if (loading) return <Loading />;
   if (error) return <ErrorNotice message={error} retry={reload} />;
@@ -147,10 +175,14 @@ function DeadlinePage({
           <span className="small muted">공식 마감일이 빠른 순 · 한국 시간</span>
         </div>
         {data?.length ? (
-          <DeadlineRows deadlines={data} deletion={deletion} />
+          <DeadlineRows deadlines={data} deletion={deletion} query={query} />
         ) : (
-          <Empty title="아직 마감일이 없습니다">
-            첫 마감일을 등록하고 계획을 시작해 보세요.
+          <Empty
+            title={query ? "검색 결과가 없습니다" : "아직 마감일이 없습니다"}
+          >
+            {query
+              ? "다른 제목으로 검색해 보세요."
+              : "첫 마감일을 등록하고 계획을 시작해 보세요."}
           </Empty>
         )}
       </div>

@@ -81,9 +81,12 @@ def list_deadlines(
     is_confirmed: bool | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[str, Query(max_length=255)] = "",
 ) -> list[Deadline]:
     """List owned deadlines in chronological order."""
     statement = select(Deadline).where(Deadline.user_id == current_user.id)
+    if query := q.strip():
+        statement = statement.where(Deadline.title.icontains(query, autoescape=True))
     if is_confirmed is not None:
         statement = statement.where(Deadline.is_confirmed == is_confirmed)
 
