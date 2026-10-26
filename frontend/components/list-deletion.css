@@ -1,0 +1,95 @@
+.list-actions,
+.list-delete-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.list-actions {
+  justify-content: flex-end;
+}
+.list-delete-controls .danger.secondary {
+  color: #b93831;
+  background: #fff;
+  border: 1px solid #b93831;
+}
+.list-delete-controls .danger:not(.secondary) {
+  color: #fff;
+  background: #b93831;
+  border: 1px solid #b93831;
+}
+.list-delete-notice {
+  margin-bottom: 20px;
+}
+.list-delete-notice p {
+  margin: 12px 0 0;
+}
+.delete-selectable {
+  cursor: pointer;
+  min-width: 0;
+}
+.delete-selectable:focus-visible {
+  outline: 3px solid #b93831;
+  outline-offset: 3px;
+}
+.delete-selectable[aria-disabled="true"] {
+  cursor: wait;
+  opacity: 0.65;
+}
+.delete-selectable.is-selected {
+  background: #fff5f4;
+  box-shadow: inset 0 0 0 1px #b93831;
+  border-radius: 10px;
+}
+.delete-select-check {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #9ba5b5;
+  border-radius: 4px;
+  display: inline-grid;
+  place-items: center;
+  color: #fff;
+  background: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+.is-selected > .delete-select-check {
+  border-color: #b93831;
+  background: #b93831;
+}
+.source-selectable {
+  display: flex;
+  align-items: flex-start;
+  gap: 15px;
+}
+.source-selectable > .delete-select-check {
+  margin-top: 4px;
+}
+.source-selectable > .source-card {
+  min-width: 0;
+  flex: 1;
+}
+.source-selectable .source-text {
+  max-height: 100px;
+  overflow: hidden;
+}
+.deadline-row.delete-selectable {
+  padding-left: 10px;
+  padding-right: 10px;
+}
+@media (max-width: 640px) {
+  .page-heading .list-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  .list-actions {
+    gap: 8px;
+  }
+  .list-delete-controls {
+    gap: 8px;
+  }
+  .source-selectable {
+    gap: 10px;
+  }
+}

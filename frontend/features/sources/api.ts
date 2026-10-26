@@ -20,6 +20,9 @@ export const sourcesApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  remove: (id: string) =>
-    api<void>(`/api/sources/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  remove: (id: string, signal?: AbortSignal) =>
+    api<void>(`/api/sources/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      signal,
+    }),
 };

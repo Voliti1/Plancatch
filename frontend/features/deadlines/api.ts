@@ -34,8 +34,9 @@ export const deadlinesApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  remove: (id: string) =>
+  remove: (id: string, signal?: AbortSignal) =>
     request<void>(`/api/deadlines/${encodeURIComponent(id)}`, {
       method: "DELETE",
+      signal,
     }),
 };
