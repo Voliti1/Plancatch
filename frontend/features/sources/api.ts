@@ -1,4 +1,4 @@
-import { api } from "@/lib/api/client";
+import { api, ApiError } from "@/lib/api/client";
 import type { Source, SourceInput, SourceUpdateInput } from "@/types/api";
 export const sourcesApi = {
   list: (offset = 0) => api<Source[]>(`/api/sources?limit=50&offset=${offset}`),
@@ -20,9 +20,26 @@ export const sourcesApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  remove: (id: string, signal?: AbortSignal) =>
-    api<void>(`/api/sources/${encodeURIComponent(id)}`, {
-      method: "DELETE",
-      signal,
-    }),
+  remove: async (id: string, signal?: AbortSignal) => {
+    try {
+      return await api<void>(`/api/sources/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+        signal,
+      });
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 409) {
+        if (error.message === "source_has_deadlines")
+          throw new ApiError(
+            "마감일이 등록된 원본 자료는 삭제할 수 없습니다. 연결된 마감일을 먼저 삭제한 후 다시 시도해 주세요.",
+            409,
+          );
+        if (error.message === "Source is currently processing")
+          throw new ApiError(
+            "원문을 처리 중인 자료입니다. 처리가 끝난 뒤 다시 삭제해 주세요.",
+            409,
+          );
+      }
+      throw error;
+    }
+  },
 };

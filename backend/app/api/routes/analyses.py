@@ -33,6 +33,13 @@ router = APIRouter(tags=["ai-analyses"])
 
 
 def owned_analysis(analysis_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession) -> Analysis:
+    source_id = db.scalar(select(Analysis.source_id).where(
+        Analysis.id == analysis_id, Analysis.user_id == user_id,
+    ))
+    if source_id is None:
+        raise HTTPException(404, "Analysis not found")
+    # Match source deletion's parent-before-child order, including cascade locks.
+    get_owned_source(source_id, user_id, db)
     analysis = db.scalar(select(Analysis).where(
         Analysis.id == analysis_id, Analysis.user_id == user_id,
     ).with_for_update())

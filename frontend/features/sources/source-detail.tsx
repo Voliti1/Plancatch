@@ -183,7 +183,8 @@ export function SourceDetail({ id }: { id: string }) {
                     삭제한 원본 자료는 복구할 수 없습니다.
                   </p>
                   <p className="muted">
-                    연결된 마감일은 유지되며 이 자료와의 연결만 해제됩니다.
+                    마감일이 등록된 원본 자료는 삭제할 수 없습니다. 연결된
+                    마감일을 먼저 삭제해 주세요.
                   </p>
                 </div>
                 {!confirmDelete ? (

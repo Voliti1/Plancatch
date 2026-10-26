@@ -63,7 +63,7 @@ export function useListDeletion(
     setError("");
     setMessage("");
     const done: string[] = [];
-    let conflict = false;
+    let conflictReason = "";
     try {
       for (const id of selected) {
         if (controller.signal.aborted) break;
@@ -77,7 +77,8 @@ export function useListDeletion(
           if (controller.signal.aborted) break;
           if (err instanceof ApiError && err.status === 404) done.push(id);
           else {
-            conflict ||= err instanceof ApiError && err.status === 409;
+            if (err instanceof ApiError && err.status === 409)
+              conflictReason ||= err.message;
             if (err instanceof ApiError && [0, 401, 403].includes(err.status))
               break;
           }
@@ -93,7 +94,7 @@ export function useListDeletion(
       const remaining = selected.length - done.length;
       if (remaining)
         setError(
-          `${remaining}개 항목을 삭제하지 못해 선택을 유지했습니다. ${conflict ? "처리 중인 자료는 작업이 끝난 뒤 삭제해 주세요." : "목록과 연결 상태를 확인한 뒤 다시 시도해 주세요."}`,
+          `${remaining}개 항목을 삭제하지 못해 선택을 유지했습니다. ${conflictReason || "목록과 연결 상태를 확인한 뒤 다시 시도해 주세요."}`,
         );
     } finally {
       request.current = null;
