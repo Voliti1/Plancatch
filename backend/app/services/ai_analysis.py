@@ -17,10 +17,11 @@ from app.models.analysis import Analysis
 from app.models.source import Source
 from app.schemas.analysis import ProviderResult
 from app.services.extraction import DEFAULT_TIMEZONE_POLICY, STRUCTURED_DATE_NOTICES
-from app.services.html_analysis import HTML_MODEL, analyze_period
+from app.services.html_analysis import HTML_MODEL
 from app.services.saramin_period import CONFLICT as PERIOD_CONFLICT
 from app.services.saramin_period import UNRESOLVED as PERIOD_UNRESOLVED
 from app.services.saramin_period import read_period
+from app.services.url_deadlines import URL_MODEL, analyze_url
 
 MAX_INPUT = 40_000
 slots = BoundedSemaphore(1)
@@ -256,18 +257,18 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
             # Do not hold a row lock across the provider request.
             source_text, model = analysis.input_text, analysis.model
             html_source = None
-            if model == HTML_MODEL:
+            if model in {HTML_MODEL, URL_MODEL}:
                 source = db.get(Source, analysis.source_id)
                 if (source is not None and source.user_id == analysis.user_id
                         and source.source_type == "url" and source.processing_status == "extracted"
                         and source.extracted_text == source_text):
                     html_source = (source.original_url, source.title)
         try:
-            if model == HTML_MODEL:
+            if model in {HTML_MODEL, URL_MODEL}:
                 if html_source is None:
                     raise AIError("ai_input_invalid")
                 try:
-                    result = analyze_period(source_text, *html_source)
+                    result = analyze_url(source_text, *html_source)
                 except ValueError as exc:
                     raise AIError("ai_input_invalid") from exc
             else:

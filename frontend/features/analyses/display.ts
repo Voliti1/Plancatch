@@ -1,6 +1,6 @@
 import type { AnalysisStatus } from "@/types/analysis";
 export const isHtmlAnalysis = (model: string | undefined) =>
-  model === "html:saramin:v1";
+  model === "html:saramin:v1" || model === "html:url:v1";
 export function analysisStatusLabel(
   status: AnalysisStatus,
   model?: string,

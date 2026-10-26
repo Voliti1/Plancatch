@@ -36,6 +36,7 @@ class ExtractionError(Exception):
 class Document:
     text: str
     title: str | None = None
+    review: dict | None = None
 
 
 def public_target(url: str) -> tuple[str, int, str]:
@@ -193,6 +194,41 @@ class PageParser(HTMLParser):
                 self.main.append(text)
 
 
+class ReviewPageParser(PageParser):
+    """Dates only from the first main/article, excluding recommendation UI.
+
+    This is conservative static HTML extraction, not a universal DOM contract.
+    Unknown layouts remain manual-review-only rather than falling back to AI.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.primary_seen = False
+        self.primary_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        super().handle_starttag(tag, attrs)
+        values = dict(attrs)
+        tokens = " ".join((values.get("class") or "", values.get("id") or "")).lower()
+        if (self.stack and self.stack[-1][0] == tag
+                and (tag == "aside" or re.search(r"recommend|related|advert|sponsor", tokens))):
+            name, _, hidden = self.stack[-1]
+            self.stack[-1] = (name, True, hidden)
+        if (tag in {"main", "article"} and not self.primary_seen
+                and not any(skip for _, skip, _ in self.stack)):
+            self.primary_seen = True
+            self.primary_depth = len(self.stack)
+
+    def handle_data(self, data):
+        if self.primary_depth:
+            super().handle_data(data)
+
+    def handle_endtag(self, tag):
+        super().handle_endtag(tag)
+        if self.primary_depth > len(self.stack):
+            self.primary_depth = 0
+
+
 def hidden_inline_style(style: str) -> bool:
     """Recognize explicit hiding only; never infer it from arbitrary CSS classes."""
     properties: dict[str, tuple[str, bool]] = {}
@@ -346,6 +382,7 @@ def structured_job_text(blocks: list[str], source_url: str | None) -> str:
 def parse_page(body: bytes, content_type: str, source_url: str | None = None) -> Document:
     media_type = content_type.split(";", 1)[0].strip().lower()
     decoded = decode_page(body, content_type)
+    review = None
     if media_type == "text/plain":
         text, title = decoded.strip(), None
     elif media_type in {"text/html", "application/xhtml+xml"}:
@@ -357,9 +394,26 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             raise ExtractionError("requires_login")
         text = "\n".join(parser.main or parser.body)
         job_text = structured_job_text(parser.json_ld_blocks, source_url)
-        from app.services.saramin_period import period_text
+        from app.services.saramin_period import (
+            PeriodParser,
+            is_job_url,
+            period_text,
+            read_period,
+        )
+        from app.services.url_deadlines import collect_review
 
-        saramin_text = period_text(decoded, source_url)
+        period = None
+        if source_url and is_job_url(source_url):
+            period = PeriodParser()
+            period.feed(decoded)
+        review_parser = ReviewPageParser()
+        review_parser.feed(decoded)
+        review = collect_review("\n".join(review_parser.main), job_text, period,
+                                scoped=bool(review_parser.main))
+        saramin_text = period_text(decoded, source_url, parser=period)
+        parsed_period = read_period(saramin_text)
+        if parsed_period and parsed_period["has_conflict"]:
+            review["has_conflict"] = True
         if job_text:
             text = "\n\n".join(part for part in (text, job_text) if part)
         if saramin_text:
@@ -371,7 +425,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
         raise ExtractionError("empty_content_or_rendering_required")
     if len(text) > MAX_TEXT:
         raise ExtractionError("text_too_large")
-    return Document(text, title)
+    return Document(text, title, review)
 
 
 def public_job_canonical(url: str, body: bytes, content_type: str) -> str | None:
@@ -447,5 +501,10 @@ def extract(source_type: str, original_url: str | None, original_text: str | Non
             url = canonical
             # The next iteration checks robots/public DNS/TLS/limits again.
             continue
+        from app.services.url_deadlines import append_snapshot, collect_review
+        review = document.review or collect_review(document.text, "", scoped=True)
+        document.text = append_snapshot(document.text, original_url, url, review)
+        if len(document.text) > MAX_TEXT:
+            raise ExtractionError("text_too_large")
         return document
     raise ExtractionError("too_many_redirects")

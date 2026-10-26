@@ -33,4 +33,12 @@ export interface Analysis {
   updated_at: string;
   // Additive API field: old analysis responses remain compatible.
   source_period?: SourcePeriod | null;
+  date_choices?: {
+    id: string;
+    raw_text: string;
+    date: string | null;
+    due_at: string | null;
+    evidence_text: string;
+  }[];
+  is_open_ended?: boolean;
 }

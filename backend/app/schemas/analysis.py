@@ -47,7 +47,16 @@ class ProviderResult(BaseModel):
 
 class AnalysisRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    allow_external_ai: Literal[True]
+    allow_external_ai: bool = Field(default=False, strict=True)
+
+
+class DateChoice(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: str = Field(min_length=1, max_length=64)
+    raw_text: str = Field(min_length=1, max_length=100)
+    date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    due_at: AwareDatetime | None = None
+    evidence_text: str = Field(min_length=1, max_length=500)
 
 
 class Candidate(Proposal):
@@ -122,6 +131,20 @@ class AnalysisResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+    @computed_field
+    @property
+    def date_choices(self) -> list[DateChoice]:
+        from app.services.url_deadlines import review_data
+        data = review_data(self.input_text)
+        return [DateChoice(**item) for item in data["choices"]] if data else []
+
+    @computed_field
+    @property
+    def is_open_ended(self) -> bool:
+        from app.services.url_deadlines import review_data
+        data = review_data(self.input_text)
+        return bool(data and data.get("open_ended"))
 
     @computed_field
     @property

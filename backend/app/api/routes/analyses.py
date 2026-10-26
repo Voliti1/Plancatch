@@ -27,6 +27,7 @@ from app.services.ai_analysis import (
     slots,
 )
 from app.services.html_analysis import HTML_MODEL, matching_period
+from app.services.url_deadlines import URL_MODEL
 
 router = APIRouter(tags=["ai-analyses"])
 
@@ -54,15 +55,16 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
     source = get_owned_source(source_id, current_user.id, db)
     if source.processing_status != "extracted" or not source.extracted_text:
         raise HTTPException(409, "Extract source text first")
-    if len(source.extracted_text) > MAX_INPUT:
+    if source.source_type != "url" and not payload.allow_external_ai:
+        raise HTTPException(422, "External AI consent is required for text analysis")
+    if source.source_type != "url" and len(source.extracted_text) > MAX_INPUT:
         raise HTTPException(422, "AI input exceeds 40000 characters; split the source")
     if db.scalar(select(Analysis.id).where(Analysis.source_id == source.id,
                                          Analysis.status == "processing")) is not None:
         raise HTTPException(409, "Source analysis is already processing")
     try:
-        model = (HTML_MODEL if source.source_type == "url"
-                 and matching_period(source.extracted_text, source.original_url) is not None
-                 else configured_model())
+        model = ((HTML_MODEL if matching_period(source.extracted_text, source.original_url)
+                  is not None else URL_MODEL) if source.source_type == "url" else configured_model())
     except AIError as exc:
         raise HTTPException(503, str(exc)) from exc
     if not slots.acquire(blocking=False):
@@ -99,6 +101,31 @@ def list_analyses(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseS
 @router.get("/api/ai-analyses/{analysis_id}", response_model=AnalysisResponse)
 def read_analysis(analysis_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession) -> Analysis:
     return owned_analysis(analysis_id, current_user.id, db)
+
+
+@router.post("/api/ai-analyses/{analysis_id}/recover-html", response_model=AnalysisResponse,
+             status_code=202)
+def recover_html(analysis_id: uuid.UUID, background_tasks: BackgroundTasks,
+                 current_user: CurrentUser, db: DatabaseSession) -> Analysis:
+    """Keep the failed record; create a fresh local-only review of the same source."""
+    previous = owned_analysis(analysis_id, current_user.id, db)
+    if previous.status != "failed":
+        raise HTTPException(409, "Only failed URL analyses can be recovered")
+    source = get_owned_source(previous.source_id, current_user.id, db)
+    if source.source_type != "url":
+        raise HTTPException(422, "HTML recovery requires a URL source")
+    if content_hash(source.extracted_text or "") != previous.input_hash:
+        raise HTTPException(409, "Source changed; extract and analyze it again")
+    existing = db.scalar(select(Analysis).where(
+        Analysis.source_id == source.id, Analysis.user_id == current_user.id,
+        Analysis.input_hash == previous.input_hash,
+        Analysis.model.in_([HTML_MODEL, URL_MODEL]),
+        Analysis.status.in_(["processing", "ready", "approved"]),
+        Analysis.id != previous.id,
+    ).order_by(Analysis.created_at.desc()).limit(1))
+    if existing is not None:
+        return existing
+    return start_analysis(source.id, AnalysisRequest(), background_tasks, current_user, db)
 
 
 @router.patch("/api/ai-analyses/{analysis_id}", response_model=AnalysisResponse)
@@ -159,6 +186,9 @@ def auto_register_analysis(analysis_id: uuid.UUID, payload: AutoRegistrationRequ
     if analysis.status == "approved":
         return analysis  # Recover a lost success response without creating another deadline.
     ensure_ready(analysis, payload.revision)
+    source = get_owned_source(analysis.source_id, current_user.id, db)
+    if source.source_type == "url":
+        raise HTTPException(422, "url_registration_requires_review")
     # Never arbitrarily choose among dates, infer a missing date, or auto-approve a manual edit.
     if (analysis.revision != 1 or analysis.warnings or len(analysis.candidates) != 1
             or not analysis.candidates[0]["selected"] or analysis.candidates[0]["due_at"] is None):

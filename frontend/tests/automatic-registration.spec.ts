@@ -53,12 +53,12 @@ async function automaticApi(
       if (method === "GET")
         return route.fulfill({ json: analysis ? [analysis] : [] });
       counts.analyze++;
-      expect(request.postDataJSON()).toEqual({ allow_external_ai: true });
+      expect(request.postDataJSON()).toEqual({ allow_external_ai: false });
       analysis = {
         id: "auto-analysis",
         source_id: "auto-source",
         input_text: source!.extracted_text!,
-        model: "test-only",
+        model: "html:url:v1",
         status: "ready",
         revision: 1,
         warnings: mode === "review" ? ["[테스트] 날짜 확인"] : [],
@@ -69,7 +69,7 @@ async function automaticApi(
         candidates: [
           {
             id: "candidate-1",
-            title: "AI가 제안한 제목",
+            title: source!.title!,
             due_at: "2026-10-15T09:00:00Z",
             description: null,
             evidence_text: source!.extracted_text!,
@@ -78,6 +78,7 @@ async function automaticApi(
           },
         ],
       };
+      if (mode === "lost" && counts.analyze === 1) return route.abort("failed");
       return route.fulfill({
         status: 202,
         json: { ...analysis, status: "processing" },
@@ -218,7 +219,7 @@ test("reopening new registration resets preserved route fields and review state"
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await expect(
-    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+    page.getByRole("link", { name: "마감일 검토하기 →" }),
   ).toBeVisible();
   const firstUrl = page.url();
   await page.getByRole("link", { name: "← 대시보드" }).click();
@@ -228,7 +229,7 @@ test("reopening new registration resets preserved route fields and review state"
   await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await expect(
-    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+    page.getByRole("link", { name: "마감일 검토하기 →" }),
   ).toHaveCount(0);
   await page
     .getByLabel("일정 제목", { exact: true })
@@ -236,7 +237,7 @@ test("reopening new registration resets preserved route fields and review state"
   await page
     .getByLabel("원본 URL", { exact: true })
     .fill("https://example.com/second");
-  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
 });
 
 test("new registration does not retain unsubmitted inputs after dashboard navigation", async ({
@@ -375,8 +376,10 @@ for (const changed of ["title", "url"] as const) {
     expect(counts.create).toBe(0);
     await page.getByRole("checkbox").check();
     await page.getByRole("button", { name: "일정 등록", exact: true }).click();
-    await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
-    expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+    await expect(
+      page.getByRole("link", { name: "마감일 검토하기 →" }),
+    ).toBeVisible();
+    expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
   });
 }
 
@@ -388,13 +391,13 @@ test("editing after a review result clears the old result and requires fresh con
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await expect(
-    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+    page.getByRole("link", { name: "마감일 검토하기 →" }),
   ).toBeVisible();
   await page
     .getByLabel("원본 URL", { exact: true })
     .fill("https://example.com/revised");
   await expect(
-    page.getByRole("link", { name: "AI 결과 검토하기 →" }),
+    page.getByRole("link", { name: "마감일 검토하기 →" }),
   ).toHaveCount(0);
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await expect(
@@ -415,7 +418,7 @@ test("editing after a review result clears the old result and requires fresh con
   await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
     "https://example.com/notice",
   );
-  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
 });
 
 test("blue sidebar registration matches menu typography and opens a fresh shared form from any workspace page", async ({
@@ -544,20 +547,22 @@ test("new input creates its own source rather than resuming a saved source", asy
     .fill("https://example.com/new");
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
-  await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
-  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+  await expect(
+    page.getByRole("link", { name: "마감일 검토하기 →" }),
+  ).toBeVisible();
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
   await page.getByRole("link", { name: "대시보드", exact: true }).click();
   await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
-  ).toHaveCount(0);
+  ).toHaveCount(1);
   await page
     .getByLabel("원본 URL", { exact: true })
     .fill("https://example.com/next");
 });
 
-test("dashboard automatic registration consent, pipeline, requested title and reload", async ({
+test("URL pipeline always stops for explicit review even with one complete date", async ({
   page,
 }) => {
   const counts = await automaticApi(page);
@@ -568,22 +573,22 @@ test("dashboard automatic registration consent, pipeline, requested title and re
   expect(counts.create).toBe(0);
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "일정 등록", exact: true }).dblclick();
-  await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
-  await expect(page.getByLabel("마감 제목")).toHaveValue(
-    "[테스트] 사용자 지정 일정",
-  );
-  await expect(page.getByLabel("마감 일시 (한국 시간)")).toHaveValue(
-    "2026-10-15T18:00",
-  );
-  await expect(page.getByLabel("저장된 마감일")).toContainText("미설정");
   await expect(
-    page.getByLabel("안전 마감일 사용", { exact: true }),
-  ).not.toBeChecked();
-  await page.reload();
-  await expect(page.getByLabel("마감 제목")).toHaveValue(
+    page.getByRole("link", { name: "마감일 검토하기 →" }),
+  ).toBeVisible();
+  expect(counts.register).toBe(0);
+  await page.getByRole("link", { name: "마감일 검토하기 →" }).click();
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
     "[테스트] 사용자 지정 일정",
   );
-  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+  await expect(
+    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+  ).toHaveValue("2026-10-15T18:00");
+  await page.reload();
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
+    "[테스트] 사용자 지정 일정",
+  );
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
 });
 
 test("ambiguous result links to review without registering a deadline", async ({
@@ -593,12 +598,12 @@ test("ambiguous result links to review without registering a deadline", async ({
   await fill(page);
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
-  await expect(page.getByText(/자동 등록하지 않았습니다/)).toBeVisible();
-  await page.getByRole("link", { name: "AI 결과 검토하기 →" }).click();
+  await expect(page.getByText(/검토 화면에서 선택·승인해야/)).toBeVisible();
+  await page.getByRole("link", { name: "마감일 검토하기 →" }).click();
   await expect(
-    page.getByRole("heading", { name: "AI 마감일 검토", exact: true }),
+    page.getByRole("heading", { name: "마감일 검토", exact: true }),
   ).toBeVisible();
-  expect(counts.register).toBe(1);
+  expect(counts.register).toBe(0);
 });
 
 test("login-required URL does not start AI and preserves registration inputs", async ({
@@ -628,7 +633,7 @@ test("lost success response and refresh resume do not duplicate source, AI or de
   await expect(
     page.getByRole("alert").filter({ hasText: "서버에 연결하지 못했습니다" }),
   ).toBeVisible();
-  expect(counts.register).toBe(1);
+  expect(counts.register).toBe(0);
   await page.reload();
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
   await page
@@ -640,8 +645,10 @@ test("lost success response and refresh resume do not duplicate source, AI or de
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "이어서 등록", exact: true }).click();
-  await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
-  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 1 });
+  await expect(
+    page.getByRole("link", { name: "마감일 검토하기 →" }),
+  ).toBeVisible();
+  expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
 });
 
 test("source library still offers manual URL and text saving alongside automatic registration", async ({

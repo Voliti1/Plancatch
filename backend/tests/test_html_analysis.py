@@ -58,8 +58,9 @@ def test_route_worker_and_idempotent_registration_make_zero_ai_calls(monkeypatch
     assert analysis["candidates"][0]["due_at"] == "2026-11-01T23:59:00+09:00"
     assert analysis["candidates"][0]["selected"]
     payload = {"revision": 1, "title": "사용자가 설정한 제목", "confirm_auto_registration": True}
-    first = client.post(path + "/auto-register", headers=headers, json=payload)
-    again = client.post(path + "/auto-register", headers=headers, json=payload)
+    assert client.post(path + "/auto-register", headers=headers, json=payload).status_code == 422
+    first = client.post(path + "/approve", headers=headers, json={"revision": 1})
+    again = client.post(path + "/approve", headers=headers, json={"revision": 1})
     assert first.status_code == again.status_code == 200
     assert first.json()["approved_deadline_ids"] == again.json()["approved_deadline_ids"]
     assert len(client.get("/api/deadlines", headers=headers).json()) == 1
@@ -69,7 +70,7 @@ def test_route_worker_and_idempotent_registration_make_zero_ai_calls(monkeypatch
 
 @pytest.mark.parametrize("text,warning", [
     (document(markup(end="2026.11.01")).text, UNRESOLVED),
-    (document(markup(end="채용시까지")).text, UNRESOLVED),
+    (document(markup(end="채용시까지")).text, "채용 시 마감"),
     (document(markup() + markup(end="2026.11.02 23:59")).text, CONFLICT),
 ])
 def test_unresolved_periods_are_review_only_not_ai_guesses_or_processing_failures(monkeypatch, text, warning):
@@ -80,7 +81,7 @@ def test_unresolved_periods_are_review_only_not_ai_guesses_or_processing_failure
     assert created.status_code == 202
     path = f"/api/ai-analyses/{created.json()['id']}"
     result = client.get(path, headers=headers).json()
-    assert result["status"] == "ready" and result["warnings"] == [warning]
+    assert result["status"] == "ready" and any(warning in w for w in result["warnings"])
     assert result["candidates"][0]["due_at"] is None
     assert not result["candidates"][0]["selected"]
     assert result["candidates"][0]["evidence_text"] in text
@@ -112,7 +113,12 @@ def test_other_sites_text_and_unrecognized_html_keep_the_existing_ai_path(monkey
     source_id, headers = source_ready(text, url, kind)
     response = client.post(f"/api/sources/{source_id}/ai-analyses", headers=headers,
                            json={"allow_external_ai": True})
-    assert response.status_code == 503 and calls == [True]
+    if kind == "text":
+        assert response.status_code == 503 and calls == [True]
+    else:
+        assert response.status_code == 202 and calls == []
+        result = client.get(f"/api/ai-analyses/{response.json()['id']}", headers=headers).json()
+        assert result["status"] == "ready" and result["candidates"][0]["due_at"] is None
 
 
 def test_consent_ownership_source_hash_and_worker_changes_remain_protected(monkeypatch):
@@ -120,7 +126,7 @@ def test_consent_ownership_source_hash_and_worker_changes_remain_protected(monke
     source_id, headers = source_ready()
     create = f"/api/sources/{source_id}/ai-analyses"
     assert client.post(create, json={"allow_external_ai": True}).status_code == 401
-    assert client.post(create, headers=headers, json={"allow_external_ai": False}).status_code == 422
+    assert client.post(create, headers=headers, json={"allow_external_ai": False}).status_code == 202
     other = auth_headers(f'html-other-{uuid.uuid4().hex}@example.com')
     assert client.post(create, headers=other, json={"allow_external_ai": True}).status_code == 404
     created = client.post(create, headers=headers, json={"allow_external_ai": True}).json()

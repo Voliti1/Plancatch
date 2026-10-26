@@ -261,9 +261,10 @@ def test_job_metadata_default_kst_or_missing_time_review(monkeypatch, date_only)
     else:
         assert analysis["warnings"] == [] and analysis["candidates"][0]["selected"] is True
         assert analysis["candidates"][0]["due_at"] == confirmed_due
-        approved = client.post(path + "/auto-register", headers=headers, json=auto_payload)
+        assert client.post(path + "/auto-register", headers=headers, json=auto_payload).status_code == 422
+        approved = client.post(path + "/approve", headers=headers, json={"revision": 1})
         assert approved.status_code == 200
-        repeat = client.post(path + "/auto-register", headers=headers, json=auto_payload)
+        repeat = client.post(path + "/approve", headers=headers, json={"revision": 1})
         assert repeat.json()["approved_deadline_ids"] == approved.json()["approved_deadline_ids"]
     deadlines = client.get("/api/deadlines", headers=headers).json()
     assert len(deadlines) == 1 and deadlines[0]["title"] == "내 공고 제목"
