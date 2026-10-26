@@ -42,10 +42,14 @@ test("URL and text source registration and empty list", async ({ page }) => {
   await page.getByLabel("자료 제목 (선택)").fill("수업 공지");
   await page.getByLabel("원본 URL").fill("https://example.com/notice");
   await page.getByRole("button", { name: "자료 저장" }).click();
+  await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
+  await page.goto("/sources");
   await expect(page.getByRole("heading", { name: "수업 공지" })).toBeVisible();
   await page.getByRole("link", { name: "＋ 자료 등록" }).click();
   await page.getByLabel("원본 텍스트").fill("다음 주 발표 자료 제출");
   await page.getByRole("button", { name: "자료 저장" }).click();
+  await expect(page).toHaveURL(/\/sources\/source-2\/review$/);
+  await page.goto("/sources");
   await page.getByText("텍스트 내용 보기").click();
   await expect(
     page.getByText("다음 주 발표 자료 제출", { exact: true }),

@@ -55,10 +55,24 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
     source = get_owned_source(source_id, current_user.id, db)
     if source.processing_status != "extracted" or not source.extracted_text:
         raise HTTPException(409, "Extract source text first")
+    snapshot_hash = content_hash(source.extracted_text)
+    if payload.input_hash is not None and payload.input_hash != snapshot_hash:
+        raise HTTPException(409, "Source changed; confirm the source again")
     if source.source_type != "url" and not payload.allow_external_ai:
         raise HTTPException(422, "External AI consent is required for text analysis")
     if source.source_type != "url" and len(source.extracted_text) > MAX_INPUT:
         raise HTTPException(422, "AI input exceeds 40000 characters; split the source")
+    if payload.reuse_existing:
+        # get_owned_source holds the source row lock, including concurrent refreshes.
+        previous = select(Analysis).where(
+            Analysis.source_id == source.id, Analysis.user_id == current_user.id,
+            Analysis.input_hash == snapshot_hash,
+        )
+        if source.source_type == "url":
+            previous = previous.where(Analysis.model.in_([HTML_MODEL, URL_MODEL]))
+        existing = db.scalar(previous.order_by(Analysis.created_at.desc(), Analysis.id.desc()).limit(1))
+        if existing is not None:
+            return existing  # Viewing any previous result never starts another AI request.
     if db.scalar(select(Analysis.id).where(Analysis.source_id == source.id,
                                          Analysis.status == "processing")) is not None:
         raise HTTPException(409, "Source analysis is already processing")
