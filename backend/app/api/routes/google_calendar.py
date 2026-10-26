@@ -14,6 +14,7 @@ from sqlalchemy import delete, select, update
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models.google_calendar import GoogleCalendarConnection, GoogleOAuthRequest
+from app.models.google_export import GoogleExport
 from app.models.user import User
 from app.schemas.google_calendar import (
     GoogleConnectionStatus,
@@ -24,6 +25,7 @@ from app.schemas.google_event import GoogleEventsPage
 from app.services import google_calendar as google
 from app.services import google_events
 from app.services.google_completion import completion_response
+from app.services.google_export import binding as export_binding
 
 router = APIRouter(prefix=google.PREFIX, tags=["google-calendar"])
 logger = logging.getLogger(__name__)
@@ -335,8 +337,21 @@ def read_google_events(
             )
         # Keep a rotated credential even if the later read fails. A read already
         # in flight may finish after disconnect, but never writes a calendar event.
+        bound = export_binding(connection)
         db.commit()
-        return google_events.list_primary(token, _utc(start_from), _utc(end_before))
+        page = google_events.list_primary(token, _utc(start_from), _utc(end_before))
+        exports = {row.google_event_id: row for row in db.scalars(select(GoogleExport).where(
+            GoogleExport.user_id == current_user.id, GoogleExport.status == "sent",
+            GoogleExport.connection_binding == bound,
+            GoogleExport.google_event_id.in_([item.id for item in page.events]),
+        ))}
+        for item in page.events:
+            row = exports.get(item.id)
+            if (row and item.start_at and item.end_at and item.title == row.payload["summary"]
+                    and item.start_at == datetime.fromisoformat(row.payload["start"]["dateTime"])
+                    and item.end_at == datetime.fromisoformat(row.payload["end"]["dateTime"])):
+                item.local_kind, item.local_item_id = row.kind, row.item_id
+        return page
     except google.CalendarProviderError:
         raise HTTPException(
             409, "연결 정보를 확인할 수 없습니다. 구글 계정을 다시 연결해 주세요."

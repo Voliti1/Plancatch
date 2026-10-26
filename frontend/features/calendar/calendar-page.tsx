@@ -235,7 +235,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
     (event) => showCancelled || event.status !== "cancelled",
   );
   const googleRows = showGoogle
-    ? withoutLocalDuplicates(google.data?.events ?? [], events)
+    ? withoutLocalDuplicates(google.data?.events ?? [], events, registered)
     : [];
   const hasLocalSelected = events.some((event) => onDay(event, selected));
   const today = todaySeoul();

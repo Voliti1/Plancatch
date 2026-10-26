@@ -1,6 +1,8 @@
 """Minimal private calendar view; no attendees, descriptions, or credentials."""
 
+import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -12,6 +14,8 @@ class GoogleEventView(BaseModel):
     end_at: datetime | None = None
     start_date: date | None = None
     end_date: date | None = None
+    local_kind: Literal["deadline", "task", "event"] | None = None
+    local_item_id: uuid.UUID | None = None
 
 
 class GoogleEventsPage(BaseModel):

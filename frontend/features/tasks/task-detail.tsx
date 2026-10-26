@@ -10,6 +10,7 @@ import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 import { TaskPlacements } from "@/features/calendar/task-placements";
+import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 import "./schedule-overview.css";
 export function TaskDetail({ id }: { id: string }) {
   const loader = useCallback(() => tasksApi.get(id), [id]);
@@ -213,6 +214,14 @@ export function TaskDetail({ id }: { id: string }) {
                 </>
               )}
             </section>
+            {!editing && (
+              <GoogleExportPanel
+                key={`${id}-${data.updated_at}`}
+                kind="task"
+                itemId={id}
+                disabled={busy || confirmDelete}
+              />
+            )}
             {!editing && <TaskPlacements task={data} />}
             {!editing && (
               <section className="card danger-zone schedule-detail-danger">
