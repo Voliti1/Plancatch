@@ -1,5 +1,23 @@
 "use client";
-import { useRef, useState, type DragEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type DragEvent,
+} from "react";
+
+const IMAGE_NAME = /\.(png|jpe?g|webp|bmp|gif|tiff?|avif)$/i;
+const CLIPBOARD_EXTENSIONS: Record<string, string> = {
+  "image/png": "png",
+  "image/x-png": "png",
+  "image/jpeg": "jpg",
+  "image/webp": "webp",
+  "image/bmp": "bmp",
+  "image/gif": "gif",
+  "image/tiff": "tiff",
+  "image/avif": "avif",
+};
 
 export function SourceFileInput({
   files,
@@ -11,37 +29,87 @@ export function SourceFileInput({
   disabled: boolean;
 }) {
   const picker = useRef<HTMLInputElement>(null);
+  const container = useRef<HTMLElement>(null);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState("");
-  function choose(incoming: File[]) {
+  const choose = useCallback(
+    (incoming: File[]) => {
+      if (disabled) return;
+      setDragging(false);
+      if (incoming.length !== 1) {
+        setError("이미지 한 장씩 등록해 주세요.");
+        return;
+      }
+      const file = incoming[0];
+      // Browsers can report PNG as image/x-png or application/octet-stream.
+      // The server decodes the actual bytes; MIME is not a reliable format check here.
+      if (!IMAGE_NAME.test(file.name)) {
+        setError(
+          "PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원합니다. HEIC·SVG·PDF는 아직 지원하지 않습니다.",
+        );
+        return;
+      }
+      if (!file.size || file.size > 5 * 1024 * 1024) {
+        setError("이미지는 5MB 이하여야 합니다.");
+        return;
+      }
+      setError("");
+      onChange([file]);
+    },
+    [disabled, onChange],
+  );
+  useEffect(() => {
     if (disabled) return;
-    setDragging(false);
-    if (incoming.length !== 1) {
-      setError("이미지 한 장씩 등록해 주세요.");
-      return;
-    }
-    const file = incoming[0];
-    // Browsers can report PNG as image/x-png or application/octet-stream.
-    // The server decodes the actual bytes; MIME is not a reliable format check here.
-    if (!/\.(png|jpe?g|webp|bmp|gif|tiff?|avif)$/i.test(file.name)) {
-      setError(
-        "PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원합니다. HEIC·SVG·PDF는 아직 지원하지 않습니다.",
+    function paste(event: ClipboardEvent) {
+      const section = container.current;
+      if (
+        event.defaultPrevented ||
+        !event.clipboardData ||
+        !section ||
+        section.closest("[hidden], [inert]") ||
+        !section.getClientRects().length ||
+        (event.target instanceof Element &&
+          event.target.closest('[role="dialog"], [role="alertdialog"]'))
+      )
+        return;
+      const data = event.clipboardData;
+      let images = Array.from(data.items)
+        .filter((item) => item.kind === "file")
+        .map((item) => item.getAsFile())
+        .filter((file): file is File =>
+          Boolean(
+            file &&
+            (file.type.startsWith("image/") || IMAGE_NAME.test(file.name)),
+          ),
+        );
+      if (!images.length)
+        images = Array.from(data.files).filter(
+          (file) =>
+            file.type.startsWith("image/") || IMAGE_NAME.test(file.name),
+        );
+      if (!images.length) return; // Text/URL pastes retain the browser's normal behavior.
+      event.preventDefault();
+      choose(
+        images.map((file) => {
+          const extension = CLIPBOARD_EXTENSIONS[file.type.toLowerCase()];
+          return !IMAGE_NAME.test(file.name) && extension
+            ? new File([file], `클립보드 이미지.${extension}`, {
+                type: file.type,
+              })
+            : file;
+        }),
       );
-      return;
     }
-    if (!file.size || file.size > 5 * 1024 * 1024) {
-      setError("이미지는 5MB 이하여야 합니다.");
-      return;
-    }
-    setError("");
-    onChange([file]);
-  }
+    document.addEventListener("paste", paste);
+    return () => document.removeEventListener("paste", paste);
+  }, [choose, disabled]);
   function drop(event: DragEvent<HTMLButtonElement>) {
     event.preventDefault();
     choose(Array.from(event.dataTransfer.files));
   }
   return (
     <section
+      ref={container}
       className="source-file-input"
       aria-labelledby="source-file-heading"
     >
@@ -72,7 +140,7 @@ export function SourceFileInput({
         </span>
         <strong>이미지를 여기에 끌어다 놓으세요</strong>
         <span className="source-file-hint">
-          스크린샷이나 촬영한 공지 이미지를 선택하세요.
+          캡처한 사진은 이 화면에서 Ctrl+V로 붙여넣을 수도 있어요.
         </span>
         <span className="source-file-picker">또는 파일 선택</span>
         <span className="source-file-hint">
