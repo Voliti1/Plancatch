@@ -89,7 +89,7 @@ test("붙여넣은 캡처는 저장 전 전송하지 않고 저장 후 AI 동의
     "클립보드 이미지.png",
   );
   await expect(page.getByRole("list", { name: "선택한 파일" })).toContainText(
-    "미업로드",
+    "KB",
   );
   await expect(
     page.getByLabel("자료 제목 (선택)", { exact: true }),

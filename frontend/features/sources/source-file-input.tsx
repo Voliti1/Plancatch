@@ -167,7 +167,7 @@ export function SourceFileInput({
       </p>
       <p role="status" className="small muted">
         {files.length
-          ? "이미지 1장 선택 · 아직 업로드하지 않았습니다."
+          ? "이미지 1장 선택됨"
           : "선택한 파일이 없습니다."}
       </p>
       {error && (
@@ -182,7 +182,7 @@ export function SourceFileInput({
               <span className="source-file-kind">이미지</span>
               <span className="source-file-name">
                 {file.name}
-                <small>{(file.size / 1024).toFixed(1)} KB · 미업로드</small>
+                <small>{(file.size / 1024).toFixed(1)} KB</small>
               </span>
               <button
                 type="button"

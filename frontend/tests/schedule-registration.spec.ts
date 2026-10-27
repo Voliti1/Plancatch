@@ -72,7 +72,7 @@ test("image selection stays local until save; PDF and mixed inputs are rejected"
   });
   const files = page.getByRole("list", { name: "선택한 파일" });
   await expect(files.getByRole("listitem")).toHaveCount(1);
-  await expect(files).toContainText("미업로드");
+  await expect(files).toContainText("KB");
   expect(posts).toHaveLength(0);
   await picker.setInputFiles({
     name: "공지.pdf",
