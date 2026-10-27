@@ -47,7 +47,7 @@ test("remaining period handles invalid, subsecond, exact closing and offset date
   );
 });
 
-test("source timer stays a snapshot while current remaining time ticks without API writes", async ({
+test("only the current remaining time is displayed and ticks without API writes", async ({
   page,
 }) => {
   const state = await mockAnalyses(page, [analysis]);
@@ -60,10 +60,12 @@ test("source timer stays a snapshot while current remaining time ticks without A
   });
   await expect(period).toContainText("2026.11.01 23:59");
   await expect(period).toContainText("19일 0시간 0분 10초");
-  await expect(period).toContainText("19일 09:49:52");
+  await expect(period).not.toContainText("사이트 남은 기간");
+  await expect(period).not.toContainText("사이트 타이머");
+  await expect(period).not.toContainText("19일 09:49:52");
   await page.clock.fastForward(5000);
   await expect(period).toContainText("19일 0시간 0분 5초");
-  await expect(period).toContainText("19일 09:49:52");
+  await expect(period).not.toContainText("19일 09:49:52");
   expect(state.reads).toBe(1);
   expect(state.starts).toBe(0);
   expect(state.deadlines).toHaveLength(0);
@@ -170,6 +172,7 @@ test("initial HTML timer zeros do not show an open deadline as closed", async ({
   await page.goto("/analyses/analysis-1");
   const period = page.getByRole("region", { name: "사람인 접수기간" });
   await expect(period).toContainText("19일 0시간 0분 10초");
-  await expect(period).toContainText("초기값일 수 있습니다");
+  await expect(period).not.toContainText("0일 00:00:00");
+  await expect(period).not.toContainText("초기값일 수 있습니다");
   await expect(period).not.toContainText("마감됨");
 });
