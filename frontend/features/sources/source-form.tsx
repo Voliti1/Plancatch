@@ -13,9 +13,11 @@ import "./source-registration.css";
 export function SourceForm({
   embedded = false,
   onBusyChange,
+  previewOnly = false,
 }: {
   embedded?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  previewOnly?: boolean;
 }) {
   const hydrated = useHydrated();
   const [title, setTitle] = useState("");
@@ -24,12 +26,14 @@ export function SourceForm({
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [previewMessage, setPreviewMessage] = useState("");
   const pending = useRef(false);
   const router = useRouter();
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current || !hydrated) return;
     setError("");
+    setPreviewMessage("");
     const originalUrl = url.trim();
     const hasText = Boolean(text.trim());
     if (files.length) {
@@ -58,6 +62,12 @@ export function SourceForm({
         );
         return;
       }
+    }
+    if (previewOnly) {
+      setPreviewMessage(
+        "자료 등록 미리보기입니다. 실제 저장이나 AI 분석은 진행하지 않습니다.",
+      );
+      return;
     }
     pending.current = true;
     setBusy(true);
@@ -95,7 +105,12 @@ export function SourceForm({
           />
         </>
       )}
-      <form className="card source-registration" onSubmit={submit} noValidate>
+      <form
+        className="card source-registration"
+        onSubmit={submit}
+        onInput={previewOnly ? () => setPreviewMessage("") : undefined}
+        noValidate
+      >
         <div className="source-registration-heading">
           <h2>자료 입력</h2>
           <ol className="source-registration-steps" aria-label="일정 등록 단계">
@@ -176,6 +191,11 @@ export function SourceForm({
             생성되지는 않으며, 상세 화면에서 AI 검토 후 승인해야 합니다.
           </p>
           {error && <ErrorNotice message={error} />}
+          {previewMessage && (
+            <p role="status" className="small muted">
+              {previewMessage}
+            </p>
+          )}
           <div className="form-actions source-registration-actions">
             <Link
               className="button secondary"
