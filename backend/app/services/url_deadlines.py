@@ -170,18 +170,24 @@ def analyze_url(text: str, source_url: str, title: str | None):
     from app.services.linkareer_period import UNRESOLVED as LINKAREER_UNRESOLVED
     from app.services.linkareer_period import read_period as read_linkareer
     from app.services.saramin_period import CONFLICT, UNRESOLVED
+    from app.services.work24_period import CONFLICT as WORK24_CONFLICT
+    from app.services.work24_period import UNRESOLVED as WORK24_UNRESOLVED
+    from app.services.work24_period import read_period as read_work24
     data = review_data(text, source_url)
     choices = data["choices"] if data else []
     warnings = []
     due_at = None
     jobplanet_period = read_jobplanet(text)
     linkareer_period = read_linkareer(text)
+    work24_period = read_work24(text)
     if data and data.get("open_ended"):
         warnings.append("채용 시 마감 또는 상시 모집입니다. 본인이 원하는 마감 날짜와 시간을 입력한 후 등록하세요.")
     elif data and data.get("has_conflict"):
         from app.services.jobkorea_period import CONFLICT as JOBKOREA_CONFLICT
         from app.services.jobkorea_period import read_period as read_jobkorea
-        if linkareer_period:
+        if work24_period:
+            warnings.append(WORK24_CONFLICT)
+        elif linkareer_period:
             warnings.append(LINKAREER_CONFLICT)
         elif read_jasoseol(text):
             warnings.append(JASOSEOL_CONFLICT)
@@ -194,7 +200,7 @@ def analyze_url(text: str, source_url: str, title: str | None):
     elif len(choices) == 1 and data.get("scope_confirmed"):
         due_at = choices[0]["due_at"]
         if not due_at:
-            warnings.append(LINKAREER_UNRESOLVED if linkareer_period else JOBPLANET_UNRESOLVED if jobplanet_period else CATCH_UNRESOLVED if read_catch(text) else UNRESOLVED)
+            warnings.append(WORK24_UNRESOLVED if work24_period else LINKAREER_UNRESOLVED if linkareer_period else JOBPLANET_UNRESOLVED if jobplanet_period else CATCH_UNRESOLVED if read_catch(text) else UNRESOLVED)
         elif linkareer_period and linkareer_period["time_from_metadata"]:
             warnings.append(METADATA_TIME)
     else:
