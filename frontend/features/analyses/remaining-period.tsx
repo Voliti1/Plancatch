@@ -78,6 +78,7 @@ export function SourcePeriodSummary({
     jobplanet: "잡플래닛",
     jasoseol: "자소설닷컴",
     linkareer: "링커리어",
+    work24: "고용24",
   };
   const siteName = siteNames[period.site ?? "saramin"];
   const title = `${siteName} 접수기간`;
@@ -89,7 +90,9 @@ export function SourcePeriodSummary({
         <dd>{period.start_text || "표시 없음"}</dd>
         <dt>마감일 (원문)</dt>
         <dd>{period.end_text || "확인 필요"}</dd>
-        {(period.site === "jasoseol" || period.site === "linkareer") &&
+        {(period.site === "jasoseol" ||
+          period.site === "linkareer" ||
+          period.site === "work24") &&
           period.deadline_at && (
             <>
               <dt>마감일 (한국 시간)</dt>
@@ -99,6 +102,14 @@ export function SourcePeriodSummary({
         <dt>현재 남은 기간</dt>
         <dd>{remainingPeriod(period.deadline_at, now)}</dd>
       </dl>
+      {period.site === "work24" &&
+        period.deadline_at &&
+        /\b24:00\b/.test(period.end_text ?? "") && (
+          <p className="small muted">
+            원문의 24:00은 다음 날 00:00입니다. 등록 시각은 한국 시간으로
+            표시합니다.
+          </p>
+        )}
       <p className="small muted">
         현재 남은 기간은 원문 마감일과 이 기기의 현재 시각으로 계산합니다. 기업
         사정에 따라 마감일이 변경될 수 있습니다.
