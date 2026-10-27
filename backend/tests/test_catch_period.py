@@ -81,6 +81,17 @@ def test_t2_only_relative_days_do_not_infer_a_deadline():
     assert analyze_url(text, URL, None).deadlines[0].due_at is None
 
 
+@pytest.mark.parametrize("nested", [False, True])
+def test_promotion_controls_do_not_change_the_first_deadline_span(nested):
+    promo = '<a href="/Event"><span>쉽고 빠른 자소서 쓰러가기</span></a>'
+    html = (markup().replace('<!----></span>', promo+'<!----></span>') if nested
+            else markup().replace('</span></p>', '</span>'+promo+'</p>'))
+    text = snapshot(html)
+    info = period.read_period(text)
+    assert info["end_text"] == "~ 10.29(목) 14시" and not info["has_conflict"]
+    assert analyze_url(text, URL, None).deadlines[0].due_at.isoformat() == DUE
+
+
 @pytest.mark.parametrize("raw,metadata", [
     ("~ 11.08(일) 24시", "2026-11-08T23:59:59+09:00"),
     ("~ 11.08(일) 24:00", "2026-11-09T00:00:00+09:00"),
