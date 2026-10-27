@@ -165,7 +165,8 @@ def analyze_url(text: str, source_url: str, title: str | None):
     if data and data.get("open_ended"):
         warnings.append("채용 시 마감 또는 상시 모집입니다. 본인이 원하는 마감 날짜와 시간을 입력한 후 등록하세요.")
     elif data and data.get("has_conflict"):
-        warnings.append(CONFLICT)
+        from app.services.jobkorea_period import CONFLICT as JOBKOREA_CONFLICT, read_period as read_jobkorea
+        warnings.append(JOBKOREA_CONFLICT if read_jobkorea(text) else CONFLICT)
     elif len(choices) > 1:
         warnings.append("마감일로 읽은 날짜가 여러 개입니다. 원문을 확인하고 마감일 하나를 선택하세요.")
     elif len(choices) == 1 and data.get("scope_confirmed"):
