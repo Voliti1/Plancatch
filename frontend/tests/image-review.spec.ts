@@ -69,7 +69,7 @@ test("image upload requires consent, preserves missing time and original preview
   await login(page);
   await page.goto("/sources/new");
   await page
-    .getByLabel("PNG·JPG 이미지 입력", { exact: true })
+    .getByLabel("이미지 파일 입력", { exact: true })
     .setInputFiles({ name: "캡처.png", mimeType: "image/png", buffer: png });
   expect(uploads).toBe(0);
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();

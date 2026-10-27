@@ -1,8 +1,10 @@
 # 이미지 일정 검토
 
 - POST /api/sources/images: 로그인 후 multipart file 한 장과 선택 title(255자)을 저장한다.
-  PNG/JPG만 실제 디코딩, 업로드5MiB·정규화후5MiB·1,200만 화소·단일 프레임 제한.
+  PNG/JPG/WebP/BMP/GIF/TIFF/AVIF를 실제 바이트로 디코딩한다. 브라우저 MIME은 신뢰하지 않는다.
+  업로드5MiB·정규화후5MiB·1,200만 화소·단일 프레임 제한. 애니메이션·다중 페이지·HEIC·SVG·PDF는 거부한다.
   파일명/외부 URL은 저장 경로로 사용하지 않으며 PNG로 재인코딩하고 메타데이터를 제거한다.
+  EXIF 회전을 적용하며 투명 배경은 흰색으로 합성해 검은 글자가 사라지는 것을 방지한다.
 - EC2 nginx HTTP 공통 client_max_body_size6m을 설정한다. 이미지 본문은5MiB 이하이며
   나머지는 multipart 여유다. 백엔드8000은 공개하지 않는다. 디코딩은 프로세스당1개로 제한한다.
 - backend/private_uploads에는 무작위키+SHA256 이름으로만 저장(폴더700/파일600), Git에서 제외한다.

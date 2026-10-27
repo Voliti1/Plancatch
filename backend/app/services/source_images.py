@@ -11,18 +11,27 @@ MAX_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 12_000_000
 ROOT = Path(__file__).resolve().parents[2] / "private_uploads"
 KEY = re.compile(r"[a-f0-9]{32}-([a-f0-9]{64})\.png")
+FORMATS = ["PNG", "JPEG", "WEBP", "BMP", "GIF", "TIFF", "AVIF"]
+FORMAT_LABEL = "PNG·JPG·WebP·BMP·GIF·TIFF·AVIF"
 
 
 def normalize_image(data: bytes) -> bytes:
     if not data or len(data) > MAX_BYTES:
-        raise ValueError("이미지는 5MB 이하의 PNG·JPG 파일이어야 합니다.")
+        raise ValueError(f"이미지는 5MB 이하의 {FORMAT_LABEL} 파일이어야 합니다.")
     try:
-        with Image.open(io.BytesIO(data), formats=["PNG", "JPEG"]) as image:
-            if image.width * image.height > MAX_PIXELS or getattr(image, "n_frames", 1) != 1:
-                raise ValueError("이미지는 1,200만 화소 이하의 단일 이미지여야 합니다.")
+        # Detect actual bytes, not browser MIME/filename. Keep the decoder allowlist bounded.
+        with Image.open(io.BytesIO(data), formats=FORMATS) as image:
+            if image.width * image.height > MAX_PIXELS:
+                raise ValueError("이미지는 1,200만 화소 이하여야 합니다.")
+            if getattr(image, "n_frames", 1) != 1:
+                raise ValueError("움직이는 이미지나 여러 페이지 이미지는 지원하지 않습니다. 한 장으로 저장해 주세요.")
             image.load()
             # Re-encode only pixels: drop filenames, EXIF/location, comments and active content.
-            pixels = ImageOps.exif_transpose(image).convert("RGB")
+            oriented = ImageOps.exif_transpose(image)
+            # White preserves dark screenshot text on transparent PNG/GIF/WebP backgrounds.
+            rgba = oriented.convert("RGBA")
+            pixels = Image.new("RGB", rgba.size, "white")
+            pixels.paste(rgba, mask=rgba.getchannel("A"))
             pixels.info.clear()
             output = io.BytesIO()
             pixels.save(output, format="PNG")
@@ -30,8 +39,8 @@ def normalize_image(data: bytes) -> bytes:
             if len(result) > MAX_BYTES:
                 raise ValueError("이미지 용량이 큽니다. 필요한 부분만 잘라서 다시 올려 주세요.")
             return result
-    except (OSError, Image.DecompressionBombError) as exc:
-        raise ValueError("읽을 수 없는 이미지입니다. PNG·JPG 파일을 확인해 주세요.") from exc
+    except (OSError, EOFError, SyntaxError, Image.DecompressionBombError) as exc:
+        raise ValueError(f"읽을 수 없는 이미지입니다. {FORMAT_LABEL} 파일을 확인해 주세요.") from exc
 
 
 def image_hash(key: str | None) -> str | None:
