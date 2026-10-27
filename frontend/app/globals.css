@@ -572,20 +572,6 @@ small {
   background: var(--blue-soft);
   color: var(--blue);
 }
-.coming {
-  margin-top: 45px;
-  padding: 19px 15px;
-  background: #f8f9fc;
-  border-radius: 12px;
-}
-.coming p {
-  font-size: 12px;
-  margin: 10px 0 5px;
-}
-.coming small {
-  color: var(--muted);
-  font-size: 11px;
-}
 .account {
   margin-top: auto;
   padding: 25px 12px 0;
@@ -1286,8 +1272,7 @@ textarea {
     font-size: 12px;
     gap: 7px;
   }
-  .nav-caption,
-  .coming {
+  .nav-caption {
     display: none;
   }
   .account {

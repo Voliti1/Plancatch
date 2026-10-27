@@ -45,6 +45,10 @@ def get_authenticated_user(
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise unauthorized()
+    try:
+        decode_access_token(credentials.credentials, user.password_hash)
+    except jwt.InvalidTokenError:
+        raise unauthorized() from None
     return user
 
 

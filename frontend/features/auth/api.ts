@@ -18,4 +18,9 @@ export const authApi = {
       false,
     ),
   me: () => api<User>("/api/auth/me"),
+  changePassword: (current_password: string, new_password: string) =>
+    api<TokenResponse>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ current_password, new_password }),
+    }),
 };

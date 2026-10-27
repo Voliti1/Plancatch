@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
+import { AccountControls } from "@/features/settings/account-controls";
 const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
@@ -63,16 +64,11 @@ export default function WorkspaceLayout({
             </Link>
           ))}
         </nav>
-        <div className="coming">
-          <span className="tag">준비 중</span>
-          <p>자동 일정 · Google 연동</p>
-          <small>
-            계획의 다음 단계도
-            <br />곧 이곳에서 함께해요.
-          </small>
-        </div>
         <div className="account">
-          <strong>{user.display_name || "사용자"}</strong>
+          <AccountControls
+            name={user.display_name || "사용자"}
+            email={user.email}
+          />
           <span>{user.email}</span>
           <button
             className="text-button"

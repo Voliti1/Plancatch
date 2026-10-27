@@ -1,0 +1,264 @@
+:root {
+  color-scheme: light;
+  --action-blue: #305ee8;
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #111827;
+  --ink: #e6edf7;
+  --muted: #abb8cb;
+  --line: #3b485e;
+  --blue: #9db6ff;
+  --blue-soft: #263656;
+  --white: #1c2636;
+  --action-blue: #4167e5;
+}
+.card,
+.notice,
+input,
+textarea,
+select,
+.secondary,
+.auth-panel,
+.paper,
+.skip {
+  background: var(--white);
+}
+button,
+.button,
+.logo,
+.sidebar-new-registration {
+  background: var(--action-blue);
+}
+.secondary {
+  background: var(--white);
+}
+.text-button {
+  background: transparent;
+}
+.sidebar-new-registration {
+  color: #fff;
+}
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(36px, 1fr) 36px;
+  align-items: center;
+  gap: 3px;
+}
+.account-row strong {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.account-row > .account-icon {
+  justify-self: center;
+}
+.account .account-icon,
+.account-icon {
+  width: 36px;
+  height: 40px;
+  flex-shrink: 0;
+  padding: 0;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  font-size: 24px;
+}
+.account-icon:hover {
+  color: var(--blue);
+  background: var(--blue-soft);
+  filter: none;
+}
+html:has(.account-settings[open]) {
+  overflow: hidden;
+}
+.account-settings {
+  width: min(520px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 24px 80px #0005;
+  text-align: left;
+  overflow: auto;
+}
+.account-settings::backdrop {
+  background: #0b122399;
+}
+.account-settings-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--line);
+}
+.account-settings-heading h2 {
+  margin: 0;
+  font-size: 20px;
+}
+.account-settings-body {
+  padding: 24px;
+}
+.account-settings-body h3 {
+  font-size: 17px;
+  margin-bottom: 6px;
+}
+.settings-profile {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 20px;
+  margin: 0 0 24px;
+  font-size: 13px;
+}
+.settings-profile div {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.settings-profile dt {
+  color: var(--muted);
+}
+.settings-profile dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.account-settings .form-actions button {
+  font-size: 14px;
+}
+:root[data-theme="dark"] .topbar {
+  background: #172131eb;
+}
+:root[data-theme="dark"] .hero,
+:root[data-theme="dark"] .auth-story {
+  background: #1e2d47;
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .paper-back,
+:root[data-theme="dark"] .paper-check span,
+:root[data-theme="dark"] .story-line {
+  background: #344766;
+}
+:root[data-theme="dark"] .story-card {
+  background: #1c2636d9;
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .next-step {
+  background: #222f44;
+}
+:root[data-theme="dark"] .tag {
+  background: #2c394c;
+  color: var(--ink);
+}
+:root[data-theme="dark"] .nav-caption,
+:root[data-theme="dark"] footer,
+:root[data-theme="dark"] .sidebar nav a,
+:root[data-theme="dark"] .paper-label {
+  color: var(--muted);
+}
+:root[data-theme="dark"] .sidebar nav a[aria-current] {
+  color: var(--blue);
+}
+:root[data-theme="dark"] .notice.info {
+  background: var(--blue-soft);
+  color: var(--ink);
+  border-color: var(--line);
+}
+:root[data-theme="dark"] .notice.error {
+  background: #48272c;
+  color: #ffc0bb;
+  border-color: #8d4851;
+}
+:root[data-theme="dark"] .notice.error button {
+  color: #ffc0bb;
+}
+:root[data-theme="dark"] .success,
+:root[data-theme="dark"] .tag.confirmed,
+:root[data-theme="dark"] .event-approved {
+  background: #193c32;
+  color: #a2e5bc;
+}
+:root[data-theme="dark"] .danger.secondary {
+  background: var(--white);
+  color: #ffb5b0;
+  border-color: #b95c60;
+}
+:root[data-theme="dark"] input,
+:root[data-theme="dark"] select,
+:root[data-theme="dark"] textarea,
+:root[data-theme="dark"] .paper,
+:root[data-theme="dark"] .deadline-row {
+  border-color: var(--line);
+}
+:root[data-theme="dark"] input::placeholder,
+:root[data-theme="dark"] textarea::placeholder {
+  color: #a1aec2;
+}
+:root[data-theme="dark"] .source-file-drop {
+  background: #1b2a43;
+  border-color: #6178a5;
+}
+:root[data-theme="dark"] .source-file-drop:not(:disabled):hover {
+  background: var(--blue-soft);
+}
+:root[data-theme="dark"] .source-registration-steps [aria-current] span {
+  background: var(--action-blue);
+  color: #fff;
+}
+:root[data-theme="dark"] .source-file-error,
+:root[data-theme="dark"] .event-sync-error {
+  color: #ffb5b0;
+}
+:root[data-theme="dark"] .registration-deadline {
+  background: #4a2440;
+  color: #ffc0e0;
+}
+:root[data-theme="dark"] .event-recommended {
+  background: #43371c;
+  color: #ffe098;
+}
+:root[data-theme="dark"] mark {
+  color: #302300;
+}
+:root[data-theme="dark"] .list-delete-controls .danger.secondary {
+  background: var(--white);
+  color: #ffb5b0;
+  border-color: #b95c60;
+}
+:root[data-theme="dark"] .delete-selectable.is-selected {
+  background: #48272c;
+}
+:root[data-theme="dark"] .delete-select-check {
+  background: var(--white);
+}
+:root[data-theme="dark"] .is-selected > .delete-select-check {
+  background: #b93831;
+}
+@media (max-width: 760px) {
+  .account-row {
+    grid-template-columns: minmax(35px, 1fr) 32px 32px;
+    gap: 0;
+  }
+  .account .account-icon {
+    width: 32px;
+    height: 36px;
+  }
+  .account-settings-body {
+    padding: 20px;
+  }
+  .account-settings .account-settings-heading h2 {
+    font-size: 20px;
+  }
+  .account-settings .account-icon {
+    display: inline-flex;
+  }
+  .account-settings .account-settings-body {
+    text-align: left;
+  }
+}
