@@ -1,4 +1,5 @@
 """Synthetic image transport plus actual owner-scoped upload/review/approval routes."""
+import base64
 import io
 import json
 import uuid
@@ -49,6 +50,8 @@ def mock_provider(monkeypatch, value):
     calls = []
     def respond(payload, model):
         assert payload["contents"][0]["parts"][1]["inlineData"]["mimeType"] == "image/png"
+        with Image.open(io.BytesIO(base64.b64decode(payload["contents"][0]["parts"][1]["inlineData"]["data"]))) as sent:
+            assert sent.format == "PNG"
         calls.append(model)
         return {"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":json.dumps(value)}]}}]}
     monkeypatch.setattr(image_analysis, "provider_request", respond)
@@ -156,3 +159,56 @@ def test_failed_image_result_is_reused_until_explicit_consented_retry(monkeypatc
 def test_year_crossing_without_year_and_multiple_dates_remain_unresolved():
     assert image_analysis.closing_choice('접수기간 2026년 12월 21일 ~ 1월 1일')['date'] is None
     assert image_analysis.closing_choice('마감일 2026.11.01 또는 2026.11.02') is None
+
+
+@pytest.mark.parametrize("fmt", ["PNG", "JPEG", "WEBP", "BMP", "GIF", "TIFF", "AVIF"])
+def test_supported_formats_become_private_png_before_consented_analysis(fmt, monkeypatch):
+    calls = mock_provider(monkeypatch, result())
+    headers = auth()
+    # Missing/nonstandard MIME must not block a valid bitmap; actual bytes decide.
+    response = client.post("/api/sources/images", headers=headers,
+        files={"file": ("notice." + fmt.lower(), picture(fmt), "application/octet-stream")})
+    assert response.status_code == 201
+    source = response.json()
+    path = "/api/sources/" + source["id"]
+    preview = client.get(path + "/image", headers=headers)
+    assert preview.headers["content-type"] == "image/png"
+    with Image.open(io.BytesIO(preview.content)) as decoded:
+        assert decoded.format == "PNG" and decoded.size == (300, 180)
+        assert decoded.mode == "RGB" and not decoded.getexif()
+    assert calls == []
+    started = client.post(path + "/ai-analyses", headers=headers, json={
+        "input_hash":source["image_sha256"], "allow_external_ai":True})
+    assert started.status_code == 202
+    assert client.get("/api/ai-analyses/" + started.json()["id"], headers=headers).json()["status"] == "ready"
+    assert len(calls) == 1
+
+
+@pytest.mark.parametrize("fmt", ["GIF", "WEBP", "TIFF", "PNG"])
+def test_animation_or_multiple_pages_are_rejected_without_source(fmt):
+    frames = [Image.new("RGB", (8, 8), color) for color in ("black", "white")]
+    raw = io.BytesIO()
+    frames[0].save(raw, format=fmt, save_all=True, append_images=frames[1:])
+    headers = auth()
+    response = client.post("/api/sources/images", headers=headers,
+        files={"file": ("animated." + fmt.lower(), raw.getvalue(), "image/" + fmt.lower())})
+    assert response.status_code == 422 and "한 장" in response.json()["detail"]
+    assert client.get("/api/sources", headers=headers).json() == []
+
+
+def test_transparent_background_and_exif_orientation_preserve_readable_pixels():
+    transparent = Image.new("RGBA", (8, 8), (0, 0, 0, 0))
+    transparent.putpixel((4, 4), (0, 0, 0, 255))
+    raw = io.BytesIO()
+    transparent.save(raw, format="PNG", comment=b"must be removed")
+    with Image.open(io.BytesIO(source_images.normalize_image(raw.getvalue()))) as decoded:
+        assert decoded.getpixel((0, 0)) == (255, 255, 255)
+        assert decoded.getpixel((4, 4)) == (0, 0, 0)
+        assert not decoded.info
+    raw = io.BytesIO()
+    exif = Image.Exif()
+    exif[274] = 6
+    exif[270] = "private metadata"
+    Image.new("RGB", (8, 4), "white").save(raw, format="JPEG", exif=exif)
+    with Image.open(io.BytesIO(source_images.normalize_image(raw.getvalue()))) as decoded:
+        assert decoded.size == (4, 8) and not decoded.getexif()

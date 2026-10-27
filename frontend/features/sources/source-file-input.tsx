@@ -21,11 +21,12 @@ export function SourceFileInput({
       return;
     }
     const file = incoming[0];
-    if (
-      !/\.(png|jpe?g)$/i.test(file.name) ||
-      !["", "image/png", "image/jpeg"].includes(file.type)
-    ) {
-      setError("PNG·JPG 이미지만 지원합니다. PDF는 아직 지원하지 않습니다.");
+    // Browsers can report PNG as image/x-png or application/octet-stream.
+    // The server decodes the actual bytes; MIME is not a reliable format check here.
+    if (!/\.(png|jpe?g|webp|bmp|gif|tiff?|avif)$/i.test(file.name)) {
+      setError(
+        "PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원합니다. HEIC·SVG·PDF는 아직 지원하지 않습니다.",
+      );
       return;
     }
     if (!file.size || file.size > 5 * 1024 * 1024) {
@@ -52,7 +53,7 @@ export function SourceFileInput({
         type="button"
         className={`source-file-drop${dragging ? " is-dragging" : ""}`}
         disabled={disabled}
-        aria-label="PNG·JPG 이미지 선택"
+        aria-label="이미지 파일 선택"
         aria-describedby="source-file-help"
         onClick={() => picker.current?.click()}
         onDragEnter={(event) => {
@@ -75,24 +76,26 @@ export function SourceFileInput({
         </span>
         <span className="source-file-picker">또는 파일 선택</span>
         <span className="source-file-hint">
-          PNG · JPG · JPEG · 한 장 · 최대 5MB
+          PNG · JPG · WebP 등 · 한 장 · 최대 5MB
         </span>
       </button>
       <input
         ref={picker}
         type="file"
-        accept=".png,.jpg,.jpeg,image/png,image/jpeg"
+        accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff,.avif,image/png,image/x-png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif"
         hidden
         disabled={disabled}
-        aria-label="PNG·JPG 이미지 입력"
+        aria-label="이미지 파일 입력"
         onChange={(event) => {
           choose(Array.from(event.target.files ?? []));
           event.target.value = "";
         }}
       />
       <p id="source-file-help" className="small muted source-file-help">
-        이미지를 저장한 뒤 전송 동의를 받습니다. 동의 전에는 Google Gemini로
-        보내지 않습니다. PDF는 준비 중입니다.
+        PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원하며 PNG로 변환해 저장합니다.
+        움직이는 이미지·여러 페이지·HEIC·SVG·PDF는 지원하지 않습니다. 이미지를
+        저장한 뒤 전송 동의를 받습니다. 동의 전에는 Google Gemini로 보내지
+        않습니다.
       </p>
       <p role="status" className="small muted">
         {files.length
