@@ -81,6 +81,35 @@ def test_t2_only_relative_days_do_not_infer_a_deadline():
     assert analyze_url(text, URL, None).deadlines[0].due_at is None
 
 
+@pytest.mark.parametrize("raw,metadata", [
+    ("~ 11.08(일) 24시", "2026-11-08T23:59:59+09:00"),
+    ("~ 11.08(일) 24:00", "2026-11-09T00:00:00+09:00"),
+    ("~ 11.08(일) 24시00분", "2026-11-08T14:59:59Z"),
+    ("~ 2026.12.31(목) 24시", "2027-01-01T00:00:00+09:00"),
+    ("~ 11.08(일) 24시", "2026-11-08T23:59+09:00"),
+])
+def test_midnight_label_uses_the_matching_day_boundary_without_changing_metadata(raw, metadata):
+    text = snapshot(markup(raw=raw, metadata=metadata))
+    info = period.read_period(text)
+    assert not info["has_conflict"]
+    assert info["deadline_at"] == datetime.fromisoformat(metadata)
+    result = analyze_url(text, URL, None)
+    assert result.warnings == [] and result.deadlines[0].due_at == info["deadline_at"]
+    assert datetime.fromisoformat(review_data(text, URL)["choices"][0]["due_at"]) == info["deadline_at"]
+
+
+@pytest.mark.parametrize("raw,metadata", [
+    ("~ 11.08(일) 24시30분", "2026-11-08T23:59:59+09:00"),
+    ("~ 11.08(일) 24시", "2026-11-08T14:00:00+09:00"),
+    ("~ 11.08(일) 24시", "2026-11-09T00:01:00+09:00"),
+    ("~ 11.08(월) 24시", "2026-11-09T00:00:00+09:00"),
+    ("~ 11.07(토) 24시", "2026-11-09T00:00:00+09:00"),
+])
+def test_midnight_still_rejects_invalid_minutes_real_time_conflicts_and_wrong_days(raw, metadata):
+    info = period.read_period(snapshot(markup(raw=raw, metadata=metadata)))
+    assert info["has_conflict"] and info["deadline_at"] is None
+
+
 @pytest.mark.parametrize("wrapper", ["hidden", 'style="display: none"', 'aria-hidden="true"'])
 def test_hidden_period_does_not_supply_evidence(wrapper):
     assert period.read_period(snapshot(markup(wrapper=wrapper))) is None
