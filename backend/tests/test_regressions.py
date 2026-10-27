@@ -81,7 +81,7 @@ def test_deletion_foreign_key_rules():
     assert client.delete(f"/api/sources/{source_id}", headers=auth).status_code == 409
     assert client.get(f"/api/deadlines/{deadline_id}", headers=auth).json()["source_id"] == source_id
     assert client.delete(f"/api/deadlines/{deadline_id}", headers=auth).status_code == 204
-    assert client.delete(f"/api/sources/{source_id}", headers=auth).status_code == 204
+    assert client.get(f"/api/sources/{source_id}", headers=auth).status_code == 404
     assert client.get(f"/api/tasks/{task_id}", headers=auth).json()["deadline_id"] is None
     assert client.delete(f"/api/tasks/{task_id}", headers=auth).status_code == 204
     assert client.get(f"/api/scheduled-events/{event_id}", headers=auth).status_code == 404
