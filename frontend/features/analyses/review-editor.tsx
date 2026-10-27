@@ -148,7 +148,9 @@ export function ReviewEditor({
         {drafts.map((draft, index) => {
           const original = analysis.candidates[index];
           const originalDate =
-            analysis.source_period?.site === "jobplanet" &&
+            analysis.source_period &&
+            (analysis.source_period.site === "jobplanet" ||
+              analysis.source_period.site === "linkareer") &&
             !analysis.source_period.has_conflict
               ? analysis.date_choices?.find(
                   (choice) => choice.date && !choice.due_at,
