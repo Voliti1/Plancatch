@@ -71,11 +71,13 @@ export function SourcePeriodSummary({
   now: number | null;
 }) {
   const siteName =
-    period.site === "catch"
-      ? "캐치"
-      : period.site === "jobkorea"
-        ? "잡코리아"
-        : "사람인";
+    period.site === "jobplanet"
+      ? "잡플래닛"
+      : period.site === "catch"
+        ? "캐치"
+        : period.site === "jobkorea"
+          ? "잡코리아"
+          : "사람인";
   const title = `${siteName} 접수기간`;
   return (
     <section className="notice source-period" aria-label={title}>

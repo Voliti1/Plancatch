@@ -110,3 +110,10 @@ The Catch adapter matches `view2_{job ID}.recr_pop_dday p.t1` to the same page's
 canonical URL, heading and JobPosting `validThrough`. See
 [Catch extraction and review](catch-period.md) for year/time validation, limits
 and the additive frontend `catch` site label.
+
+## JobPlanet visible closing date (2026-10-27)
+
+The JobPlanet adapter reads the visible closing-date dt/dd pair of one canonical
+posting. Date-only evidence requires a user-supplied time. See
+[JobPlanet extraction and review](jobplanet-period.md), including the current
+HTTP 403 limitation of the existing server transport observed during verification.
