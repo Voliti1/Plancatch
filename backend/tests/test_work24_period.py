@@ -79,10 +79,12 @@ def test_invalid_clocks_weekdays_or_overflow_require_confirmation(raw):
     assert result.deadlines[0].due_at is None and result.warnings == [period.CONFLICT]
 
 
-def test_missing_clock_and_open_ended_do_not_get_midnight_or_a_timer_derived_date():
+def test_missing_clock_defaults_to_day_end_but_open_ended_never_uses_timer():
     text = snapshot(markup(raw="2026.11.10 (화)"))
     assert period.read_period(text)["deadline_at"] is None
-    assert analyze_url(text, URL, None).warnings == [period.UNRESOLVED]
+    result = analyze_url(text, URL, None)
+    assert result.deadlines[0].due_at.isoformat() == "2026-11-10T23:59:00+09:00"
+    assert any("11시 59분" in item for item in result.warnings)
     assert review_data(text, URL)["choices"][0]["date"] == "2026-11-10"
     text = snapshot(markup(raw="채용 시까지"))
     assert review_data(text, URL)["open_ended"]

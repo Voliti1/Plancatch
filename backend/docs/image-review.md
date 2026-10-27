@@ -1,5 +1,7 @@
 # 이미지 일정 검토
 
+> 2026-10-27 변경: 날짜가 명확하고 시간만 없으면 한국 시간 23:59를 후보에 미리 입력하고 사용자 승인을 받습니다. 이전의 시간 누락 시 빈칸 유지 규칙은 [마감 시간 처리 정책](deadline-clock-policy.md)으로 대체합니다.
+
 - POST /api/sources/images: 로그인 후 multipart file 한 장과 선택 title(255자)을 저장한다.
   PNG/JPG/WebP/BMP/GIF/TIFF/AVIF를 실제 바이트로 디코딩한다. 브라우저 MIME은 신뢰하지 않는다.
   업로드5MiB·정규화후5MiB·1,200만 화소·단일 프레임 제한. 애니메이션·다중 페이지·HEIC·SVG·PDF는 거부한다.

@@ -27,6 +27,65 @@ const html = {
   ],
 };
 
+test("날짜만 있는 URL은 23:59와 남은 기간을 표시하고 직접 승인한다", async ({
+  page,
+}) => {
+  const due = "2026-11-10T23:59:00+09:00";
+  const candidate = {
+    ...readyAnalysis.candidates[0],
+    due_at: due,
+    selected: false,
+    time_defaulted: true,
+  };
+  const state = await mockAnalyses(
+    page,
+    [
+      {
+        ...html,
+        candidates: [candidate],
+        warnings: [],
+        date_choices: [],
+        source_period: {
+          site: "work24",
+          start_text: null,
+          end_text: "2026.11.10 (화)",
+          deadline_at: due,
+          remaining_text: null,
+          has_conflict: false,
+          time_defaulted: true,
+        },
+      },
+    ],
+    {
+      ...aiSource,
+      source_type: "url",
+      original_url: "https://example.com/job",
+      original_text: null,
+    },
+  );
+  await login(page);
+  await page.goto("/analyses/analysis-1");
+  await expect(
+    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+  ).toHaveValue("2026-11-10T23:59");
+  const period = page.getByRole("region", { name: "고용24 접수기간" });
+  await expect(period).toContainText("오후 11시 59분으로 설정했습니다");
+  await expect(period).not.toContainText("마감일 미확정");
+  expect(state.deadlines).toHaveLength(0);
+  await page.getByRole("checkbox", { name: "후보 1 포함" }).check();
+  await page
+    .getByRole("button", { name: "검토 내용 저장", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "마감일 등록 완료" }),
+  ).toBeVisible();
+  expect(state.deadlines[0].due_at).toBe(due);
+  expect(state.starts).toBe(0);
+});
+
 test("choosing an exact HTML date preserves seconds and explicit offset when saving", async ({
   page,
 }) => {

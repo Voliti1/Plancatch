@@ -1,5 +1,7 @@
 # Source extraction API (stage 2)
 
+> 2026-10-27 변경: 날짜가 명확하고 시간만 없으면 한국 시간 23:59를 후보에 미리 입력하고 사용자 승인을 받습니다. 이전의 시간 누락 시 빈칸 유지 규칙은 [마감 시간 처리 정책](deadline-clock-policy.md)으로 대체합니다.
+
 Authenticated `POST /api/sources/{source_id}/analyze` accepts no body and returns
 202 with a SourceResponse snapshot in `processing`. The source must belong to
 the caller. Poll `GET /api/sources/{source_id}` for completion.

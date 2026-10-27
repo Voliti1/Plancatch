@@ -95,7 +95,7 @@ def test_initial_zero_html_timer_does_not_expire_or_replace_the_printed_deadline
     assert output.deadlines[0].due_at == snapshot["deadline_at"] and output.warnings == []
 
 
-@pytest.mark.parametrize("end", ["2026.11.01", "11.01 23:59", "채용시까지", "2026.02.30 23:59", "2026.11.01 25:59"])
+@pytest.mark.parametrize("end", ["11.01 23:59", "채용시까지", "2026.02.30 23:59", "2026.11.01 25:59"])
 def test_incomplete_invalid_and_open_ended_dates_never_get_synthetic_year_time(monkeypatch, end):
     text = document(markup(end=end)).text
     snapshot = period.read_period(text)

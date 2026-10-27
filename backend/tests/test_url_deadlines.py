@@ -27,14 +27,14 @@ def snapshot(html):
 
 @pytest.mark.parametrize("raw,expected", [
     ("2026.11.03 23:59", "2026-11-03T23:59:00+09:00"),
-    ("2026.11.05(목)", None), ("2026.10.31", None),
+    ("2026.11.05(목)", "2026-11-05T23:59:00+09:00"), ("2026.10.31", "2026-10-31T23:59:00+09:00"),
     ("~ 10.28(수) 14시", None),
     ("2026-11-03T23:59:00Z", "2026-11-03T23:59:00+00:00"),
     ("2026-11-03T23:59:01.123Z", "2026-11-03T23:59:01.123000+00:00"),
     ("2026.11.03 14시 30분", "2026-11-03T14:30:00+09:00"),
     ("2026.02.30 23:59", None), ("2026.11.03 24:59", None),
 ])
-def test_dates_never_invent_year_or_clock(raw, expected):
+def test_dates_preserve_clocks_and_default_only_missing_clocks(raw, expected):
     choice = date_choice(raw, raw)
     assert choice is not None and choice["due_at"] == expected
 

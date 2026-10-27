@@ -31,19 +31,21 @@ def snapshot(html=None, url=URL):
     return append_snapshot(doc.text, url, url, doc.review)
 
 
-def test_exact_date_field_and_weekday_are_read_without_inventing_a_clock():
+def test_exact_date_field_and_weekday_use_reviewed_end_of_day_policy():
     text = snapshot()
     info = period.read_period(text)
     assert info["site"] == "jobplanet" and info["date"] == "2026-11-25"
     assert info["end_text"] == "2026.11.25 ~11/25(수)" and not info["has_conflict"]
     assert info["deadline_at"] is None
     choices = review_data(text, URL)["choices"]
-    assert len(choices) == 1 and choices[0]["date"] == "2026-11-25" and choices[0]["due_at"] is None
+    assert len(choices) == 1 and choices[0]["date"] == "2026-11-25" and choices[0]["due_at"] == "2026-11-25T23:59:00+09:00"
     result = analyze_url(text, URL, None)
-    assert result.deadlines[0].due_at is None and result.warnings == [period.UNRESOLVED]
+    assert result.deadlines[0].due_at.isoformat() == "2026-11-25T23:59:00+09:00"
+    assert any("11시 59분" in item for item in result.warnings)
     assert "2026.11.25" in result.deadlines[0].evidence_text
     assert result.deadlines[0].evidence_text in text
-    assert "23:59" not in text
+    assert "23:59" not in text.split("[URL 마감일 HTML 검토 데이터]", 1)[0]
+    assert choices[0]["time_defaulted"]  # Applied clock is distinct from the raw date.
     assert text.count(period.MARKER) == text.count(period.END_MARKER) == 1
 
 
@@ -116,7 +118,7 @@ def test_http_403_is_preserved_instead_of_parsing_or_faking_a_result(monkeypatch
         extraction.extract("url", URL, None)
 
 
-def test_date_only_api_requires_user_time_and_approval_remains_idempotent(monkeypatch):
+def test_date_only_api_prefills_time_and_explicit_approval_remains_idempotent(monkeypatch):
     forbid_ai(monkeypatch)
     source, headers = source_ready(snapshot(), URL)
     started = client.post(f"/api/sources/{source}/ai-analyses", headers=headers, json={})
@@ -126,7 +128,7 @@ def test_date_only_api_requires_user_time_and_approval_remains_idempotent(monkey
     assert analysis["status"] == "ready" and analysis["model"] == "html:url:v1"
     assert analysis["source_period"]["site"] == "jobplanet"
     assert analysis["date_choices"][0]["date"] == "2026-11-25"
-    assert analysis["candidates"][0]["due_at"] is None and not analysis["candidates"][0]["selected"]
+    assert analysis["candidates"][0]["due_at"] == "2026-11-25T23:59:00+09:00" and not analysis["candidates"][0]["selected"]
     assert client.post(path + "/approve", headers=headers, json={"revision": 1}).status_code == 422
     assert client.get("/api/deadlines", headers=headers).json() == []
     candidate = {key: analysis["candidates"][0][key] for key in ("id", "title", "due_at", "description", "selected")}

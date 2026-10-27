@@ -53,12 +53,13 @@ def test_date_fields_and_metadata_expiry_keep_fraction_and_explain_the_time_sour
 
 
 @pytest.mark.parametrize("metadata", [None, "2026-10-31"])
-def test_date_only_without_metadata_clock_never_gets_an_end_of_day_default(metadata):
+def test_date_only_without_metadata_clock_uses_reviewed_end_of_day_default(metadata):
     text = snapshot(markup(metadata=metadata))
     info = period.read_period(text)
     assert info["deadline_at"] is None and not info["has_conflict"]
     result = analyze_url(text, URL, None)
-    assert result.deadlines[0].due_at is None and result.warnings == [period.UNRESOLVED]
+    assert result.deadlines[0].due_at.isoformat() == "2026-10-31T23:59:00+09:00"
+    assert any("11시 59분" in item for item in result.warnings)
     assert review_data(text, URL)["choices"][0]["date"] == "2026-10-31"
 
 
@@ -93,9 +94,11 @@ def test_other_posting_metadata_is_not_the_current_job():
              "validThrough": "2030-12-31T14:59:59Z"}
     assert analyze_url(snapshot(markup(extra_postings=[other])), URL, None).deadlines[0].due_at == DUE
     no_current = snapshot(markup(metadata=None, extra_postings=[other]))
-    assert analyze_url(no_current, URL, None).deadlines[0].due_at is None
+    assert analyze_url(no_current, URL, None).deadlines[0].due_at.isoformat() == "2026-10-31T23:59:00+09:00"
     wrong_title = snapshot(markup(heading="다른 공고"))
-    assert analyze_url(wrong_title, URL, None).deadlines[0].due_at is None
+    # Visible date remains usable under the new default policy, but the
+    # unrelated metadata's 23:59:59.999 clock must not be borrowed.
+    assert analyze_url(wrong_title, URL, None).deadlines[0].due_at.isoformat() == "2026-10-31T23:59:00+09:00"
     assert period.period_text(markup(), "https://example.com/activity/356174") == ""
 
 

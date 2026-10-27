@@ -203,8 +203,8 @@ def test_html_metadata_ambiguity_is_enforced_even_if_model_guesses(monkeypatch, 
     monkeypatch.setattr(service, "provider_request", lambda *a: envelope)
     result = REAL_ANALYZE_TEXT(text, "test-model")
     if ambiguous:
-        assert result.deadlines[0].due_at is None
-        assert any(item in result.warnings for item in extraction.STRUCTURED_DATE_NOTICES)
+        assert result.deadlines[0].due_at.isoformat() == "2026-10-31T23:59:00+09:00"
+        assert any("11시 59분" in item for item in result.warnings)
     else:
         assert result.deadlines[0].due_at.isoformat() == proposal["due_at"]
         assert result.warnings == []
@@ -249,7 +249,7 @@ def test_job_metadata_default_kst_or_missing_time_review(monkeypatch, date_only)
         "revision": 1, "title": "내 공고 제목", "confirm_auto_registration": True,
     }
     if date_only:
-        assert analysis["warnings"] and analysis["candidates"][0]["due_at"] is None
+        assert analysis["warnings"] and analysis["candidates"][0]["due_at"] == confirmed_due
         assert analysis["candidates"][0]["selected"] is False
         assert client.post(path + "/auto-register", headers=headers, json=auto_payload).status_code == 422
         assert client.post(path + "/approve", headers=headers, json={"revision": 1}).status_code == 422
@@ -281,7 +281,7 @@ def adapter_result(monkeypatch, text, due_at, evidence=None, warnings=None):
     def provider(payload, model):
         instruction = payload["systemInstruction"]["parts"][0]["text"]
         assert "Asia/Seoul (UTC+09:00)" in instruction
-        assert "Never invent a year, date, end-of-day time" in instruction
+        assert "Never invent a year or date" in instruction and "23:59" in instruction
         return envelope
     monkeypatch.setattr(service, "provider_request", provider)
     return REAL_ANALYZE_TEXT(text, "test-model")
@@ -326,12 +326,27 @@ def test_separately_stated_timezone_is_not_overwritten(monkeypatch, zone, model_
     assert result.warnings == []
 
 
-@pytest.mark.parametrize("text", ["마감일: 10월 29일 23:59", "마감일: 2026-10-29",
+@pytest.mark.parametrize("text", ["마감일: 10월 29일 23:59",
                                   "마감일: 2026-10", "마감일: 2026-02-30T23:59"])
 def test_kst_default_does_not_supply_missing_or_invalid_year_date_time(monkeypatch, text):
     result = adapter_result(monkeypatch, text, None, warnings=["날짜 또는 시간을 확인해 주세요."])
     assert result.deadlines[0].due_at is None
     assert result.warnings == ["날짜 또는 시간을 확인해 주세요."]
+
+
+@pytest.mark.parametrize("text,expected", [
+    ("접수 마감: 2026년 10월 27일(화) 오후 5시(한국시간)까지", "2026-10-27T17:00:00+09:00"),
+    ("접수 마감: 2026-10-29", "2026-10-29T23:59:00+09:00"),
+])
+def test_text_korean_pm_and_date_only_policy(monkeypatch, text, expected):
+    result = adapter_result(monkeypatch, text, None)
+    assert result.deadlines[0].due_at.isoformat() == expected
+    assert bool(result.warnings) == ("23:59" in expected)
+
+
+def test_date_only_does_not_apply_kst_over_separately_stated_foreign_zone(monkeypatch):
+    result = adapter_result(monkeypatch, "접수 마감: 2026-10-29 (미국 뉴욕 시간)", None, evidence="2026-10-29")
+    assert result.deadlines[0].due_at is None
 
 
 @pytest.mark.parametrize("info", sorted(service.DEFAULT_TIMEZONE_INFORMATION))
@@ -360,8 +375,8 @@ def test_default_info_is_not_removed_without_complete_evidence_or_when_time_is_m
     info = "원문 마감일에 시간대가 명시되지 않아 기본 시간대(+09:00)가 적용되었습니다."
     text = "마감일: 2026-10-29\n" + STRUCTURED_DATE_NOTICES[0]
     result = adapter_result(monkeypatch, text, "2026-10-29T23:59:00+09:00", warnings=[info])
-    assert result.deadlines[0].due_at is None
-    assert info in result.warnings and STRUCTURED_DATE_NOTICES[0] in result.warnings
+    assert result.deadlines[0].due_at.isoformat() == "2026-10-29T23:59:00+09:00"
+    assert any("11시 59분" in item for item in result.warnings)
     result = adapter_result(monkeypatch, "접수 마감: 날짜 미정", None, warnings=[info])
     assert result.deadlines[0].due_at is None and result.warnings == [info]
 

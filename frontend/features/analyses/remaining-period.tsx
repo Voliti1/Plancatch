@@ -90,7 +90,8 @@ export function SourcePeriodSummary({
         <dd>{period.start_text || "표시 없음"}</dd>
         <dt>마감일 (원문)</dt>
         <dd>{period.end_text || "확인 필요"}</dd>
-        {(period.site === "jasoseol" ||
+        {(period.time_defaulted ||
+          period.site === "jasoseol" ||
           period.site === "linkareer" ||
           period.site === "work24") &&
           period.deadline_at && (
@@ -102,6 +103,12 @@ export function SourcePeriodSummary({
         <dt>현재 남은 기간</dt>
         <dd>{remainingPeriod(period.deadline_at, now)}</dd>
       </dl>
+      {period.time_defaulted && (
+        <p className="small muted">
+          마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면 변경해
+          주세요.
+        </p>
+      )}
       {period.site === "work24" &&
         period.deadline_at &&
         /\b24:00\b/.test(period.end_text ?? "") && (

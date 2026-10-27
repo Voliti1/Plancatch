@@ -65,11 +65,14 @@ class DateChoice(BaseModel):
     date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
     due_at: AwareDatetime | None = None
     evidence_text: str = Field(min_length=1, max_length=500)
+    time_defaulted: bool = False
 
 
 class Candidate(Proposal):
     id: uuid.UUID
     selected: bool
+    time_defaulted: bool = False
+    suggested_due_at: AwareDatetime | None = None
 
 
 class CandidateEdit(BaseModel):
@@ -124,6 +127,7 @@ class SourcePeriod(BaseModel):
     deadline_at: AwareDatetime | None
     remaining_text: str | None
     has_conflict: bool
+    time_defaulted: bool = False
 
 
 class AnalysisResponse(BaseModel):
@@ -141,6 +145,34 @@ class AnalysisResponse(BaseModel):
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+
+    @model_validator(mode="after")
+    def explain_clocks(self):
+        from app.services.deadline_dates import closing_choice, resolved_warnings
+        from app.services.url_deadlines import review_data
+        data = review_data(self.input_text) if self.model.startswith("html:") else None
+        safe_url = bool(data and data.get("scope_confirmed") and not data.get("has_conflict")
+                        and not data.get("open_ended") and len(data["choices"]) == 1)
+        defaulted = False
+        for item in self.candidates:
+            position = self.input_text.find(item.evidence_text)
+            context = self.input_text[max(0, position - 100):position + len(item.evidence_text) + 100]
+            choice = (data["choices"][0] if safe_url else None) if self.model.startswith("html:") else (
+                closing_choice(item.evidence_text, context) if item.evidence_text in self.input_text else None)
+            if not choice or not choice["due_at"]:
+                continue
+            expected = datetime.fromisoformat(choice["due_at"])
+            if item.due_at == expected:
+                item.time_defaulted = choice.get("time_defaulted", False)
+            elif item.due_at is None and self.status == "ready" and self.revision == 1:
+                # Read-only hint for old saved reviews. PATCH + explicit approval
+                # still persist the chosen value; GET never edits the DB or calls AI.
+                item.suggested_due_at = expected
+                item.time_defaulted = choice.get("time_defaulted", False)
+            defaulted |= item.time_defaulted
+        resolved = bool(self.candidates) and all(item.due_at or item.suggested_due_at for item in self.candidates)
+        self.warnings = resolved_warnings(self.warnings, defaulted, resolved)
+        return self
 
     @computed_field
     @property
@@ -172,4 +204,12 @@ class AnalysisResponse(BaseModel):
         period = (read_work24(self.input_text) or read_linkareer(self.input_text) or read_jasoseol(self.input_text) or read_jobplanet(self.input_text) or read_catch(self.input_text)
                   or read_jobkorea(self.input_text)) if self.model.startswith("html:") else None
         period = period or read_period(self.input_text)
+        if period and not period["deadline_at"] and not period["has_conflict"]:
+            from app.services.url_deadlines import review_data
+            data = review_data(self.input_text)
+            if (data and data.get("scope_confirmed") and not data.get("has_conflict")
+                    and not data.get("open_ended") and len(data["choices"]) == 1):
+                choice = data["choices"][0]
+                if choice.get("time_defaulted") and choice["due_at"]:
+                    period = dict(period, deadline_at=choice["due_at"], time_defaulted=True)
         return SourcePeriod(**period) if period else None

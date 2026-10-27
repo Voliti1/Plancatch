@@ -1,51 +1,19 @@
 """Bounded HTML date choices. URL review never calls a generative provider."""
-import hashlib
 import json
 import re
-from datetime import datetime, timedelta, timezone
+
+from app.services.deadline_dates import (
+    DATE,
+    DEFAULT_TIME_NOTICE,
+    closing_choice,
+    date_choice,
+)
 
 BEGIN = "[URL 마감일 HTML 검토 데이터]"
 END = "[URL 마감일 HTML 검토 끝]"
 URL_MODEL = "html:url:v1"
-SEOUL = timezone(timedelta(hours=9))
 OPEN = re.compile(r"채용\s*시|채용\s*완료\s*시|상시\s*모집")
 LABEL = re.compile(r"마감일|접수\s*(?:마감|종료|기간)|지원\s*마감|모집\s*기간")
-DATE = re.compile(
-    r"(?<![\d.])(?:(?P<year>\d{4})[.\-/년]\s*)?"
-    r"(?P<month>\d{1,2})[.\-/월]\s*(?P<day>\d{1,2})(?:일)?"
-    r"(?:\s*\([월화수목금토일](?:요일)?\))?"
-    r"(?:[ T]+(?P<hour>\d{1,2})(?::(?P<minute>\d{2})(?::(?P<second>\d{2})(?P<fraction>\.\d{1,6})?)?"
-    r"|시(?:\s*(?P<kminute>\d{1,2})분)?)(?P<offset>Z|[+-]\d{2}:\d{2})?)?"
-    r"(?!\d)"
-)
-
-
-def date_choice(raw: str, evidence: str) -> dict | None:
-    match = DATE.search(raw)
-    if match is None:
-        return None
-    value = match.groupdict()
-    day, due_at = None, None
-    try:
-        if value["year"]:
-            parsed = datetime(int(value["year"]), int(value["month"]), int(value["day"]), tzinfo=SEOUL)
-            day = parsed.date().isoformat()
-            if value["hour"] is not None:
-                minute = int(value["minute"] or value["kminute"] or "0")
-                clock = parsed.replace(hour=int(value["hour"]), minute=minute,
-                                       second=int(value["second"] or "0"),
-                                       microsecond=int((value["fraction"] or ".")[1:].ljust(6, "0")))
-                if value["offset"]:
-                    clock = datetime.fromisoformat(clock.replace(tzinfo=None).isoformat() + value["offset"])
-                else:
-                    clock = clock.replace(tzinfo=SEOUL)
-                due_at = clock.isoformat()
-    except ValueError:
-        # Preserve the read value for manual correction; never register an invalid date.
-        due_at = None
-    raw, evidence = match.group(0).strip()[:100], evidence.strip()[:500]
-    return {"id": hashlib.sha256((raw + "\n" + evidence).encode()).hexdigest()[:16],
-            "raw_text": raw, "date": day, "due_at": due_at, "evidence_text": evidence}
 
 
 def unique_choices(values: list[dict]) -> list[dict]:
@@ -66,7 +34,7 @@ def collect_review(text: str, job_text: str, period_parser=None, scoped: bool = 
                 if label == "마감일":
                     open_ended |= bool(OPEN.search(raw))
                     for match in DATE.finditer(raw):
-                        item = date_choice(match.group(0), f"마감일 원문: {raw}")
+                        item = date_choice(raw[match.start():], f"마감일 원문: {raw}")
                         if item:
                             values.append(item)
     elif job_text:
@@ -87,7 +55,7 @@ def collect_review(text: str, job_text: str, period_parser=None, scoped: bool = 
             if "시작일" in closing or OPEN.search(closing):
                 continue
             for match in DATE.finditer(closing):
-                item = date_choice(match.group(0), context)
+                item = date_choice(closing[match.start():], context)
                 if item:
                     values.append(item)
     if not (period_parser and period_parser.sections):
@@ -123,6 +91,14 @@ def review_data(text: str, source_url: str | None = None) -> dict | None:
             from app.schemas.analysis import DateChoice
             data["choices"] = [DateChoice.model_validate(item).model_dump(mode="json")
                                for item in data["choices"]]
+            # Old snapshots remain immutable. Apply the new clock policy only to
+            # a proven date-only value, without changing source text or its hash.
+            for item in data["choices"]:
+                if (item["due_at"] is None and not data.get("has_conflict")
+                        and not data.get("open_ended") and data.get("scope_confirmed")):
+                    parsed = closing_choice(item["evidence_text"])
+                    if parsed and parsed["due_at"] and parsed["date"] == item["date"]:
+                        item.update(due_at=parsed["due_at"], time_defaulted=parsed["time_defaulted"])
             return data
         except (ValueError, TypeError):
             return None
@@ -148,7 +124,7 @@ def review_data(text: str, source_url: str | None = None) -> dict | None:
     for line in block.splitlines():
         if line.startswith(("마감일 원문:", "마감일 후보 원문:")):
             for match in DATE.finditer(line):
-                item = date_choice(match.group(0), line)
+                item = date_choice(line[match.start():], line)
                 if item:
                     values.append(item)
     return {"choices": unique_choices(values), "open_ended": bool(OPEN.search(text)),
@@ -201,6 +177,8 @@ def analyze_url(text: str, source_url: str, title: str | None):
         due_at = choices[0]["due_at"]
         if not due_at:
             warnings.append(WORK24_UNRESOLVED if work24_period else LINKAREER_UNRESOLVED if linkareer_period else JOBPLANET_UNRESOLVED if jobplanet_period else CATCH_UNRESOLVED if read_catch(text) else UNRESOLVED)
+        elif choices[0].get("time_defaulted"):
+            warnings.append(DEFAULT_TIME_NOTICE)
         elif linkareer_period and linkareer_period["time_from_metadata"]:
             warnings.append(METADATA_TIME)
     else:
