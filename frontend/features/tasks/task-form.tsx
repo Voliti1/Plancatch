@@ -7,6 +7,7 @@ import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { ScheduleType, Task, TaskInput } from "@/types/task";
 import { loadDeadlineOptions } from "./deadline-options";
+import "./calendar-task-form.css";
 
 function optionalUtc(value: string, original: string | null): string | null {
   if (!value) return null;
@@ -34,6 +35,7 @@ export function TaskForm({
   variant?: "task" | "calendar";
 }) {
   const simple = variant === "calendar";
+  const requireTimes = simple && !initial;
   const hydrated = useHydrated();
   const descriptionId = useId();
   const deadlineLabelId = useId();
@@ -74,7 +76,7 @@ export function TaskForm({
         throw new Error(
           simple ? "일정명을 입력해 주세요." : "작업명을 입력해 주세요.",
         );
-      if (simple && (!start || !end))
+      if (requireTimes && (!start || !end))
         throw new Error("시작 일시와 종료 일시를 입력해 주세요.");
       const estimated = minutes === "" ? null : Number(minutes);
       if (
@@ -193,7 +195,7 @@ export function TaskForm({
           type="datetime-local"
           value={start}
           onChange={(event) => setStart(event.target.value)}
-          required={simple}
+          required={requireTimes}
         />
       </label>
       <label>
@@ -203,7 +205,7 @@ export function TaskForm({
           type="datetime-local"
           value={end}
           onChange={(event) => setEnd(event.target.value)}
-          required={simple}
+          required={requireTimes}
         />
       </label>
     </div>
@@ -273,7 +275,9 @@ export function TaskForm({
         {simple ? (
           <>
             {times}
-            <p className="muted small calendar-task-timezone">한국 시간 기준</p>
+            <p className="muted small calendar-task-timezone">
+              한국 시간 기준{initial ? " · 시간은 비워 둘 수 있습니다." : ""}
+            </p>
             {descriptionField}
             <details className="calendar-task-settings">
               <summary>상세 설정</summary>

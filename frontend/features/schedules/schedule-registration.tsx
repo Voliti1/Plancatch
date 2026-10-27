@@ -8,15 +8,18 @@ import { SourceForm } from "@/features/sources/source-form";
 import { TaskForm } from "@/features/tasks/task-form";
 import { tasksApi } from "@/features/tasks/api";
 import "./manual-registration.css";
+import { SimpleManualSchedulePreview } from "./simple-manual-schedule-preview";
 
 type RegistrationMode = "source" | "manual";
 
 export function ScheduleRegistration({
   initialMode = "source",
   deadlineId,
+  manualPreview = false,
 }: {
   initialMode?: RegistrationMode;
   deadlineId?: string;
+  manualPreview?: boolean;
 }) {
   const router = useRouter();
   const id = useId();
@@ -68,6 +71,12 @@ export function ScheduleRegistration({
         title="새 일정 등록"
         description="자료에서 일정을 정리하거나, 필요한 내용을 직접 입력해 등록하세요."
       />
+      {manualPreview && (
+        <p className="registration-preview-notice">
+          UI 샘플 · 자료 등록과 수동 일정 등록 모두 실제 데이터는 저장하지
+          않습니다.
+        </p>
+      )}
       <div
         className="schedule-registration-modes"
         role="tablist"
@@ -109,7 +118,11 @@ export function ScheduleRegistration({
         aria-labelledby={`${id}-source-tab`}
         hidden={mode !== "source"}
       >
-        <SourceForm embedded onBusyChange={setSaving} />
+        <SourceForm
+          embedded
+          onBusyChange={setSaving}
+          previewOnly={manualPreview}
+        />
       </div>
       <div
         id={`${id}-manual-panel`}
@@ -117,7 +130,10 @@ export function ScheduleRegistration({
         aria-labelledby={`${id}-manual-tab`}
         hidden={mode !== "manual"}
       >
-        {manualOpened && (
+        {manualOpened && manualPreview && (
+          <SimpleManualSchedulePreview onCancel={() => selectMode("source")} />
+        )}
+        {manualOpened && !manualPreview && (
           <section className="card source-registration manual-registration-card">
             <div className="manual-registration-heading">
               <h2>수동 일정 등록</h2>
