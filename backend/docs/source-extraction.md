@@ -103,3 +103,10 @@ The same-job JobKorea adapter also reads the countdown's explicit, offset-aware
 See [JobKorea extraction, review and verification](jobkorea-period.md) for the
 accepted structure, limits and frontend site label. This follow-up changes both
 backend and frontend code; it requires no additional migration or configuration.
+
+## Catch closing-period evidence (2026-10-27)
+
+The Catch adapter matches `view2_{job ID}.recr_pop_dday p.t1` to the same page's
+canonical URL, heading and JobPosting `validThrough`. See
+[Catch extraction and review](catch-period.md) for year/time validation, limits
+and the additive frontend `catch` site label.
