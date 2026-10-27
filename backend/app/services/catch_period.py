@@ -54,12 +54,27 @@ def resolve(raw: str, metadata: str | None) -> tuple[datetime | None, bool]:
             due = due.replace(tzinfo=SEOUL)
         local = due.astimezone(SEOUL)
         field = display.groupdict()
-        conflict = ((local.month, local.day) != (int(field["month"]), int(field["day"]))
-                    or bool(field["year"] and local.year != int(field["year"]))
-                    or bool(field["weekday"] and field["weekday"] != "월화수목금토일"[local.weekday()]))
+        label_day = local.date()
+        midnight_label = field["hour"] == "24"
+        minute = int(field["minute"] or field["kminute"] or 0)
+        if midnight_label:
+            # Catch prints 24시 for the labelled day's end, while JSON-LD
+            # uses either its final second or exactly the following midnight.
+            if minute != 0:
+                return None, True
+            if (local.hour, local.minute, local.second, local.microsecond) == (0, 0, 0, 0):
+                label_day -= timedelta(days=1)
+            elif not ((local.hour, local.minute, local.second) == (23, 59, 59)
+                      or ((local.hour, local.minute) == (23, 59)
+                          and re.fullmatch(r".*T23:59(?:Z|[+-]\d{2}:\d{2})?", metadata))):
+                return None, True
+        conflict = ((label_day.month, label_day.day) != (int(field["month"]), int(field["day"]))
+                    or bool(field["year"] and label_day.year != int(field["year"]))
+                    or bool(field["weekday"] and field["weekday"] != "월화수목금토일"[label_day.weekday()]))
         if field["hour"] is None:
             return None, conflict  # A hidden clock must still be supplied by the user.
-        conflict |= (local.hour, local.minute) != (int(field["hour"]), int(field["minute"] or field["kminute"] or 0))
+        if not midnight_label:
+            conflict |= (local.hour, local.minute) != (int(field["hour"]), minute)
         return (None if conflict else due), conflict
     except (ValueError, OverflowError):
         return None, True

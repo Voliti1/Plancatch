@@ -1,6 +1,41 @@
 // Display only explicitly labelled values from the stored text. This is not an
 // AI result, and must not invent a company, year, time or time zone.
 export function extractedSummary(text: string) {
+  // Prefer the same-job HTML slot captured at extraction time. Body text can
+  // contain unrelated company names from recommendations or advertising.
+  const begin = "[URL 마감일 HTML 검토 데이터]";
+  const end = "[URL 마감일 HTML 검토 끝]";
+  let verifiedCompany: string | null | undefined;
+  if (
+    text.split(begin).length === 2 &&
+    text.split(end).length === 2 &&
+    text.trimEnd().endsWith(end)
+  ) {
+    const raw = text.split(begin)[1].split(end)[0].trim();
+    if (raw.length <= 25000) {
+      try {
+        const data = JSON.parse(raw);
+        if (
+          data &&
+          data.version === 1 &&
+          typeof data.submitted_url === "string" &&
+          typeof data.fetched_url === "string"
+        ) {
+          if (data.company_name === null) verifiedCompany = null;
+          else if (
+            typeof data.company_name === "string" &&
+            data.company_name.trim().length > 0 &&
+            data.company_name.length <= 200 &&
+            !/[<>\u0000-\u001f]/.test(data.company_name)
+          ) {
+            verifiedCompany = data.company_name.trim();
+          }
+        }
+      } catch {
+        /* Historical plain-text extracts keep their labelled fallback. */
+      }
+    }
+  }
   const lines = text
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -67,11 +102,13 @@ export function extractedSummary(text: string) {
   ];
   return {
     company:
-      uniqueCompanies.length === 1
-        ? uniqueCompanies[0]
-        : uniqueCompanies.length
-          ? "여러 회사명이 있어 원문 확인이 필요합니다."
-          : "원문에서 회사명을 확인하지 못했습니다.",
+      verifiedCompany !== undefined
+        ? verifiedCompany || "원문에서 회사명을 확인하지 못했습니다."
+        : uniqueCompanies.length === 1
+          ? uniqueCompanies[0]
+          : uniqueCompanies.length
+            ? "여러 회사명이 있어 원문 확인이 필요합니다."
+            : "원문에서 회사명을 확인하지 못했습니다.",
     deadline:
       uniqueDeadlines.length === 1
         ? uniqueDeadlines[0]
