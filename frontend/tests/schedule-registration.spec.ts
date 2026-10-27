@@ -231,7 +231,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
 }) => {
   await login(page);
   await page.goto("/sources/new");
-  await page.getByLabel("자료 제목 (선택)").fill("테스트 자료");
+  await page.getByLabel("일정 제목 (선택)").fill("테스트 자료");
   const text = "  테스트 첫 줄\n둘째 줄\n";
   await page.getByLabel("원본 텍스트", { exact: true }).fill(text);
   let release!: () => void;
@@ -264,7 +264,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
   await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
     text,
   );
-  await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("테스트 자료");
+  await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("테스트 자료");
   await page.unroute("**/test-api/api/sources");
   const sent = page.waitForRequest(
     (request) =>
@@ -316,7 +316,7 @@ test("a late save response cannot navigate away from a fresh registration", asyn
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();
     await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
-    await page.getByLabel("자료 제목 (선택)").fill("유지할 새 입력");
+    await page.getByLabel("일정 제목 (선택)").fill("유지할 새 입력");
     const freshUrl = page.url();
     const response = page.waitForResponse(
       (reply) =>
@@ -335,7 +335,7 @@ test("a late save response cannot navigate away from a fresh registration", asyn
       );
     expect(staleNavigation).toBe(false);
     await expect(page).toHaveURL(freshUrl);
-    await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue(
+    await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue(
       "유지할 새 입력",
     );
   } finally {

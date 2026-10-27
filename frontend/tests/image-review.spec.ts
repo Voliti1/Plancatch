@@ -45,10 +45,21 @@ test("image upload requires consent, preserves missing time and original preview
   page,
 }) => {
   const state = await mockAnalyses(page, [], image);
+  const enteredTitle = "[한온시스템] 하반기 채용연계형 인턴십";
+  const titledResult = {
+    ...result,
+    candidates: result.candidates.map((item) => ({
+      ...item,
+      title: enteredTitle,
+    })),
+  };
   let uploads = 0;
   await page.route("**/test-api/api/sources/images", (route) => {
     expect(route.request().headers()["content-type"]).toContain(
       "multipart/form-data; boundary=",
+    );
+    expect(route.request().postDataBuffer()!.toString("utf8")).toContain(
+      enteredTitle,
     );
     uploads++;
     return route.fulfill({ status: 201, json: image });
@@ -63,11 +74,15 @@ test("image upload requires consent, preserves missing time and original preview
       reuse_existing: true,
     });
     state.starts++;
-    state.analyses.push(structuredClone(result));
-    return route.fulfill({ status: 202, json: result });
+    state.analyses.push(structuredClone(titledResult));
+    return route.fulfill({ status: 202, json: titledResult });
   });
   await login(page);
   await page.goto("/sources/new");
+  await expect(
+    page.getByRole("heading", { name: "일정 입력", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("일정 제목 (선택)", { exact: true }).fill(enteredTitle);
   await page
     .getByLabel("이미지 파일 입력", { exact: true })
     .setInputFiles({ name: "캡처.png", mimeType: "image/png", buffer: png });
@@ -84,6 +99,9 @@ test("image upload requires consent, preserves missing time and original preview
   await page.getByRole("button", { name: "동의하고 AI 검토 시작" }).click();
   await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
   await expect(page.getByRole("region", { name: "원본 이미지" })).toBeVisible();
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
+    enteredTitle,
+  );
   await expect(
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");

@@ -46,7 +46,7 @@ test("dashboard displays server safety dates and opens the shared registration s
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("");
+  await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("");
 });
 
 test("creating without safety sends null and a past deadline can be configured with a one-minute buffer", async ({

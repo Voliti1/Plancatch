@@ -54,6 +54,7 @@ def test_route_worker_and_idempotent_registration_make_zero_ai_calls(monkeypatch
     path = f"/api/ai-analyses/{response.json()['id']}"
     analysis = client.get(path, headers=headers).json()
     assert analysis["status"] == "ready" and analysis["warnings"] == []
+    assert analysis["candidates"][0]["title"] == "사용자가 설정한 제목"
     assert analysis["candidates"][0]["evidence_text"] == f"마감일 원문: {END}"
     assert analysis["candidates"][0]["due_at"] == "2026-11-01T23:59:00+09:00"
     assert analysis["candidates"][0]["selected"]

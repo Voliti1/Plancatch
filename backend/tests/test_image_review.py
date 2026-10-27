@@ -58,6 +58,30 @@ def mock_provider(monkeypatch, value):
     return calls
 
 
+@pytest.mark.parametrize("title", ["일정 제목", "일" * 255, ""])
+def test_image_schedule_title_reaches_candidates_and_can_be_edited(monkeypatch, title):
+    mock_provider(monkeypatch, result("2026-11-01T23:59:00+09:00"))
+    headers = auth()
+    source = client.post("/api/sources/images", headers=headers,
+                        files={"file": ("notice.png", picture(), "image/png")},
+                        data={"title": title}).json()
+    started = client.post("/api/sources/" + source["id"] + "/ai-analyses", headers=headers,
+                          json={"allow_external_ai": True, "input_hash": source["image_sha256"]})
+    path = "/api/ai-analyses/" + started.json()["id"]
+    candidate = client.get(path, headers=headers).json()["candidates"][0]
+    assert candidate["title"] == (title or "접수 마감")
+    assert candidate["evidence_text"] == EVIDENCE
+    edit = {key: candidate[key] for key in ("id", "title", "due_at", "description", "selected")}
+    edit.update(title="검토 후 바꾼 일정 제목", selected=True)
+    saved = client.patch(path, headers=headers, json={"revision": 1, "candidates": [edit]})
+    assert saved.status_code == 200
+    approved = client.post(path + "/approve", headers=headers, json={"revision": 2})
+    assert approved.status_code == 200
+    deadline = client.get("/api/deadlines/" + approved.json()["approved_deadline_ids"][0], headers=headers).json()
+    assert deadline["title"] == "검토 후 바꾼 일정 제목"
+    assert client.get(path, headers=headers).json()["candidates"][0]["title"] == deadline["title"]
+
+
 def test_date_only_crop_defaults_time_but_still_requires_selection_and_review(monkeypatch):
     calls = mock_provider(monkeypatch, result())
     headers = auth()

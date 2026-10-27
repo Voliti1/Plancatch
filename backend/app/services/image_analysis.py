@@ -106,8 +106,12 @@ def process_image_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
             if source is None or source.user_id != analysis.user_id or source.source_type != "image":
                 raise AIError("ai_input_invalid")
             key, model, digest = source.storage_key, analysis.model.removeprefix(PREFIX), analysis.input_hash
+            source_title = (source.title or "").strip()
         try:
             result = analyze_image(read_image(key), model)
+            if source_title:
+                for item in result.deadlines:
+                    item.title = source_title
             values = {"status":"ready", "input_text":result.transcript, "candidates":[
                 dict(item.model_dump(mode="json"), id=str(uuid.uuid4()), selected=False)
                 for item in result.deadlines], "warnings":result.warnings, "error_message":None}

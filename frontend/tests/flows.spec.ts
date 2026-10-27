@@ -39,7 +39,7 @@ test("URL and text source registration and empty list", async ({ page }) => {
   await page.getByRole("link", { name: "원본 자료", exact: true }).click();
   await expect(page.getByText("등록된 자료가 없습니다")).toBeVisible();
   await page.getByRole("link", { name: "＋ 자료 등록" }).click();
-  await page.getByLabel("자료 제목 (선택)").fill("수업 공지");
+  await page.getByLabel("일정 제목 (선택)").fill("수업 공지");
   await page.getByLabel("원본 URL").fill("https://example.com/notice");
   await page.getByRole("button", { name: "자료 저장" }).click();
   await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
