@@ -43,6 +43,9 @@ def analyze_image(data: bytes, model: str) -> ImageResult:
             "Preserve date ranges with '~' and include the full range as evidence when a year is shared. "
             "due_at is ISO8601 with offset, default +09:00 unless another zone is explicit. "
             "Read Korean 오전/오후 clocks (오후 5시 is 17:00). Preserve every explicit clock. "
+            "Read punctuation/spaces in Korean date ranges: 2026. 11. 3.(화) 10:00 ~ 11. 9.(월) 18:00 "
+            "closes at 2026-11-09T18:00:00+09:00. 18시, 18시00분, 오후6시 and 6:00 PM mean 18:00. "
+            "evidence_text must include the closing CLOCK when visible, not just the date. "
             "If year or closing date is absent/unclear, due_at MUST be null. NEVER invent a year. "
             "For a complete visible closing date without a clock, use 23:59 +09:00 as service policy "
             "and explain that default in plain Korean. Never expose field names or null in user-facing text. "
@@ -71,7 +74,12 @@ def analyze_image(data: bytes, model: str) -> ImageResult:
             context = result.transcript[max(0, position - 100):position + len(item.evidence_text) + 100]
             choice = closing_choice(item.evidence_text, context)
             expected = datetime.fromisoformat(choice["due_at"]) if choice and choice["due_at"] else None
-            if expected and (item.due_at is None or choice["time_defaulted"]):
+            if (choice and choice["evidence_text"].startswith(item.evidence_text)
+                    and choice["evidence_text"] in result.transcript):
+                item.evidence_text = choice["evidence_text"]
+            if expected:
+                # An explicit, locally parsed transcript clock outranks a model
+                # guess (including a spurious end-of-day default).
                 item.due_at = expected
             elif item.due_at is not None and (expected is None or item.due_at != expected):
                 item.due_at = None

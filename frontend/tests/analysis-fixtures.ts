@@ -134,6 +134,7 @@ export async function mockAnalyses(
       analysis.candidates = body.candidates.map((item: CandidateEdit) => ({
         ...analysis.candidates.find((saved) => saved.id === item.id),
         ...item,
+        suggested_due_at: null,
       }));
       analysis.revision++;
     }

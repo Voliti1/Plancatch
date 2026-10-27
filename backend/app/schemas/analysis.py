@@ -148,12 +148,19 @@ class AnalysisResponse(BaseModel):
 
     @model_validator(mode="after")
     def explain_clocks(self):
-        from app.services.deadline_dates import closing_choice, resolved_warnings
+        from app.services.deadline_dates import (
+            DEFAULT_TIME_NOTICE,
+            SEOUL,
+            closing_choice,
+            resolved_warnings,
+        )
         from app.services.url_deadlines import review_data
         data = review_data(self.input_text) if self.model.startswith("html:") else None
         safe_url = bool(data and data.get("scope_confirmed") and not data.get("has_conflict")
                         and not data.get("open_ended") and len(data["choices"]) == 1)
         defaulted = False
+        corrected_default = False
+        previous_default_mismatch = False
         for item in self.candidates:
             position = self.input_text.find(item.evidence_text)
             context = self.input_text[max(0, position - 100):position + len(item.evidence_text) + 100]
@@ -162,16 +169,27 @@ class AnalysisResponse(BaseModel):
             if not choice or not choice["due_at"]:
                 continue
             expected = datetime.fromisoformat(choice["due_at"])
+            saved_local = item.due_at.astimezone(SEOUL) if item.due_at else None
+            previous_default = bool(self.model.startswith("image:") and DEFAULT_TIME_NOTICE in self.warnings
+                                    and saved_local and saved_local.date() == expected.astimezone(SEOUL).date()
+                                    and (saved_local.hour, saved_local.minute, saved_local.second,
+                                         saved_local.microsecond) == (23, 59, 0, 0))
+            previous_default_mismatch |= previous_default and item.due_at != expected
             if item.due_at == expected:
                 item.time_defaulted = choice.get("time_defaulted", False)
-            elif item.due_at is None and self.status == "ready" and self.revision == 1:
+            elif self.status == "ready" and self.revision == 1 and (item.due_at is None or previous_default):
                 # Read-only hint for old saved reviews. PATCH + explicit approval
                 # still persist the chosen value; GET never edits the DB or calls AI.
                 item.suggested_due_at = expected
                 item.time_defaulted = choice.get("time_defaulted", False)
+                corrected_default |= item.due_at is not None
             defaulted |= item.time_defaulted
         resolved = bool(self.candidates) and all(item.due_at or item.suggested_due_at for item in self.candidates)
         self.warnings = resolved_warnings(self.warnings, defaulted, resolved)
+        if corrected_default:
+            self.warnings = ["사진에 적힌 마감 시간으로 수정할 수 있습니다. 입력된 시간을 확인한 뒤 검토 내용을 저장해 주세요.", *self.warnings][:30]
+        elif previous_default_mismatch:
+            self.warnings = ["사진에 적힌 마감 시간과 저장된 시간이 다릅니다. 마감일을 확인해 주세요.", *self.warnings][:30]
         return self
 
     @computed_field
