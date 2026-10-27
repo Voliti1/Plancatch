@@ -386,7 +386,9 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
     if media_type == "text/plain":
         text, title = decoded.strip(), None
     elif media_type in {"text/html", "application/xhtml+xml"}:
-        parser = PageParser()
+        from app.services.work24_period import Work24Parser
+        from app.services.work24_period import job_id as work24_id
+        parser = Work24Parser(source_url) if work24_id(source_url or "") else PageParser()
         parser.feed(decoded)
         # Visible password inputs remain a conservative gate heuristic. Hidden
         # optional login popups neither block public content nor enter AI input.
@@ -493,6 +495,22 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 review = {**review, "choices": [choice] if choice else [],
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = f"{text}\n\n{linkareer_snapshot}"
+        from app.services.work24_period import period_text as work24_text
+        from app.services.work24_period import read_period as read_work24
+        work24_snapshot = work24_text(decoded, source_url, parser if isinstance(parser, Work24Parser) else None)
+        if work24_snapshot:
+            from app.services.url_deadlines import OPEN, date_choice
+            info = read_work24(work24_snapshot)
+            if info:
+                due = info["deadline_at"]
+                evidence = f"마감일 원문: {info['end_text']}"
+                choice = date_choice(due.isoformat() if due else info["end_text"], evidence)
+                if choice and not due:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{work24_snapshot}"
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")
