@@ -13,6 +13,7 @@ import { analysisError, processingError } from "./errors";
 import { analysisStatusLabel, isHtmlAnalysis } from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
 import { ReviewSummary } from "./review-summary";
+import { SourceImage } from "@/features/sources/source-image";
 import {
   RemainingPeriod,
   SourcePeriodSummary,
@@ -189,6 +190,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         )}
         <ReviewSummary analysis={data} />
       </div>
+      {data.model.startsWith("image:") && <SourceImage id={data.source_id} />}
       {data.status === "approved" && (
         <section className="card analysis-approved">
           <h2>마감일 등록 완료</h2>

@@ -22,6 +22,7 @@ export interface Analysis {
   id: string;
   source_id: string;
   input_text: string;
+  input_hash?: string;
   model: string;
   status: AnalysisStatus;
   revision: number;

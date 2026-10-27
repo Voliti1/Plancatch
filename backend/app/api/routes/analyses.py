@@ -60,6 +60,9 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
                    background_tasks: BackgroundTasks, current_user: CurrentUser,
                    db: DatabaseSession) -> Analysis:
     source = get_owned_source(source_id, current_user.id, db)
+    if source.source_type == "image":
+        from app.api.routes.images import start_image_analysis
+        return start_image_analysis(source, payload, db, background_tasks)
     if source.processing_status != "extracted" or not source.extracted_text:
         raise HTTPException(409, "Extract source text first")
     snapshot_hash = content_hash(source.extracted_text)
@@ -178,8 +181,12 @@ def approve_analysis(analysis_id: uuid.UUID, payload: DecisionRequest,
 def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
                               db: DatabaseSession) -> Analysis:
     source = get_owned_source(analysis.source_id, current_user.id, db)
+    from app.services.source_images import image_hash
+    snapshot_hash = (image_hash(source.storage_key) if source.source_type == "image"
+                     else content_hash(source.extracted_text or ""))
     if (source.processing_status != "extracted" or not source.extracted_text
-            or content_hash(source.extracted_text) != analysis.input_hash):
+            or snapshot_hash != analysis.input_hash
+            or (source.source_type == "image" and source.extracted_text != analysis.input_text)):
         raise HTTPException(409, "Source changed; extract and analyze it again")
     selected = [item for item in analysis.candidates if item["selected"]]
     if not selected or any(item["due_at"] is None for item in selected):
@@ -208,8 +215,9 @@ def auto_register_analysis(analysis_id: uuid.UUID, payload: AutoRegistrationRequ
         return analysis  # Recover a lost success response without creating another deadline.
     ensure_ready(analysis, payload.revision)
     source = get_owned_source(analysis.source_id, current_user.id, db)
-    if source.source_type == "url":
-        raise HTTPException(422, "url_registration_requires_review")
+    if source.source_type in {"url", "image"}:
+        raise HTTPException(422, "url_registration_requires_review" if source.source_type == "url"
+                            else "image_registration_requires_review")
     # Never arbitrarily choose among dates, infer a missing date, or auto-approve a manual edit.
     if (analysis.revision != 1 or analysis.warnings or len(analysis.candidates) != 1
             or not analysis.candidates[0]["selected"] or analysis.candidates[0]["due_at"] is None):

@@ -39,14 +39,12 @@ export function SourceForm({
     setError("");
     const originalUrl = url.trim();
     const hasText = Boolean(text.trim());
-    if (files.length) {
-      setError(
-        "파일 업로드는 준비 중입니다. URL 또는 텍스트를 저장하려면 선택한 파일을 먼저 제거해 주세요.",
-      );
+    if (files.length > 1 || (files.length && (originalUrl || hasText))) {
+      setError("한 번에 이미지 한 장, URL, 텍스트 중 하나만 등록해 주세요.");
       return;
     }
-    if (!originalUrl && !hasText) {
-      setError("URL 또는 텍스트를 입력해 주세요.");
+    if (!originalUrl && !hasText && !files.length) {
+      setError("이미지, URL 또는 텍스트를 입력해 주세요.");
       return;
     }
     if (originalUrl && hasText) {
@@ -71,15 +69,21 @@ export function SourceForm({
     onBusyChange?.(true);
     try {
       const sourceTitle = title.trim() || undefined;
-      const source = await sourcesApi.create(
-        originalUrl
-          ? {
-              source_type: "url",
-              title: sourceTitle,
-              original_url: originalUrl,
-            }
-          : { source_type: "text", title: sourceTitle, original_text: text },
-      );
+      const source = files.length
+        ? await sourcesApi.uploadImage(files[0], sourceTitle)
+        : await sourcesApi.create(
+            originalUrl
+              ? {
+                  source_type: "url",
+                  title: sourceTitle,
+                  original_url: originalUrl,
+                }
+              : {
+                  source_type: "text",
+                  title: sourceTitle,
+                  original_text: text,
+                },
+          );
       // A new keyed registration can replace this form while a save is in flight.
       // Keep the saved source, but never redirect or update its replacement.
       if (active.current)
@@ -184,8 +188,8 @@ export function SourceForm({
           </div>
           <p className="small muted source-registration-help">
             저장 후 바로 원문 추출과 마감일 검토로 이어집니다. URL은 HTML에서
-            날짜를 읽고, 텍스트는 AI 전송에 동의한 뒤 분석합니다. 검토 후
-            승인해야 마감일이 등록됩니다.
+            날짜를 읽고, 텍스트와 이미지는 AI 전송에 동의한 뒤 분석합니다. 검토
+            후 승인해야 마감일이 등록됩니다.
           </p>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions source-registration-actions">
@@ -199,10 +203,7 @@ export function SourceForm({
             >
               취소
             </Link>
-            <button
-              type="submit"
-              disabled={busy || !hydrated || files.length > 0}
-            >
+            <button type="submit" disabled={busy || !hydrated}>
               {busy ? "저장 중…" : "자료 저장"}
             </button>
           </div>

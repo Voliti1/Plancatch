@@ -18,6 +18,7 @@ export interface Source {
   original_text: string | null;
   extracted_text: string | null;
   extracted_text_hash?: string | null;
+  image_sha256?: string | null;
   storage_key: string | null;
   processing_status: string;
   error_message: string | null;
