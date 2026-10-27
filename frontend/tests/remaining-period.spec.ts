@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { login } from "./fixtures";
-import { mockAnalyses, readyAnalysis } from "./analysis-fixtures";
+import { aiSource, mockAnalyses, readyAnalysis } from "./analysis-fixtures";
 import { remainingPeriod } from "../features/analyses/remaining-period";
 import { extractedSummary } from "../features/sources/extracted-summary";
 
@@ -175,4 +175,96 @@ test("initial HTML timer zeros do not show an open deadline as closed", async ({
   await expect(period).not.toContainText("0일 00:00:00");
   await expect(period).not.toContainText("초기값일 수 있습니다");
   await expect(period).not.toContainText("마감됨");
+});
+
+test("JobKorea uses the HTML deadline clock and keeps the removed snapshot row hidden", async ({
+  page,
+}) => {
+  const jobDue = "2026-10-27T23:59:59+09:00";
+  const evidence = `마감일 원문: ${jobDue}`;
+  const input = `(주)테스트기업\n${evidence}`;
+  const state = await mockAnalyses(
+    page,
+    [
+      {
+        ...analysis,
+        model: "html:url:v1",
+        input_text: input,
+        candidates: [
+          {
+            ...analysis.candidates[0],
+            due_at: jobDue,
+            description: "지원서 제출",
+            evidence_text: evidence,
+          },
+        ],
+        source_period: {
+          site: "jobkorea" as const,
+          start_text: null,
+          end_text: jobDue,
+          deadline_at: jobDue,
+          remaining_text: "0일 14:40:59",
+          has_conflict: false,
+        },
+      },
+    ],
+    {
+      ...aiSource,
+      source_type: "url",
+      original_url: "https://www.jobkorea.co.kr/Recruit/GI_Read/50195748",
+      original_text: null,
+      extracted_text: input,
+      title: "[테스트] 잡코리아 채용공고",
+    },
+  );
+  await login(page);
+  await page.clock.install({ time: new Date("2026-10-27T00:19:00Z") });
+  await page.goto("/analyses/analysis-1");
+  const period = page.getByRole("region", {
+    name: "잡코리아 접수기간",
+    exact: true,
+  });
+  await expect(period).toContainText(jobDue);
+  await expect(period).toContainText("0일 14시간 40분 59초");
+  await expect(period).not.toContainText("사이트 남은 기간");
+  await expect(period).not.toContainText("0일 14:40:59");
+  await expect(
+    page.getByRole("region", { name: "사람인 접수기간", exact: true }),
+  ).toHaveCount(0);
+  await page.clock.fastForward(5000);
+  await expect(period).toContainText("0일 14시간 40분 54초");
+  expect(state.starts).toBe(0);
+  expect(state.deadlines).toHaveLength(0);
+  await page
+    .getByLabel("후보 1 제목", { exact: true })
+    .fill("[테스트] 잡코리아 지원");
+  await page
+    .getByRole("button", { name: "검토 내용 저장", exact: true })
+    .click();
+  const approve = page.getByRole("button", {
+    name: "선택한 1개 승인",
+    exact: true,
+  });
+  await expect(approve).toBeEnabled();
+  expect(state.analyses[0].candidates[0].due_at).toBe(jobDue);
+  await approve.click();
+  await expect(
+    page.getByRole("heading", { name: "마감일 등록 완료", exact: true }),
+  ).toBeVisible();
+  expect(state.deadlines).toHaveLength(1);
+  expect(state.deadlines[0].due_at).toBe(jobDue);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { name: "마감일 등록 완료", exact: true }),
+  ).toBeVisible();
+  expect(state.deadlines).toHaveLength(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page.screenshot({
+    path: test.info().outputPath("jobkorea-period.png"),
+    fullPage: true,
+  });
 });

@@ -12,6 +12,8 @@ export interface AnalysisCandidate extends CandidateEdit {
   confidence: number;
 }
 export interface SourcePeriod {
+  // Additive site label; older responses describe Saramin and omit this field.
+  site?: "saramin" | "jobkorea";
   start_text: string | null;
   end_text: string | null;
   deadline_at: string | null;
