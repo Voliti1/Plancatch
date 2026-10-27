@@ -105,7 +105,12 @@ def company_for_page(html: str, url: str | None, page: PageParser) -> str | None
         jasoseol_period,
         jobplanet_period,
         linkareer_period,
+        work24_period,
     )
+    if work24_period.job_id(url):
+        return (unique_name(page.company_names)
+                if isinstance(page, work24_period.Work24Parser) and page.verified and not page.password_form
+                else None)
     if identity := catch_period.job_id(url):
         parser = catch_period.CatchParser(identity)
         parser.feed(html)

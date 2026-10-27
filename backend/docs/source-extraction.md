@@ -131,3 +131,11 @@ The Linkareer adapter matches the visible start/end fields to a same-page
 JobPosting expiry and explains when its time comes from metadata. Without a
 verified metadata clock the user supplies the time. See
 [Linkareer extraction and review](linkareer-period.md) for scope checks and limits.
+
+## Work24 public job deadline (2026-10-27)
+
+The Work24 adapter verifies the URL/form/visible job certificate and reads its
+closing-date block. Explicit 24:00 becomes the next day's 00:00 Seoul time while
+preserving the original evidence. See [Work24 extraction and review](work24-period.md)
+for the tightly scoped handling of closed account-maintenance footer dialogs;
+active or unverified password gates remain blocked.
