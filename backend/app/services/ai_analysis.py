@@ -16,6 +16,11 @@ from app.core.config import get_settings
 from app.models.analysis import Analysis
 from app.models.source import Source
 from app.schemas.analysis import ProviderResult
+from app.services.deadline_dates import (
+    DEFAULT_TIME_NOTICE,
+    closing_choice,
+    resolved_warnings,
+)
 from app.services.extraction import DEFAULT_TIMEZONE_POLICY, STRUCTURED_DATE_NOTICES
 from app.services.html_analysis import HTML_MODEL
 from app.services.saramin_period import CONFLICT as PERIOD_CONFLICT
@@ -185,9 +190,11 @@ def analyze_text(text: str, model: str) -> ProviderResult:
             "or explain this default in warnings: warnings are for unresolved factual problems only. "
             "Respect any explicitly stated "
             "timezone/offset instead; never replace it with KST. Include the complete original "
-            "date/time and any stated zone in exact evidence_text. If the year, date or time "
-            "is missing/ambiguous, or timezone statements conflict, use null and record warnings. "
-            "Never invent a year, date, end-of-day time or other missing time. "
+            "date/time and any stated zone in exact evidence_text. Read 오전/오후 correctly. "
+            "If the year or date is missing/ambiguous, or timezone statements conflict, use null. "
+            "Never invent a year or date. For a complete closing date without a clock use 23:59 "
+            "+09:00 as service policy and explain that default in plain Korean. "
+            "User-facing descriptions/warnings must not contain field names such as due_at or null. "
             "In application periods, 시작일 is an opening date, not a deadline; 마감일 is the closing date. "
             "A 남은 기간 timer is a past extraction snapshot, not an absolute date. Never derive a "
             "deadline by adding it to now. Server-rendered timers may be uninitialized zeros; they "
@@ -217,15 +224,26 @@ def analyze_text(text: str, model: str) -> ProviderResult:
         if any(item.evidence_text not in text for item in result.deadlines):
             raise AIError("ai_evidence_not_in_source")
         default_applied = apply_timezone_policy(result, text)
+        time_defaulted = False
+        for item in result.deadlines:
+            position = text.find(item.evidence_text)
+            context = text[max(0, position - 100):position + len(item.evidence_text) + 100]
+            choice = closing_choice(item.evidence_text, context)
+            if (choice and choice["due_at"] and DATE_CONFLICT_NOTICE not in result.warnings
+                    and (item.due_at is None or choice["time_defaulted"])):
+                item.due_at = datetime.fromisoformat(choice["due_at"])
+                time_defaulted |= choice["time_defaulted"]
         period = read_period(text)
         if period and period["has_conflict"]:
             for item in result.deadlines:
                 item.due_at = None
             result.warnings.append(PERIOD_CONFLICT)
         elif period and not period["deadline_at"] and result.deadlines:
-            for item in result.deadlines:
-                item.due_at = None
-            result.warnings.append(PERIOD_UNRESOLVED)
+            closing = closing_choice(period["end_text"] or "")
+            if not (closing and closing["time_defaulted"] and closing["due_at"]):
+                for item in result.deadlines:
+                    item.due_at = None
+                result.warnings.append(PERIOD_UNRESOLVED)
         elif period and period["deadline_at"]:
             for item in result.deadlines:
                 # A proposal tied to this application period cannot register its
@@ -240,13 +258,8 @@ def analyze_text(text: str, model: str) -> ProviderResult:
             # Only retire exact known policy notices after evidence-based KST
             # validation. Unknown warnings must still block automatic registration.
             result.warnings = [item for item in result.warnings if item not in DEFAULT_TIMEZONE_INFORMATION]
-        notices = [STRUCTURED_DATE_NOTICES[0]] if STRUCTURED_DATE_NOTICES[0] in text.splitlines() else []
-        if notices:
-            # A timezone default cannot supply a missing clock time. Keep the
-            # existing date-only metadata guard even if the model invents 23:59.
-            for item in result.deadlines:
-                item.due_at = None
-        result.warnings = list(dict.fromkeys(notices + result.warnings))[:30]
+        result.warnings = resolved_warnings(result.warnings, time_defaulted and any(item.due_at for item in result.deadlines),
+                                            bool(result.deadlines) and all(item.due_at for item in result.deadlines))
         return result
     except (KeyError, IndexError, TypeError, ValidationError) as exc:
         raise AIError("ai_invalid_result") from exc
@@ -278,7 +291,8 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
             else:
                 result = analyze_text(source_text, model)
             candidates = [dict(item.model_dump(mode="json"), id=str(uuid.uuid4()),
-                               selected=item.due_at is not None) for item in result.deadlines]
+                               selected=item.due_at is not None and DEFAULT_TIME_NOTICE not in result.warnings)
+                          for item in result.deadlines]
             values = {"status": "ready", "candidates": candidates,
                       "warnings": result.warnings, "error_message": None}
         except AIError as exc:

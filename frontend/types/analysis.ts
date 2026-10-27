@@ -10,6 +10,8 @@ export interface CandidateEdit {
 export interface AnalysisCandidate extends CandidateEdit {
   evidence_text: string;
   confidence: number;
+  time_defaulted?: boolean;
+  suggested_due_at?: string | null;
 }
 export interface SourcePeriod {
   // Additive site label; older responses describe Saramin and omit this field.
@@ -26,6 +28,7 @@ export interface SourcePeriod {
   deadline_at: string | null;
   remaining_text: string | null;
   has_conflict: boolean;
+  time_defaulted?: boolean;
 }
 export interface Analysis {
   id: string;
@@ -49,6 +52,7 @@ export interface Analysis {
     date: string | null;
     due_at: string | null;
     evidence_text: string;
+    time_defaulted?: boolean;
   }[];
   is_open_ended?: boolean;
 }

@@ -21,6 +21,7 @@ type Draft = {
   description: string;
   selected: boolean;
   chosenDue?: string;
+  suggestionTouched?: boolean;
 };
 const draftOf = (candidate: AnalysisCandidate): Draft => ({
   id: candidate.id,
@@ -29,6 +30,14 @@ const draftOf = (candidate: AnalysisCandidate): Draft => ({
   description: candidate.description ?? "",
   selected: candidate.selected,
 });
+function suggestedDraftOf(candidate: AnalysisCandidate): Draft {
+  const draft = draftOf(candidate);
+  if (!candidate.due_at && candidate.suggested_due_at) {
+    draft.due = toSeoulInput(candidate.suggested_due_at);
+    draft.chosenDue = candidate.suggested_due_at;
+  }
+  return draft;
+}
 function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
   if (!draft.title.trim())
     throw new Error("제외한 후보를 포함해 모든 후보의 제목을 입력해 주세요.");
@@ -74,7 +83,9 @@ export function ReviewEditor({
   now: number | null;
   onUpdated: (data: Analysis, message: string) => void;
 }) {
-  const [drafts, setDrafts] = useState(() => analysis.candidates.map(draftOf));
+  const [drafts, setDrafts] = useState(() =>
+    analysis.candidates.map(suggestedDraftOf),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -118,7 +129,7 @@ export function ReviewEditor({
             : action === "reject"
               ? await analysesApi.reject(analysis.id, analysis.revision)
               : await analysesApi.get(analysis.id);
-      setDrafts(result.candidates.map(draftOf));
+      setDrafts(result.candidates.map(suggestedDraftOf));
       setConfirmReject(false);
       setConfirmReload(false);
       onUpdated(
@@ -204,6 +215,10 @@ export function ReviewEditor({
                   update(index, {
                     due: event.target.value,
                     chosenDue: undefined,
+                    suggestionTouched:
+                      original.suggested_due_at && !original.due_at
+                        ? true
+                        : undefined,
                   })
                 }
               />
@@ -214,7 +229,7 @@ export function ReviewEditor({
                 >
                   <p className="small muted">
                     {analysis.model.startsWith("image:")
-                      ? "이미지에서 읽은 날짜를 확인하세요. 시각이 없다면 마감 일시를 직접 입력해 주세요."
+                      ? "사진에서 읽은 마감일을 확인하세요. 시간이 없으면 오후 11시 59분으로 설정됩니다."
                       : "HTML에서 읽은 날짜 중 마감일을 선택하세요."}
                   </p>
                   <div className="review-secondary-actions">
@@ -258,7 +273,19 @@ export function ReviewEditor({
                   입력해야 등록할 수 있습니다.
                 </p>
               )}
-              {!original.due_at && (
+              {original.time_defaulted && draft.due && (
+                <p className="notice small">
+                  마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면
+                  변경해 주세요.
+                </p>
+              )}
+              {original.suggested_due_at && !original.due_at && draft.due && (
+                <p className="notice small">
+                  원문에서 확인한 마감일을 입력했습니다. 검토 내용을 저장한 후
+                  승인해 주세요.
+                </p>
+              )}
+              {!original.due_at && !original.suggested_due_at && !draft.due && (
                 <p className="notice small">
                   {originalDate
                     ? `원문 마감 날짜는 ${originalDate}입니다. 마감 시각을 직접 입력하고 후보를 포함해 주세요.`

@@ -10,7 +10,7 @@ import { formatSeoul } from "@/lib/date/seoul";
 import type { Analysis } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
-import { analysisStatusLabel, isHtmlAnalysis } from "./display";
+import { analysisStatusLabel, isHtmlAnalysis, warningLabel } from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
 import { ReviewSummary } from "./review-summary";
 import { SourceImage } from "@/features/sources/source-image";
@@ -177,7 +177,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           <h2>주의사항</h2>
           <ul>
             {data.warnings.map((warning, index) => (
-              <li key={index}>{warning}</li>
+              <li key={index}>{warningLabel(warning)}</li>
             ))}
           </ul>
         </section>

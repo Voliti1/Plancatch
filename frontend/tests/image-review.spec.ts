@@ -124,3 +124,151 @@ test("image upload requires consent, preserves missing time and original preview
     fullPage: true,
   });
 });
+
+for (const scenario of [
+  {
+    name: "사진의 오후 5시 유지",
+    stored: "2026-10-27T17:00:00+09:00",
+    suggested: null,
+    expected: "2026-10-27T17:00",
+    defaulted: false,
+  },
+  {
+    name: "시간 없는 날짜는 23:59",
+    stored: "2026-11-01T23:59:00+09:00",
+    suggested: null,
+    expected: "2026-11-01T23:59",
+    defaulted: true,
+  },
+  {
+    name: "이전 미확정 결과 복구",
+    stored: null,
+    suggested: "2026-10-27T17:00:00+09:00",
+    expected: "2026-10-27T17:00",
+    defaulted: false,
+  },
+  {
+    name: "이전 시간 없는 결과 복구",
+    stored: null,
+    suggested: "2026-11-01T23:59:00+09:00",
+    expected: "2026-11-01T23:59",
+    defaulted: true,
+  },
+]) {
+  test(`${scenario.name}: 자동 입력 후 직접 선택·저장·승인`, async ({
+    page,
+  }) => {
+    const candidate = {
+      ...result.candidates[0],
+      due_at: scenario.stored,
+      suggested_due_at: scenario.suggested,
+      time_defaulted: scenario.defaulted,
+    };
+    const analysis = {
+      ...result,
+      candidates: [candidate],
+      warnings: [
+        "마감 시간(시, 분)이 명시되어 있지 않아 due_at을 null로 처리했습니다.",
+      ],
+      date_choices: [],
+    };
+    const state = await mockAnalyses(page, [analysis], image);
+    await page.route("**/test-api/api/sources/ai-source/image", (route) =>
+      route.fulfill({ body: png, contentType: "image/png" }),
+    );
+    await login(page);
+    await page.goto("/analyses/analysis-1");
+    await expect(
+      page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    ).toHaveValue(scenario.expected);
+    await expect(
+      page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    ).toBeDisabled();
+    await expect(page.locator("body")).not.toContainText("due_at");
+    await expect(page.locator("body")).not.toContainText("null");
+    if (scenario.defaulted)
+      await expect(
+        page.getByText(
+          "마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면 변경해 주세요.",
+          { exact: true },
+        ),
+      ).toBeVisible();
+    if (scenario.suggested)
+      await expect(
+        page.getByRole("button", { name: "검토 내용 저장", exact: true }),
+      ).toBeEnabled();
+    await page.screenshot({
+      path: test.info().outputPath("deadline-time-review.png"),
+      fullPage: true,
+    });
+    await page.getByRole("checkbox", { name: "후보 1 포함" }).check();
+    await page
+      .getByRole("button", { name: "검토 내용 저장", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "선택한 1개 승인", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "마감일 등록 완료" }),
+    ).toBeVisible();
+    expect(state.deadlines).toHaveLength(1);
+    expect(state.deadlines[0].due_at).toBe(
+      scenario.stored ?? scenario.suggested,
+    );
+    expect(state.starts).toBe(0);
+    expect(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    ).toBe(true);
+    await page.screenshot({
+      path: test.info().outputPath("deadline-time.png"),
+      fullPage: true,
+    });
+  });
+}
+
+test("이전 결과에 제안된 날짜를 지워서 저장하면 다시 채우지 않는다", async ({
+  page,
+}) => {
+  const candidate = {
+    ...result.candidates[0],
+    suggested_due_at: "2026-10-27T17:00:00+09:00",
+  };
+  const state = await mockAnalyses(
+    page,
+    [{ ...result, candidates: [candidate] }],
+    image,
+  );
+  await page.route("**/test-api/api/sources/ai-source/image", (route) =>
+    route.fulfill({ body: png, contentType: "image/png" }),
+  );
+  await page.route("**/test-api/api/ai-analyses/analysis-1", (route) => {
+    if (route.request().method() !== "PATCH") return route.fallback();
+    const edit = route.request().postDataJSON().candidates[0];
+    expect(edit.due_at).toBeNull();
+    state.analyses[0] = {
+      ...state.analyses[0],
+      revision: 2,
+      candidates: [{ ...candidate, ...edit, suggested_due_at: null }],
+    };
+    return route.fulfill({ json: state.analyses[0] });
+  });
+  await login(page);
+  await page.goto("/analyses/analysis-1");
+  const input = page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true });
+  await expect(input).toHaveValue("2026-10-27T17:00");
+  await input.fill("");
+  await page
+    .getByRole("button", { name: "검토 내용 저장", exact: true })
+    .click();
+  await expect(
+    page.getByText("검토 내용을 저장했습니다.", { exact: true }),
+  ).toBeVisible();
+  await expect(input).toHaveValue("");
+  await page.reload();
+  await expect(
+    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+  ).toHaveValue("");
+  expect(state.starts).toBe(0);
+});

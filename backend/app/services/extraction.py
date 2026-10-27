@@ -444,7 +444,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 evidence = "\n".join(line for line in catch_snapshot.splitlines()
                                      if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
                 choice = date_choice(raw, evidence)
-                if choice and not due:
+                if choice and not due and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
                           "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
@@ -459,7 +459,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             if info:
                 evidence = f"마감일 원문: {info['end_text']}"
                 choice = date_choice(info["end_text"], evidence)
-                if choice and info["deadline_at"] is None:
+                if choice and info["deadline_at"] is None and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
                           "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
@@ -474,7 +474,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             if info:
                 evidence = f"마감일 원문: {info['end_text']}"
                 choice = date_choice(info["end_text"], evidence)
-                if choice and info["deadline_at"] is None:
+                if choice and info["deadline_at"] is None and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
@@ -490,7 +490,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 evidence = "\n".join(line for line in linkareer_snapshot.splitlines()
                                      if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
                 choice = date_choice(due.isoformat() if due else info["end_text"], evidence)
-                if choice and not due:
+                if choice and not due and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
@@ -505,7 +505,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 due = info["deadline_at"]
                 evidence = f"마감일 원문: {info['end_text']}"
                 choice = date_choice(due.isoformat() if due else info["end_text"], evidence)
-                if choice and not due:
+                if choice and not due and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
                           "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
@@ -513,6 +513,9 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             text = f"{text}\n\n{work24_snapshot}"
         from app.services.job_company import company_for_page
         review["company_name"] = company_for_page(decoded, source_url, parser)
+        if review.get("has_conflict"):
+            for choice in review["choices"]:
+                choice.update(due_at=None, time_defaulted=False)
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")

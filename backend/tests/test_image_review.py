@@ -58,8 +58,8 @@ def mock_provider(monkeypatch, value):
     return calls
 
 
-def test_date_only_crop_preserves_date_without_inventing_time_and_requires_review(monkeypatch):
-    calls = mock_provider(monkeypatch, result("2026-11-01T23:59:00+09:00"))
+def test_date_only_crop_defaults_time_but_still_requires_selection_and_review(monkeypatch):
+    calls = mock_provider(monkeypatch, result())
     headers = auth()
     source = upload(headers)
     path = "/api/sources/" + source["id"]
@@ -78,10 +78,11 @@ def test_date_only_crop_preserves_date_without_inventing_time_and_requires_revie
     apath = "/api/ai-analyses/" + started.json()["id"]
     analysis = client.get(apath,headers=headers).json()
     assert analysis["status"] == "ready" and len(calls) == 1
-    assert analysis["candidates"][0]["due_at"] is None
+    assert analysis["candidates"][0]["due_at"] == "2026-11-01T23:59:00+09:00"
+    assert analysis["candidates"][0]["time_defaulted"]
     assert not analysis["candidates"][0]["selected"]
     assert analysis["date_choices"][0]["date"] == "2026-11-01"
-    assert analysis["date_choices"][0]["due_at"] is None
+    assert analysis["date_choices"][0]["due_at"] == "2026-11-01T23:59:00+09:00"
     assert client.post(path+"/ai-analyses",headers=headers,json={**payload,"allow_external_ai":True}).json()["id"] == analysis["id"]
     assert len(calls) == 1
     assert client.post(apath+"/approve",headers=headers,json={"revision":1}).status_code == 422
@@ -132,6 +133,52 @@ def test_bad_evidence_fails_safely_and_explicit_time_is_grounded(monkeypatch):
     value["transcript"] = value["deadlines"][0]["evidence_text"] = "접수 마감 2026년 11월 1일 18:00"
     mock_provider(monkeypatch,value)
     assert image_analysis.analyze_image(picture(),"test-model").deadlines[0].due_at.hour == 18
+
+
+@pytest.mark.parametrize("evidence", [
+    "2026년 10월 27일(화) 오후 5시(한국시간)까지 제출하셔야 합니다.",
+    "2026년 10월 15일(목) ~ 10월 27일(화) 오후 5시",
+])
+@pytest.mark.parametrize("provider_due", [None, "2026-10-27T17:00:00+09:00"])
+def test_screenshot_korean_pm_clock_is_not_discarded(monkeypatch, evidence, provider_due):
+    value = result(provider_due)
+    value["transcript"] = value["deadlines"][0]["evidence_text"] = evidence
+    value["warnings"] = ["마감 시간(시, 분)이 명시되어 있지 않아 due_at을 null로 처리했습니다."]
+    mock_provider(monkeypatch, value)
+    parsed = image_analysis.analyze_image(picture(), "test-model")
+    assert parsed.deadlines[0].due_at.isoformat() == "2026-10-27T17:00:00+09:00"
+    assert not any("due_at" in item or "null" in item for item in parsed.warnings)
+    assert not any("11시 59분" in item for item in parsed.warnings)
+
+
+def test_old_image_review_suggests_verified_clock_without_writing_or_retransmission(monkeypatch):
+    from app.models import Analysis
+    from tests.test_auth import TestingSession
+
+    calls = mock_provider(monkeypatch, result())
+    headers = auth()
+    source = upload(headers)
+    request = {"allow_external_ai": True, "input_hash": source["image_sha256"], "reuse_existing": True}
+    started = client.post("/api/sources/" + source["id"] + "/ai-analyses", headers=headers, json=request)
+    analysis_id = started.json()["id"]
+    evidence = "2026년 10월 27일(화) 오후 5시(한국시간)까지 제출하셔야 합니다."
+    with TestingSession() as db:
+        saved = db.get(Analysis, uuid.UUID(analysis_id))
+        saved.input_text = evidence
+        saved.candidates = [dict(saved.candidates[0], due_at=None, evidence_text=evidence)]
+        db.commit()
+    path = "/api/ai-analyses/" + analysis_id
+    data = client.get(path, headers=headers).json()
+    assert data["candidates"][0]["due_at"] is None
+    assert data["candidates"][0]["suggested_due_at"] == "2026-10-27T17:00:00+09:00"
+    assert len(calls) == 1 and data["revision"] == 1
+    with TestingSession() as db:
+        assert db.get(Analysis, uuid.UUID(analysis_id)).candidates[0]["due_at"] is None
+    edit = {key: data["candidates"][0][key] for key in ("id", "title", "due_at", "description", "selected")}
+    # User clearing a suggestion and saving must not cause it to reappear.
+    response = client.patch(path, headers=headers, json={"revision": 1, "candidates": [edit]})
+    assert response.status_code == 200
+    assert response.json()["candidates"][0]["suggested_due_at"] is None
 
 
 def test_failed_image_result_is_reused_until_explicit_consented_retry(monkeypatch):

@@ -6,7 +6,7 @@ import pytest
 from app.models import Analysis, Source
 from app.services import ai_analysis as ai
 from app.services.html_analysis import HTML_MODEL, analyze_period, matching_period
-from app.services.saramin_period import CONFLICT, UNRESOLVED
+from app.services.saramin_period import CONFLICT
 from tests.test_auth import TestingSession
 from tests.test_saramin_period import END, URL, document, markup
 from tests.test_sources import auth_headers, client, configure_test_jwt  # noqa: F401
@@ -69,7 +69,6 @@ def test_route_worker_and_idempotent_registration_make_zero_ai_calls(monkeypatch
 
 
 @pytest.mark.parametrize("text,warning", [
-    (document(markup(end="2026.11.01")).text, UNRESOLVED),
     (document(markup(end="채용시까지")).text, "채용 시 마감"),
     (document(markup() + markup(end="2026.11.02 23:59")).text, CONFLICT),
 ])
@@ -89,6 +88,22 @@ def test_unresolved_periods_are_review_only_not_ai_guesses_or_processing_failure
         "revision": 1, "title": "사용자가 설정한 제목", "confirm_auto_registration": True,
     })
     assert response.status_code == 422
+    assert client.get("/api/deadlines", headers=headers).json() == []
+
+
+def test_saramin_date_only_prefills_day_end_but_requires_user_approval(monkeypatch):
+    forbid_ai(monkeypatch)
+    text = document(markup(end="2026.11.01")).text
+    source_id, headers = source_ready(text)
+    started = client.post(f"/api/sources/{source_id}/ai-analyses", headers=headers, json={})
+    path = f"/api/ai-analyses/{started.json()['id']}"
+    analysis = client.get(path, headers=headers).json()
+    assert analysis["candidates"][0]["due_at"] == "2026-11-01T23:59:00+09:00"
+    assert analysis["candidates"][0]["time_defaulted"]
+    assert not analysis["candidates"][0]["selected"]
+    assert analysis["source_period"]["deadline_at"] == "2026-11-01T23:59:00+09:00"
+    assert analysis["source_period"]["time_defaulted"]
+    assert client.post(path + "/approve", headers=headers, json={"revision": 1}).status_code == 422
     assert client.get("/api/deadlines", headers=headers).json() == []
 
 

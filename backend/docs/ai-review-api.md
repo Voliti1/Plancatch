@@ -1,5 +1,7 @@
 # AI deadline proposal and review API
 
+> 2026-10-27 변경: 날짜가 명확하고 시간만 없으면 한국 시간 23:59를 후보에 미리 입력하고 사용자 승인을 받습니다. 이전의 시간 누락 시 빈칸 유지 규칙은 [마감 시간 처리 정책](deadline-clock-policy.md)으로 대체합니다.
+
 This stage does not include frontend screens, task generation, safety deadlines,
 automatic scheduling or Google Calendar synchronization. No deadlines are created
 until the authenticated owner approves a result or explicitly opts into the separate
