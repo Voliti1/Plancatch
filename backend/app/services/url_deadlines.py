@@ -159,6 +159,7 @@ def analyze_url(text: str, source_url: str, title: str | None):
     from app.schemas.analysis import ProviderResult
     from app.services.catch_period import CONFLICT as CATCH_CONFLICT, UNRESOLVED as CATCH_UNRESOLVED, read_period as read_catch
     from app.services.jobplanet_period import CONFLICT as JOBPLANET_CONFLICT, UNRESOLVED as JOBPLANET_UNRESOLVED, read_period as read_jobplanet
+    from app.services.jasoseol_period import CONFLICT as JASOSEOL_CONFLICT, read_period as read_jasoseol
     from app.services.saramin_period import CONFLICT, UNRESOLVED
     data = review_data(text, source_url)
     choices = data["choices"] if data else []
@@ -169,7 +170,9 @@ def analyze_url(text: str, source_url: str, title: str | None):
         warnings.append("채용 시 마감 또는 상시 모집입니다. 본인이 원하는 마감 날짜와 시간을 입력한 후 등록하세요.")
     elif data and data.get("has_conflict"):
         from app.services.jobkorea_period import CONFLICT as JOBKOREA_CONFLICT, read_period as read_jobkorea
-        if jobplanet_period:
+        if read_jasoseol(text):
+            warnings.append(JASOSEOL_CONFLICT)
+        elif jobplanet_period:
             warnings.append(JOBPLANET_CONFLICT)
         else:
             warnings.append(CATCH_CONFLICT if read_catch(text) else JOBKOREA_CONFLICT if read_jobkorea(text) else CONFLICT)
