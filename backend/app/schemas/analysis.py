@@ -118,6 +118,7 @@ class AutoRegistrationRequest(DecisionRequest):
 
 
 class SourcePeriod(BaseModel):
+    site: Literal["saramin", "jobkorea"] = "saramin"
     start_text: str | None
     end_text: str | None
     deadline_at: AwareDatetime | None
@@ -157,5 +158,7 @@ class AnalysisResponse(BaseModel):
     @computed_field
     @property
     def source_period(self) -> SourcePeriod | None:
-        period = read_period(self.input_text)
+        from app.services.jobkorea_period import read_period as read_jobkorea
+        period = read_jobkorea(self.input_text) if self.model.startswith("html:") else None
+        period = period or read_period(self.input_text)
         return SourcePeriod(**period) if period else None

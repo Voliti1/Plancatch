@@ -95,3 +95,11 @@ This MVP uses FastAPI BackgroundTasks, not a durable queue. A process restart
 may leave jobs in processing; restart recovery and a persistent queue are
 required before larger-scale use. Do not deploy schema changes without applying
 Alembic revision 20260930_0004 first. No frontend changes are included here.
+
+## JobKorea countdown evidence (2026-10-27)
+
+The same-job JobKorea adapter also reads the countdown's explicit, offset-aware
+`endDate` from inert HTML Flight JSON and checks it against `validThrough`.
+See [JobKorea extraction, review and verification](jobkorea-period.md) for the
+accepted structure, limits and frontend site label. This follow-up changes both
+backend and frontend code; it requires no additional migration or configuration.

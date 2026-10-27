@@ -70,9 +70,10 @@ export function SourcePeriodSummary({
   period: SourcePeriod;
   now: number | null;
 }) {
+  const title = `${period.site === "jobkorea" ? "잡코리아" : "사람인"} 접수기간`;
   return (
-    <section className="notice source-period" aria-label="사람인 접수기간">
-      <h2>사람인 접수기간</h2>
+    <section className="notice source-period" aria-label={title}>
+      <h2>{title}</h2>
       <dl>
         <dt>시작일 (원문)</dt>
         <dd>{period.start_text || "표시 없음"}</dd>

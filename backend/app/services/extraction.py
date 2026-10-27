@@ -418,6 +418,17 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             text = "\n\n".join(part for part in (text, job_text) if part)
         if saramin_text:
             text = "\n\n".join(part for part in (text, saramin_text) if part)
+        from app.services.jobkorea_period import period_text as jobkorea_text, read_period as read_jobkorea
+        jobkorea_snapshot = jobkorea_text(decoded, source_url, job_text)
+        if jobkorea_snapshot:
+            from app.services.url_deadlines import date_choice
+            period_info = read_jobkorea(jobkorea_snapshot)
+            if period_info:
+                evidence = f"마감일 원문: {period_info['end_text']}"
+                choice = date_choice(period_info["end_text"], evidence)
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": period_info["has_conflict"], "scope_confirmed": True}
+            text = "\n\n".join((text, jobkorea_snapshot))
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")
