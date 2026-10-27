@@ -418,6 +418,81 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             text = "\n\n".join(part for part in (text, job_text) if part)
         if saramin_text:
             text = "\n\n".join(part for part in (text, saramin_text) if part)
+        from app.services.jobkorea_period import period_text as jobkorea_text
+        from app.services.jobkorea_period import read_period as read_jobkorea
+        jobkorea_snapshot = jobkorea_text(decoded, source_url, job_text)
+        if jobkorea_snapshot:
+            from app.services.url_deadlines import date_choice
+            period_info = read_jobkorea(jobkorea_snapshot)
+            if period_info:
+                evidence = f"마감일 원문: {period_info['end_text']}"
+                choice = date_choice(period_info["end_text"], evidence)
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": period_info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{jobkorea_snapshot}"
+        from app.services.catch_period import period_text as catch_text
+        from app.services.catch_period import read_period as read_catch
+        catch_snapshot = catch_text(decoded, source_url)
+        if catch_snapshot:
+            from app.services.url_deadlines import OPEN, date_choice
+            info = read_catch(catch_snapshot)
+            if info:
+                due = info["deadline_at"]
+                raw = due.isoformat() if due else info["end_text"]
+                evidence = "\n".join(line for line in catch_snapshot.splitlines()
+                                     if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
+                choice = date_choice(raw, evidence)
+                if choice and not due:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{catch_snapshot}"
+        from app.services.jobplanet_period import period_text as jobplanet_text
+        from app.services.jobplanet_period import read_period as read_jobplanet
+        jobplanet_snapshot = jobplanet_text(decoded, source_url)
+        if jobplanet_snapshot:
+            from app.services.url_deadlines import OPEN, date_choice
+            info = read_jobplanet(jobplanet_snapshot)
+            if info:
+                evidence = f"마감일 원문: {info['end_text']}"
+                choice = date_choice(info["end_text"], evidence)
+                if choice and info["deadline_at"] is None:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{jobplanet_snapshot}"
+        from app.services.jasoseol_period import period_text as jasoseol_text
+        from app.services.jasoseol_period import read_period as read_jasoseol
+        jasoseol_snapshot = jasoseol_text(decoded, source_url)
+        if jasoseol_snapshot:
+            from app.services.url_deadlines import date_choice
+            info = read_jasoseol(jasoseol_snapshot)
+            if info:
+                evidence = f"마감일 원문: {info['end_text']}"
+                choice = date_choice(info["end_text"], evidence)
+                if choice and info["deadline_at"] is None:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{jasoseol_snapshot}"
+        from app.services.linkareer_period import period_text as linkareer_text
+        from app.services.linkareer_period import read_period as read_linkareer
+        linkareer_snapshot = linkareer_text(decoded, source_url)
+        if linkareer_snapshot:
+            from app.services.url_deadlines import date_choice
+            info = read_linkareer(linkareer_snapshot)
+            if info:
+                due = info["deadline_at"]
+                evidence = "\n".join(line for line in linkareer_snapshot.splitlines()
+                                     if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
+                choice = date_choice(due.isoformat() if due else info["end_text"], evidence)
+                if choice and not due:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{linkareer_snapshot}"
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")
