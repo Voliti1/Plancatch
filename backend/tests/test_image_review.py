@@ -151,6 +151,75 @@ def test_screenshot_korean_pm_clock_is_not_discarded(monkeypatch, evidence, prov
     assert not any("11시 59분" in item for item in parsed.warnings)
 
 
+@pytest.mark.parametrize("clock", ["18:00", "18시", "18시 00분", "오후 6시"])
+@pytest.mark.parametrize("model_due", [None, "2026-11-09T23:59:00+09:00", "2026-11-09T18:00:00+09:00"])
+def test_linkareer_capture_clock_overrides_a_false_model_default(monkeypatch, clock, model_due):
+    from app.services.deadline_dates import DEFAULT_TIME_NOTICE
+    evidence = f"접수기간: 2026. 11. 3.(화) 10:00 ~ 11. 9.(월) {clock}까지"
+    value = result(model_due)
+    value["transcript"] = "지원자격: 2009. 2. 4. 이전 출생\n입사지원서 접수\n" + evidence
+    value["deadlines"][0]["evidence_text"] = evidence
+    value["warnings"] = [DEFAULT_TIME_NOTICE]
+    mock_provider(monkeypatch, value)
+    parsed = image_analysis.analyze_image(picture(), "test-model")
+    assert parsed.deadlines[0].due_at.isoformat() == "2026-11-09T18:00:00+09:00"
+    assert DEFAULT_TIME_NOTICE not in parsed.warnings
+
+
+def test_image_date_only_quote_includes_its_adjacent_transcribed_clock(monkeypatch):
+    evidence = "접수 마감 2026. 11. 9.(월)"
+    value = result("2026-11-09T23:59:00+09:00")
+    value["transcript"] = evidence + " 18:00까지 제출하세요."
+    value["deadlines"][0]["evidence_text"] = evidence
+    mock_provider(monkeypatch, value)
+    parsed = image_analysis.analyze_image(picture(), "test-model")
+    assert parsed.deadlines[0].due_at.isoformat() == "2026-11-09T18:00:00+09:00"
+    assert parsed.deadlines[0].evidence_text == evidence + " 18:00"
+
+
+@pytest.mark.parametrize("status,revision", [("ready", 1), ("ready", 2), ("approved", 1)])
+def test_old_false_default_is_only_suggested_for_an_untouched_image_review(monkeypatch, status, revision):
+    from app.models import Analysis
+    from app.services.deadline_dates import DEFAULT_TIME_NOTICE
+    from tests.test_auth import TestingSession
+
+    evidence = "접수기간: 2026. 11. 3.(화) 10:00 ~ 11. 9.(월) 18:00까지"
+    value = result()
+    value["transcript"] = value["deadlines"][0]["evidence_text"] = evidence
+    mock_provider(monkeypatch, value)
+    headers = auth()
+    source = upload(headers)
+    started = client.post("/api/sources/" + source["id"] + "/ai-analyses", headers=headers,
+                         json={"allow_external_ai": True, "input_hash": source["image_sha256"], "reuse_existing": True})
+    identity = started.json()["id"]
+    with TestingSession() as db:
+        analysis = db.get(Analysis, uuid.UUID(identity))
+        analysis.candidates = [dict(analysis.candidates[0], due_at="2026-11-09T23:59:00+09:00")]
+        analysis.warnings = [DEFAULT_TIME_NOTICE]
+        analysis.status, analysis.revision = status, revision
+        db.commit()
+    path = "/api/ai-analyses/" + identity
+    data = client.get(path, headers=headers).json()
+    candidate = data["candidates"][0]
+    assert candidate["due_at"] == "2026-11-09T23:59:00+09:00"
+    assert not candidate["time_defaulted"]
+    with TestingSession() as db:
+        assert db.get(Analysis, uuid.UUID(identity)).candidates[0]["due_at"] == candidate["due_at"]
+    if (status, revision) == ("ready", 1):
+        assert candidate["suggested_due_at"] == "2026-11-09T18:00:00+09:00"
+        edit = {key: candidate[key] for key in ("id", "title", "due_at", "description", "selected")}
+        edit.update(due_at=candidate["suggested_due_at"], selected=True)
+        saved = client.patch(path, headers=headers, json={"revision": 1, "candidates": [edit]})
+        assert saved.status_code == 200
+        approved = client.post(path + "/approve", headers=headers, json={"revision": 2})
+        assert approved.status_code == 200
+        deadline = client.get("/api/deadlines/" + approved.json()["approved_deadline_ids"][0], headers=headers).json()
+        assert deadline["due_at"].startswith("2026-11-09T18:00:00")
+    else:
+        assert candidate["suggested_due_at"] is None
+        assert any("저장된 시간이 다릅니다" in item for item in data["warnings"])
+
+
 def test_old_image_review_suggests_verified_clock_without_writing_or_retransmission(monkeypatch):
     from app.models import Analysis
     from tests.test_auth import TestingSession

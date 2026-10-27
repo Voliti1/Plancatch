@@ -37,3 +37,41 @@ def test_choices_do_not_select_between_conflicts_or_open_ended_dates():
     assert closing_choice("채용 시 마감, 안내일 2026.10.27") is None
     assert datetime.fromisoformat(date_choice("2026.10.27", "마감일 2026.10.27")["due_at"]).hour == 23
     assert "due_at" not in DEFAULT_TIME_NOTICE and "null" not in DEFAULT_TIME_NOTICE
+
+
+@pytest.mark.parametrize("clock", ["18:00", "18시", "18 시", "18시 00분", "18 시 00 분",
+                                  "오후6시", "오후 6:00", "6:00 PM", "6 PM", "18：00", "18 : 00"])
+def test_every_supported_six_pm_clock_preserves_the_same_instant(clock):
+    choice = closing_choice(f"접수기간: 2026. 11. 3.(화) 10:00 ~ 11. 9.(월) {clock}까지")
+    assert choice["due_at"] == "2026-11-09T18:00:00+09:00"
+    assert not choice["time_defaulted"]
+
+
+@pytest.mark.parametrize("raw,expected", [
+    ("2026년11월9일18시", "2026-11-09T18:00:00+09:00"),
+    ("2026.11.9.(월)18:00", "2026-11-09T18:00:00+09:00"),
+    ("2026. 11. 9.（ 월 ） 18시 30분 15초", "2026-11-09T18:30:15+09:00"),
+    ("2026.11.09 오후 6시 반", "2026-11-09T18:30:00+09:00"),
+    ("2026.11.09 AM 6:00", "2026-11-09T06:00:00+09:00"),
+    ("2026.11.09.", "2026-11-09T23:59:00+09:00"),
+])
+def test_punctuation_adjacent_clocks_and_nonzero_minutes_are_preserved(raw, expected):
+    assert closing_choice(raw)["due_at"] == expected
+
+
+@pytest.mark.parametrize("raw", ["2026.11.09 18:0", "2026.11.09 오후 여섯 시",
+                                  "2026.11.09 18h00", "2026.11.09 오후18시",
+                                  "2026.11.09 6:00 AM PM", "2026.11.09 18시 99분"])
+def test_present_but_unresolved_clocks_are_not_replaced_with_end_of_day(raw):
+    choice = closing_choice(raw)
+    assert choice["due_at"] is None and not choice["time_defaulted"]
+
+
+def test_short_evidence_uses_its_immediately_adjacent_clock_only():
+    evidence = "접수 마감 2026. 11. 9.(월)"
+    context = evidence + " 18:00까지 제출하세요. 근무시간 09:00~17:00"
+    choice = closing_choice(evidence, context)
+    assert choice["due_at"] == "2026-11-09T18:00:00+09:00"
+    assert choice["evidence_text"] == evidence + " 18:00"
+    context = evidence + "까지 제출하세요. 근무시간 09:00~17:00"
+    assert closing_choice(evidence, context)["due_at"] == "2026-11-09T23:59:00+09:00"

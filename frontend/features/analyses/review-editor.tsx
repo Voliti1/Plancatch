@@ -32,7 +32,7 @@ const draftOf = (candidate: AnalysisCandidate): Draft => ({
 });
 function suggestedDraftOf(candidate: AnalysisCandidate): Draft {
   const draft = draftOf(candidate);
-  if (!candidate.due_at && candidate.suggested_due_at) {
+  if (candidate.suggested_due_at) {
     draft.due = toSeoulInput(candidate.suggested_due_at);
     draft.chosenDue = candidate.suggested_due_at;
   }
@@ -215,10 +215,9 @@ export function ReviewEditor({
                   update(index, {
                     due: event.target.value,
                     chosenDue: undefined,
-                    suggestionTouched:
-                      original.suggested_due_at && !original.due_at
-                        ? true
-                        : undefined,
+                    suggestionTouched: original.suggested_due_at
+                      ? true
+                      : undefined,
                   })
                 }
               />
@@ -279,7 +278,7 @@ export function ReviewEditor({
                   변경해 주세요.
                 </p>
               )}
-              {original.suggested_due_at && !original.due_at && draft.due && (
+              {original.suggested_due_at && draft.due && (
                 <p className="notice small">
                   원문에서 확인한 마감일을 입력했습니다. 검토 내용을 저장한 후
                   승인해 주세요.

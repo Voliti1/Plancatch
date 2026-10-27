@@ -52,6 +52,17 @@ def test_date_fields_and_metadata_expiry_keep_fraction_and_explain_the_time_sour
     assert text.count(period.MARKER) == text.count(period.END_MARKER) == 1
 
 
+def test_html_strategy_keeps_metadata_even_when_an_image_alternative_mentions_a_clock(monkeypatch):
+    forbid_ai(monkeypatch)
+    url = "https://linkareer.com/activity/357927"
+    text = snapshot(markup(start="2026.11.03", end="2026.11.09", canonical=url,
+                           metadata="2026-11-09T14:59:59.999Z",
+                           extra='<img src="/notice.png" alt="입사지원서 접수 11.9.(월) 18:00까지">'), url)
+    result = analyze_url(text, url, None)
+    assert result.deadlines[0].due_at.isoformat() == "2026-11-09T14:59:59.999000+00:00"
+    assert result.warnings == [period.METADATA_TIME]
+
+
 @pytest.mark.parametrize("metadata", [None, "2026-10-31"])
 def test_date_only_without_metadata_clock_uses_reviewed_end_of_day_default(metadata):
     text = snapshot(markup(metadata=metadata))

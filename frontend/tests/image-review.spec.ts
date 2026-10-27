@@ -154,6 +154,13 @@ for (const scenario of [
     expected: "2026-11-01T23:59",
     defaulted: true,
   },
+  {
+    name: "이전 잘못된 23:59를 사진의 18시로 수정 제안",
+    stored: "2026-11-09T23:59:00+09:00",
+    suggested: "2026-11-09T18:00:00+09:00",
+    expected: "2026-11-09T18:00",
+    defaulted: false,
+  },
 ]) {
   test(`${scenario.name}: 자동 입력 후 직접 선택·저장·승인`, async ({
     page,
@@ -163,9 +170,11 @@ for (const scenario of [
       due_at: scenario.stored,
       suggested_due_at: scenario.suggested,
       time_defaulted: scenario.defaulted,
+      evidence_text: `접수 마감 ${scenario.expected.slice(0, 10)}${scenario.defaulted ? "" : ` ${scenario.expected.slice(11)}`}`,
     };
     const analysis = {
       ...result,
+      input_text: candidate.evidence_text,
       candidates: [candidate],
       warnings: [
         "마감 시간(시, 분)이 명시되어 있지 않아 due_at을 null로 처리했습니다.",
@@ -213,7 +222,7 @@ for (const scenario of [
     ).toBeVisible();
     expect(state.deadlines).toHaveLength(1);
     expect(state.deadlines[0].due_at).toBe(
-      scenario.stored ?? scenario.suggested,
+      scenario.suggested ?? scenario.stored,
     );
     expect(state.starts).toBe(0);
     expect(
