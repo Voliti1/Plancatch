@@ -1,6 +1,7 @@
 "use client";
 import { useSyncExternalStore } from "react";
 import type { SourcePeriod } from "@/types/analysis";
+import { formatSeoul } from "@/lib/date/seoul";
 
 let current: number | null = null;
 let interval: ReturnType<typeof setInterval> | undefined;
@@ -70,14 +71,14 @@ export function SourcePeriodSummary({
   period: SourcePeriod;
   now: number | null;
 }) {
-  const siteName =
-    period.site === "jobplanet"
-      ? "잡플래닛"
-      : period.site === "catch"
-        ? "캐치"
-        : period.site === "jobkorea"
-          ? "잡코리아"
-          : "사람인";
+  const siteNames: Record<NonNullable<SourcePeriod["site"]>, string> = {
+    saramin: "사람인",
+    jobkorea: "잡코리아",
+    catch: "캐치",
+    jobplanet: "잡플래닛",
+    jasoseol: "자소설닷컴",
+  };
+  const siteName = siteNames[period.site ?? "saramin"];
   const title = `${siteName} 접수기간`;
   return (
     <section className="notice source-period" aria-label={title}>
@@ -87,6 +88,12 @@ export function SourcePeriodSummary({
         <dd>{period.start_text || "표시 없음"}</dd>
         <dt>마감일 (원문)</dt>
         <dd>{period.end_text || "확인 필요"}</dd>
+        {period.site === "jasoseol" && period.deadline_at && (
+          <>
+            <dt>마감일 (한국 시간)</dt>
+            <dd>{formatSeoul(period.deadline_at)}</dd>
+          </>
+        )}
         <dt>현재 남은 기간</dt>
         <dd>{remainingPeriod(period.deadline_at, now)}</dd>
       </dl>
