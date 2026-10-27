@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
@@ -13,7 +13,6 @@ import {
   googleOnDay,
   readGoogleEvents,
   withoutLocalDuplicates,
-  type GoogleEventsPage,
 } from "@/features/google-calendar/events";
 import { GoogleDayEvents } from "@/features/google-calendar/day-events";
 import {
@@ -34,6 +33,8 @@ import {
   utcMidnight,
 } from "./dates";
 import "./calendar.css";
+
+const emptyRegistrations: CalendarRegistration[] = [];
 
 function TaskTitle({ id }: { id: string }) {
   const load = useCallback(() => tasksApi.get(id), [id]);
@@ -187,56 +188,89 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
   const [view, setView] = useState<"month" | "week">("month");
   const [showCancelled, setShowCancelled] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
-  const days = calendarDays(selected, view);
-  const googleRange = useRef<{
-    key: string;
-    promise: Promise<GoogleEventsPage>;
-  } | null>(null);
-  const loadGoogle = useCallback(() => {
-    if (!showGoogle) {
-      googleRange.current = null;
-      return Promise.resolve(emptyGoogleEvents);
-    }
-    const range = calendarDays(selected, view);
-    const first = utcMidnight(range[0]);
-    const last = utcMidnight(addDays(range[range.length - 1], 1));
-    const key = first + ":" + last;
-    if (googleRange.current?.key === key) return googleRange.current.promise;
-    const promise = readGoogleEvents(first, last);
-    googleRange.current = { key, promise };
-    return promise;
-  }, [showGoogle, selected, view]);
+  const anchor =
+    view === "month"
+      ? `${selected.slice(0, 7)}-01`
+      : addDays(selected, -new Date(`${selected}T00:00:00Z`).getUTCDay());
+  const days = useMemo(() => calendarDays(anchor, view), [anchor, view]);
+  const first = utcMidnight(days[0]);
+  const last = utcMidnight(addDays(days[days.length - 1], 1));
+  // Selecting another day in the visible range only changes the agenda, not its data.
+  const loadGoogle = useCallback(
+    (signal: AbortSignal) =>
+      showGoogle
+        ? readGoogleEvents(first, last, signal)
+        : Promise.resolve(emptyGoogleEvents),
+    [showGoogle, first, last],
+  );
   const google = useResource(loadGoogle);
   function refreshGoogle() {
-    googleRange.current = null;
     google.reload();
   }
-  const load = useCallback(() => {
-    const range = calendarDays(selected, view);
-    return eventsApi.all({
-      start_from: utcMidnight(range[0]),
-      end_before: utcMidnight(addDays(range[range.length - 1], 1)),
-    });
-  }, [selected, view]);
+  const load = useCallback(
+    (signal: AbortSignal) =>
+      eventsApi.all(
+        {
+          start_from: first,
+          end_before: last,
+        },
+        signal,
+      ),
+    [first, last],
+  );
   const { data, loading, error, reload } = useResource(load);
-  const loadRegistered = useCallback(() => {
-    const range = calendarDays(selected, view);
-    return readRegistrations(
-      utcMidnight(range[0]),
-      utcMidnight(addDays(range[range.length - 1], 1)),
-    );
-  }, [selected, view]);
+  const loadRegistered = useCallback(
+    (signal: AbortSignal) => readRegistrations(first, last, signal),
+    [first, last],
+  );
   const registrations = useResource(loadRegistered);
-  const registered = registrations.data?.entries ?? [];
+  const registered = registrations.data?.entries ?? emptyRegistrations;
   const registeredDay = registered.filter((item) =>
     registrationOnDay(item, selected),
   );
-  const events = (data?.events ?? []).filter(
-    (event) => showCancelled || event.status !== "cancelled",
+  const events = useMemo(
+    () =>
+      (data?.events ?? []).filter(
+        (event) => showCancelled || event.status !== "cancelled",
+      ),
+    [data, showCancelled],
   );
-  const googleRows = showGoogle
-    ? withoutLocalDuplicates(google.data?.events ?? [], events, registered)
-    : [];
+  const googleRows = useMemo(
+    () =>
+      showGoogle
+        ? withoutLocalDuplicates(google.data?.events ?? [], events, registered)
+        : [],
+    [showGoogle, google.data, events, registered],
+  );
+  const dayBars = useMemo(
+    () =>
+      days.map((day) => {
+        const saved = registered.filter((item) => registrationOnDay(item, day));
+        const local = events.filter((event) => onDay(event, day));
+        const remote = googleRows.filter((event) => googleOnDay(event, day));
+        return {
+          day,
+          bars: [
+            ...saved.map((item) => ({
+              key: `${item.kind}:${item.id}`,
+              title: item.title,
+              kind: item.kind,
+            })),
+            ...local.map((item) => ({
+              key: `placement:${item.id}`,
+              title: item.task_title || "플랜캐치 일정",
+              kind: item.status === "cancelled" ? "cancelled" : "placement",
+            })),
+            ...remote.map((item) => ({
+              key: `google:${item.id}`,
+              title: item.title,
+              kind: "google",
+            })),
+          ],
+        };
+      }),
+    [days, registered, events, googleRows],
+  );
   const hasLocalSelected = events.some((event) => onDay(event, selected));
   const today = todaySeoul();
   return (
@@ -416,31 +450,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           role="group"
           aria-label={view === "month" ? "월간 날짜" : "주간 날짜"}
         >
-          {days.map((day) => {
-            const local = events.filter((event) => onDay(event, day));
-            const saved = registered.filter((item) =>
-              registrationOnDay(item, day),
-            );
-            const remote = googleRows.filter((event) =>
-              googleOnDay(event, day),
-            );
-            const bars = [
-              ...saved.map((item) => ({
-                key: `${item.kind}:${item.id}`,
-                title: item.title,
-                kind: item.kind,
-              })),
-              ...local.map((item) => ({
-                key: `placement:${item.id}`,
-                title: item.task_title || "플랜캐치 일정",
-                kind: item.status === "cancelled" ? "cancelled" : "placement",
-              })),
-              ...remote.map((item) => ({
-                key: `google:${item.id}`,
-                title: item.title,
-                kind: "google",
-              })),
-            ];
+          {dayBars.map(({ day, bars }) => {
             const count = bars.length;
             return (
               <button

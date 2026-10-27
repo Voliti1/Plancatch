@@ -23,7 +23,10 @@ router = APIRouter(prefix="/api/scheduled-events", tags=["scheduled-events"])
 
 def utc(value: datetime) -> datetime:
     """Normalize timestamps; SQLite returns saved UTC values without tzinfo."""
-    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+    try:
+        return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
+    except OverflowError as exc:
+        raise HTTPException(422, "time is outside the supported UTC date range") from exc
 
 
 def owned_event(

@@ -161,7 +161,7 @@ function DeadlinePage({
   deletion: ListDeletion;
 }) {
   const loader = useCallback(
-    () => deadlinesApi.list(page * 50, query),
+    (signal: AbortSignal) => deadlinesApi.list(page * 50, query, signal),
     [page, query],
   );
   const { data, error, loading, reload } = useResource(loader);

@@ -16,11 +16,13 @@ from app.services.source_processing import process_source, slots
 router = APIRouter(prefix="/api/sources", tags=["sources"])
 
 
-def get_owned_source(source_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession) -> Source:
+def get_owned_source(source_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession,
+                     *, for_update: bool = True) -> Source:
     """Return a source owned by a user without leaking other users' records."""
-    source = db.scalar(
-        select(Source).where(Source.id == source_id, Source.user_id == user_id).with_for_update(),
-    )
+    statement = select(Source).where(Source.id == source_id, Source.user_id == user_id)
+    if for_update:
+        statement = statement.with_for_update()
+    source = db.scalar(statement)
     if source is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -78,7 +80,7 @@ def read_source(
     db: DatabaseSession,
 ) -> Source:
     """Return one source owned by the authenticated user."""
-    return get_owned_source(source_id, current_user.id, db)
+    return get_owned_source(source_id, current_user.id, db, for_update=False)
 
 
 @router.post(

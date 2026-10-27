@@ -23,11 +23,15 @@ export const emptyGoogleEvents: GoogleEventsPage = {
   has_more: false,
   skipped_count: 0,
 };
-export function readGoogleEvents(start: string, end: string) {
+export function readGoogleEvents(
+  start: string,
+  end: string,
+  signal?: AbortSignal,
+) {
   const query = new URLSearchParams({ start_from: start, end_before: end });
   return api<GoogleEventsPage>(
     `/api/integrations/google-calendar/events?${query}`,
-    { signal: AbortSignal.timeout(30000) },
+    { signal, timeoutMs: 30000 },
   );
 }
 export function googleOnDay(event: GoogleEvent, day: string): boolean {

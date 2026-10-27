@@ -32,17 +32,21 @@ from app.services.url_deadlines import URL_MODEL
 router = APIRouter(tags=["ai-analyses"])
 
 
-def owned_analysis(analysis_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession) -> Analysis:
+def owned_analysis(analysis_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession,
+                   *, for_update: bool = True) -> Analysis:
     source_id = db.scalar(select(Analysis.source_id).where(
         Analysis.id == analysis_id, Analysis.user_id == user_id,
     ))
     if source_id is None:
         raise HTTPException(404, "Analysis not found")
     # Match source deletion's parent-before-child order, including cascade locks.
-    get_owned_source(source_id, user_id, db)
-    analysis = db.scalar(select(Analysis).where(
+    get_owned_source(source_id, user_id, db, for_update=for_update)
+    statement = select(Analysis).where(
         Analysis.id == analysis_id, Analysis.user_id == user_id,
-    ).with_for_update())
+    )
+    if for_update:
+        statement = statement.with_for_update()
+    analysis = db.scalar(statement)
     if analysis is None:
         raise HTTPException(404, "Analysis not found")
     return analysis
@@ -116,7 +120,7 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
 def list_analyses(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession,
                   limit: Annotated[int, Query(ge=1, le=30)] = 10,
                   offset: Annotated[int, Query(ge=0)] = 0) -> list[Analysis]:
-    get_owned_source(source_id, current_user.id, db)
+    get_owned_source(source_id, current_user.id, db, for_update=False)
     return list(db.scalars(select(Analysis).where(
         Analysis.source_id == source_id, Analysis.user_id == current_user.id,
     ).order_by(Analysis.created_at.desc(), Analysis.id).limit(limit).offset(offset)))
@@ -124,7 +128,7 @@ def list_analyses(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseS
 
 @router.get("/api/ai-analyses/{analysis_id}", response_model=AnalysisResponse)
 def read_analysis(analysis_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession) -> Analysis:
-    return owned_analysis(analysis_id, current_user.id, db)
+    return owned_analysis(analysis_id, current_user.id, db, for_update=False)
 
 
 @router.post("/api/ai-analyses/{analysis_id}/recover-html", response_model=AnalysisResponse,

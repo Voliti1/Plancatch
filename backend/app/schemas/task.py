@@ -20,7 +20,10 @@ class TaskTimes(BaseModel):
     @field_validator("earliest_start", "latest_end", check_fields=False)
     @classmethod
     def normalize_utc(cls, value: datetime | None) -> datetime | None:
-        return value.astimezone(UTC) if value is not None else None
+        try:
+            return value.astimezone(UTC) if value is not None else None
+        except OverflowError as exc:
+            raise ValueError("time is outside the supported UTC date range") from exc
 
 
 class TaskCreate(TaskTimes):

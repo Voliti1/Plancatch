@@ -10,10 +10,15 @@ export interface CalendarRegistration {
   is_confirmed: boolean;
   is_completed: boolean;
 }
-export function readRegistrations(start: string, end: string) {
+export function readRegistrations(
+  start: string,
+  end: string,
+  signal?: AbortSignal,
+) {
   const query = new URLSearchParams({ start_from: start, end_before: end });
   return api<{ entries: CalendarRegistration[]; has_more: boolean }>(
     `/api/calendar/registrations?${query}`,
+    { signal },
   );
 }
 export function registrationOnDay(item: CalendarRegistration, day: string) {
