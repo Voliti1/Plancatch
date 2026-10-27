@@ -124,3 +124,10 @@ The Jasoseol adapter cross-checks visible period spans against the exact same jo
 offset-aware dates in inert `__NEXT_DATA__`. Both visible endpoints must agree in
 Seoul time or UTC; mixed/unverified clocks stay manual. See
 [Jasoseol extraction and review](jasoseol-period.md) for identity checks and limits.
+
+## Linkareer application period (2026-10-27)
+
+The Linkareer adapter matches the visible start/end fields to a same-page
+JobPosting expiry and explains when its time comes from metadata. Without a
+verified metadata clock the user supplies the time. See
+[Linkareer extraction and review](linkareer-period.md) for scope checks and limits.
