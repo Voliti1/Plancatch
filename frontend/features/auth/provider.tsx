@@ -18,6 +18,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refresh: () => void;
+  changePassword: (current: string, next: string) => Promise<void>;
 }
 const AuthContext = createContext<AuthState | null>(null);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -73,11 +74,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function login(email: string, password: string) {
     const current = ++generation.current;
     const token = await authApi.login(email, password);
-    if (current !== generation.current) throw new Error("로그인이 취소되었습니다.");
+    if (current !== generation.current)
+      throw new Error("로그인이 취소되었습니다.");
     tokenStore.set(token.access_token);
     try {
       const me = await authApi.me();
-      if (current !== generation.current) throw new Error("로그인이 취소되었습니다.");
+      if (current !== generation.current)
+        throw new Error("로그인이 취소되었습니다.");
       setUser(me);
       setError("");
       setLoading(false);
@@ -86,9 +89,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw err;
     }
   }
+  async function changePassword(currentPassword: string, nextPassword: string) {
+    const current = generation.current;
+    const token = await authApi.changePassword(currentPassword, nextPassword);
+    if (current !== generation.current)
+      throw new Error("로그인 상태가 바뀌었습니다. 다시 로그인해 주세요.");
+    tokenStore.set(token.access_token);
+  }
   return (
     <AuthContext.Provider
-      value={{ user, loading, error, login, logout, refresh }}
+      value={{ user, loading, error, login, logout, refresh, changePassword }}
     >
       {children}
     </AuthContext.Provider>
