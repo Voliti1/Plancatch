@@ -84,7 +84,9 @@ def provider_request(payload: dict, model: str) -> dict:
         if response.status != 200:
             raise AIError("ai_provider_error")
         data = bytearray()
-        while True:
+        # Content-Length responses release fp after the final byte. Do not read
+        # their closed socket again (chunked responses close at the zero chunk).
+        while not response.isclosed():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise AIError("ai_timeout")
@@ -95,6 +97,8 @@ def provider_request(payload: dict, model: str) -> dict:
             data.extend(chunk)
             if len(data) > 2_000_000:
                 raise AIError("ai_response_too_large")
+        if response.length not in (None, 0):
+            raise AIError("ai_network_error")  # Early EOF is not a complete JSON response.
         return json.loads(data)
     except (OSError, http.client.HTTPException) as exc:
         raise AIError("ai_network_error") from exc

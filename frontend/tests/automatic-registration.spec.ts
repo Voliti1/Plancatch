@@ -472,10 +472,13 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
     ).toBeVisible();
     await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("");
     await page.getByLabel("자료 제목 (선택)").fill("[테스트] 이전 화면 입력");
-    await page.getByLabel("PDF·JPG 파일 입력", { exact: true }).setInputFiles({
-      name: "[테스트] 이전화면.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.4 test-only"),
+    await page.getByLabel("이미지 파일 입력", { exact: true }).setInputFiles({
+      name: "[테스트] 이전화면.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+        "base64",
+      ),
     });
     const before = page.url();
     await button.click();

@@ -95,7 +95,7 @@ function SourcePage({
   deletion: ListDeletion;
 }) {
   const loader = useCallback(
-    () => sourcesApi.list(page * 50, query),
+    (signal: AbortSignal) => sourcesApi.list(page * 50, query, signal),
     [page, query],
   );
   const { data, loading, error, reload } = useResource(loader);

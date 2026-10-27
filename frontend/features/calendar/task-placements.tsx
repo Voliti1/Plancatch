@@ -15,7 +15,7 @@ import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 
 export function TaskPlacements({ task }: { task: Task }) {
   const load = useCallback(
-    () => eventsApi.all({ task_id: task.id }),
+    (signal: AbortSignal) => eventsApi.all({ task_id: task.id }, signal),
     [task.id],
   );
   const { data, loading, error, reload } = useResource(load);

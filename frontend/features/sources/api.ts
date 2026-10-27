@@ -14,9 +14,10 @@ export const sourcesApi = {
       true,
       "blob",
     ),
-  list: (offset = 0, query = "") =>
+  list: (offset = 0, query = "", signal?: AbortSignal) =>
     api<Source[]>(
       `/api/sources?limit=50&offset=${offset}&q=${encodeURIComponent(query)}`,
+      { signal },
     ),
   create: (payload: SourceInput, signal?: AbortSignal) =>
     api<Source>("/api/sources", {

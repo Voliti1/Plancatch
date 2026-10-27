@@ -53,7 +53,7 @@ export function GoogleExportPanel({
             preview_token: preview!.preview_token,
             confirm: true,
           }),
-          signal: AbortSignal.timeout(60000),
+          timeoutMs: 60000,
         });
         if (active.current)
           setPreview((current) =>

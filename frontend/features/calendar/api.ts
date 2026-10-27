@@ -24,22 +24,30 @@ function explain(error: unknown): never {
   throw error;
 }
 export const eventsApi = {
-  async list(filters: EventFilters, offset = 0): Promise<ScheduledEvent[]> {
+  async list(
+    filters: EventFilters,
+    offset = 0,
+    signal?: AbortSignal,
+  ): Promise<ScheduledEvent[]> {
     const query = new URLSearchParams({ limit: "100", offset: String(offset) });
     for (const [key, value] of Object.entries(filters))
       if (value) query.set(key, value);
     try {
-      return await api<ScheduledEvent[]>(`/api/scheduled-events?${query}`);
+      return await api<ScheduledEvent[]>(`/api/scheduled-events?${query}`, {
+        signal,
+      });
     } catch (error) {
       explain(error);
     }
   },
   async all(
     filters: EventFilters,
+    signal?: AbortSignal,
   ): Promise<{ events: ScheduledEvent[]; hasMore: boolean }> {
     const events: ScheduledEvent[] = [];
     for (let page = 0; page < 20; page++) {
-      const batch = await eventsApi.list(filters, page * 100);
+      signal?.throwIfAborted();
+      const batch = await eventsApi.list(filters, page * 100, signal);
       events.push(...batch);
       if (batch.length < 100) return { events, hasMore: false };
     }

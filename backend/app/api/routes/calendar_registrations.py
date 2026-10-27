@@ -33,8 +33,8 @@ def list_registrations(
         raise HTTPException(422, "캘린더 조회 기간은 0일 초과 62일 이하여야 합니다.")
     first, last = utc(start_from), utc(end_before)
     deadlines = list(
-        db.scalars(
-            select(Deadline)
+        db.execute(
+            select(Deadline.id, Deadline.title, Deadline.due_at, Deadline.is_confirmed)
             .where(
                 Deadline.user_id == current_user.id,
                 Deadline.due_at >= first,
@@ -50,8 +50,8 @@ def list_registrations(
         ScheduledEvent.task_id == Task.id, ScheduledEvent.user_id == current_user.id
     )
     tasks = list(
-        db.scalars(
-            select(Task)
+        db.execute(
+            select(Task.id, Task.title, Task.earliest_start, Task.latest_end, Task.is_completed)
             .where(
                 Task.user_id == current_user.id,
                 Task.schedule_type == "fixed",

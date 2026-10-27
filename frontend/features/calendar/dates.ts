@@ -5,11 +5,12 @@ export const todaySeoul = () =>
   toSeoulInput(new Date().toISOString()).slice(0, 10);
 export const utcMidnight = (day: string) =>
   new Date(`${day}T00:00:00+09:00`).toISOString();
+const dayFormatter = new Intl.DateTimeFormat("ko-KR", {
+  timeZone: "Asia/Seoul",
+  dateStyle: "full",
+});
 export const dayLabel = (day: string) =>
-  new Intl.DateTimeFormat("ko-KR", {
-    timeZone: "Asia/Seoul",
-    dateStyle: "full",
-  }).format(new Date(`${day}T12:00:00+09:00`));
+  dayFormatter.format(new Date(`${day}T12:00:00+09:00`));
 export function addDays(day: string, count: number) {
   const date = new Date(`${day}T00:00:00Z`);
   date.setUTCDate(date.getUTCDate() + count);

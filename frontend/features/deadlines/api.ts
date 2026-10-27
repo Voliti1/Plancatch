@@ -20,9 +20,10 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   }
 }
 export const deadlinesApi = {
-  list: (offset = 0, query = "") =>
+  list: (offset = 0, query = "", signal?: AbortSignal) =>
     request<Deadline[]>(
       `/api/deadlines?limit=50&offset=${offset}&q=${encodeURIComponent(query)}`,
+      { signal },
     ),
   get: (id: string) =>
     request<Deadline>(`/api/deadlines/${encodeURIComponent(id)}`),

@@ -29,9 +29,13 @@ def normalize_image(data: bytes) -> bytes:
             # Re-encode only pixels: drop filenames, EXIF/location, comments and active content.
             oriented = ImageOps.exif_transpose(image)
             # White preserves dark screenshot text on transparent PNG/GIF/WebP backgrounds.
-            rgba = oriented.convert("RGBA")
-            pixels = Image.new("RGB", rgba.size, "white")
-            pixels.paste(rgba, mask=rgba.getchannel("A"))
+            if "A" in oriented.getbands() or "transparency" in oriented.info:
+                rgba = oriented.convert("RGBA")
+                pixels = Image.new("RGB", rgba.size, "white")
+                pixels.paste(rgba, mask=rgba.getchannel("A"))
+            else:
+                # Most screenshots/photos are opaque: avoid an RGBA copy and mask.
+                pixels = oriented.convert("RGB")
             pixels.info.clear()
             output = io.BytesIO()
             pixels.save(output, format="PNG")

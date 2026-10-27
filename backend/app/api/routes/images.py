@@ -65,7 +65,7 @@ def upload_image(current_user: CurrentUser, db: DatabaseSession,
 
 @router.get("/{source_id}/image")
 def preview_image(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession) -> Response:
-    source = get_owned_source(source_id, current_user.id, db)
+    source = get_owned_source(source_id, current_user.id, db, for_update=False)
     if source.source_type != "image":
         raise HTTPException(404, "Image not found")
     try:

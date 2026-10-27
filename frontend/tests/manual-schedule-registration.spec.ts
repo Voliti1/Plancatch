@@ -137,10 +137,13 @@ test("registration modes preserve both drafts and new registration clears them",
   await page
     .getByLabel("원본 텍스트", { exact: true })
     .fill("[테스트] 자료 입력 초안");
-  await page.getByLabel("PDF·JPG 파일 입력", { exact: true }).setInputFiles({
-    name: "[테스트] 자료.pdf",
-    mimeType: "application/pdf",
-    buffer: Buffer.from("%PDF-1.4 test-only"),
+  await page.getByLabel("이미지 파일 입력", { exact: true }).setInputFiles({
+    name: "[테스트] 자료.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+      "base64",
+    ),
   });
   await page
     .getByRole("tab", { name: "자료로 등록", exact: true })
