@@ -157,21 +157,46 @@ def review_data(text: str, source_url: str | None = None) -> dict | None:
 
 def analyze_url(text: str, source_url: str, title: str | None):
     from app.schemas.analysis import ProviderResult
+    from app.services.catch_period import CONFLICT as CATCH_CONFLICT
+    from app.services.catch_period import UNRESOLVED as CATCH_UNRESOLVED
+    from app.services.catch_period import read_period as read_catch
+    from app.services.jasoseol_period import CONFLICT as JASOSEOL_CONFLICT
+    from app.services.jasoseol_period import read_period as read_jasoseol
+    from app.services.jobplanet_period import CONFLICT as JOBPLANET_CONFLICT
+    from app.services.jobplanet_period import UNRESOLVED as JOBPLANET_UNRESOLVED
+    from app.services.jobplanet_period import read_period as read_jobplanet
+    from app.services.linkareer_period import CONFLICT as LINKAREER_CONFLICT
+    from app.services.linkareer_period import METADATA_TIME
+    from app.services.linkareer_period import UNRESOLVED as LINKAREER_UNRESOLVED
+    from app.services.linkareer_period import read_period as read_linkareer
     from app.services.saramin_period import CONFLICT, UNRESOLVED
     data = review_data(text, source_url)
     choices = data["choices"] if data else []
     warnings = []
     due_at = None
+    jobplanet_period = read_jobplanet(text)
+    linkareer_period = read_linkareer(text)
     if data and data.get("open_ended"):
         warnings.append("채용 시 마감 또는 상시 모집입니다. 본인이 원하는 마감 날짜와 시간을 입력한 후 등록하세요.")
     elif data and data.get("has_conflict"):
-        warnings.append(CONFLICT)
+        from app.services.jobkorea_period import CONFLICT as JOBKOREA_CONFLICT
+        from app.services.jobkorea_period import read_period as read_jobkorea
+        if linkareer_period:
+            warnings.append(LINKAREER_CONFLICT)
+        elif read_jasoseol(text):
+            warnings.append(JASOSEOL_CONFLICT)
+        elif jobplanet_period:
+            warnings.append(JOBPLANET_CONFLICT)
+        else:
+            warnings.append(CATCH_CONFLICT if read_catch(text) else JOBKOREA_CONFLICT if read_jobkorea(text) else CONFLICT)
     elif len(choices) > 1:
         warnings.append("마감일로 읽은 날짜가 여러 개입니다. 원문을 확인하고 마감일 하나를 선택하세요.")
     elif len(choices) == 1 and data.get("scope_confirmed"):
         due_at = choices[0]["due_at"]
         if not due_at:
-            warnings.append(UNRESOLVED)
+            warnings.append(LINKAREER_UNRESOLVED if linkareer_period else JOBPLANET_UNRESOLVED if jobplanet_period else CATCH_UNRESOLVED if read_catch(text) else UNRESOLVED)
+        elif linkareer_period and linkareer_period["time_from_metadata"]:
+            warnings.append(METADATA_TIME)
     else:
         warnings.append("HTML에서 확정 마감일을 찾지 못했습니다. 원문을 확인하고 마감 날짜와 시간을 직접 입력하세요.")
     if data is None:

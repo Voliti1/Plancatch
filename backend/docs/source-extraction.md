@@ -95,3 +95,39 @@ This MVP uses FastAPI BackgroundTasks, not a durable queue. A process restart
 may leave jobs in processing; restart recovery and a persistent queue are
 required before larger-scale use. Do not deploy schema changes without applying
 Alembic revision 20260930_0004 first. No frontend changes are included here.
+
+## JobKorea countdown evidence (2026-10-27)
+
+The same-job JobKorea adapter also reads the countdown's explicit, offset-aware
+`endDate` from inert HTML Flight JSON and checks it against `validThrough`.
+See [JobKorea extraction, review and verification](jobkorea-period.md) for the
+accepted structure, limits and frontend site label. This follow-up changes both
+backend and frontend code; it requires no additional migration or configuration.
+
+## Catch closing-period evidence (2026-10-27)
+
+The Catch adapter matches `view2_{job ID}.recr_pop_dday p.t1` to the same page's
+canonical URL, heading and JobPosting `validThrough`. See
+[Catch extraction and review](catch-period.md) for year/time validation, limits
+and the additive frontend `catch` site label.
+
+## JobPlanet visible closing date (2026-10-27)
+
+The JobPlanet adapter reads the visible closing-date dt/dd pair of one canonical
+posting. Date-only evidence requires a user-supplied time. See
+[JobPlanet extraction and review](jobplanet-period.md), including the current
+HTTP 403 limitation of the existing server transport observed during verification.
+
+## Jasoseol offset-aware application period (2026-10-27)
+
+The Jasoseol adapter cross-checks visible period spans against the exact same job's
+offset-aware dates in inert `__NEXT_DATA__`. Both visible endpoints must agree in
+Seoul time or UTC; mixed/unverified clocks stay manual. See
+[Jasoseol extraction and review](jasoseol-period.md) for identity checks and limits.
+
+## Linkareer application period (2026-10-27)
+
+The Linkareer adapter matches the visible start/end fields to a same-page
+JobPosting expiry and explains when its time comes from metadata. Without a
+verified metadata clock the user supplies the time. See
+[Linkareer extraction and review](linkareer-period.md) for scope checks and limits.
