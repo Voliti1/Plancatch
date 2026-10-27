@@ -147,6 +147,13 @@ export function ReviewEditor({
       <fieldset disabled={busy}>
         {drafts.map((draft, index) => {
           const original = analysis.candidates[index];
+          const originalDate =
+            analysis.source_period?.site === "jobplanet" &&
+            !analysis.source_period.has_conflict
+              ? analysis.date_choices?.find(
+                  (choice) => choice.date && !choice.due_at,
+                )?.date
+              : undefined;
           const dateChanged =
             draft.due !==
             (original.due_at ? toSeoulInput(original.due_at) : "");
@@ -248,8 +255,9 @@ export function ReviewEditor({
               )}
               {!original.due_at && (
                 <p className="notice small">
-                  원문에서 날짜를 확정하지 못했습니다. 마감일을 직접 확인하거나
-                  후보를 제외해 주세요.
+                  {originalDate
+                    ? `원문 마감 날짜는 ${originalDate}입니다. 마감 시각을 직접 입력하고 후보를 포함해 주세요.`
+                    : "원문에서 날짜를 확정하지 못했습니다. 마감일을 직접 확인하거나 후보를 제외해 주세요."}
                 </p>
               )}
               <RemainingPeriod
