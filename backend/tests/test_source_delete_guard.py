@@ -74,7 +74,7 @@ def test_approved_analysis_and_all_related_data_survive_rejected_source_delete()
     assert (
         client.delete("/api/deadlines/" + deadline_id, headers=auth).status_code == 204
     )
-    assert client.delete(path, headers=auth).status_code == 204
+    assert client.get(path, headers=auth).status_code == 404
     assert (
         client.get("/api/ai-analyses/" + analysis["id"], headers=auth).status_code
         == 404
@@ -120,4 +120,4 @@ def test_all_linked_deadlines_must_be_removed_and_ownership_is_not_disclosed():
     assert client.delete("/api/deadlines/" + first, headers=auth).status_code == 204
     assert client.delete(path, headers=auth).status_code == 409
     assert client.delete("/api/deadlines/" + second, headers=auth).status_code == 204
-    assert client.delete(path, headers=auth).status_code == 204
+    assert client.get(path, headers=auth).status_code == 404

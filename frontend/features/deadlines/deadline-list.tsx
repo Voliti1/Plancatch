@@ -133,7 +133,7 @@ export function DeadlineList() {
       )}
       <ListDeleteNotice
         deletion={deletion}
-        consequence="연결된 할 일과 Google 일정은 유지됩니다."
+        consequence="다른 마감일이 연결되어 있지 않으면 원본 자료와 검토 기록도 함께 삭제됩니다. 연결된 할 일과 Google 일정은 유지됩니다."
       />
       <DeadlinePage
         key={`${query}:${page}:${version}`}
