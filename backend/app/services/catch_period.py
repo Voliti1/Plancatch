@@ -85,7 +85,8 @@ class CatchParser(PageParser):
         super().__init__()
         self.identity = identity
         self.sections = 0
-        self.section_depth = self.cell_depth = self.heading_depth = 0
+        self.section_depth = self.line_depth = self.cell_depth = self.heading_depth = 0
+        self.first_span = False
         self.cell = []
         self.heading = []
         self.ends = []
@@ -105,8 +106,12 @@ class CatchParser(PageParser):
                 self.overflow = True
             else:
                 self.section_depth = depth
-        if self.section_depth and tag == "p" and "t1" in classes and not self.cell_depth:
-            self.cell_depth, self.cell = depth, []
+        if self.section_depth and tag == "p" and "t1" in classes and not self.line_depth:
+            self.line_depth, self.first_span = depth, False
+        if self.line_depth and tag == "span" and depth == self.line_depth + 1 and not self.first_span:
+            # Only the date span belongs to the closing label. Catch can append
+            # a promotional link/button as a sibling inside the same p.t1.
+            self.cell_depth, self.cell, self.first_span = depth, [], True
         if tag == "h1" and "subj" in classes and not self.heading_depth:
             self.heading_depth, self.heading = depth, []
 
@@ -114,6 +119,8 @@ class CatchParser(PageParser):
         super().handle_data(data)
         if any(skip for _, skip, _ in self.stack):
             return
+        if self.cell_depth and any(tag in {"a", "button"} for tag, _, _ in self.stack[self.cell_depth:]):
+            return  # Promotional controls can also be nested inside the date span.
         for depth, chunks, limit in ((self.cell_depth, self.cell, 200), (self.heading_depth, self.heading, 1000)):
             if depth:
                 if sum(map(len, chunks)) + len(data) <= limit:
@@ -134,6 +141,8 @@ class CatchParser(PageParser):
                     setattr(self, depth_name, 0)
             if self.section_depth >= target:
                 self.section_depth = 0
+            if self.line_depth >= target:
+                self.line_depth, self.first_span = 0, False
         super().handle_endtag(tag)
 
 
