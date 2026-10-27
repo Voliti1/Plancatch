@@ -1,6 +1,19 @@
 import { api, ApiError } from "@/lib/api/client";
 import type { Source, SourceInput, SourceUpdateInput } from "@/types/api";
 export const sourcesApi = {
+  uploadImage: (file: File, title?: string) => {
+    const body = new FormData();
+    body.append("file", file);
+    if (title) body.append("title", title);
+    return api<Source>("/api/sources/images", { method: "POST", body });
+  },
+  image: (id: string, signal?: AbortSignal) =>
+    api<Blob>(
+      `/api/sources/${encodeURIComponent(id)}/image`,
+      { signal },
+      true,
+      "blob",
+    ),
   list: (offset = 0, query = "") =>
     api<Source[]>(
       `/api/sources?limit=50&offset=${offset}&q=${encodeURIComponent(query)}`,

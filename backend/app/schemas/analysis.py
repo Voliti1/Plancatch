@@ -130,6 +130,7 @@ class AnalysisResponse(BaseModel):
     id: uuid.UUID
     source_id: uuid.UUID
     input_text: str
+    input_hash: str = ""
     model: str
     status: str
     revision: int
@@ -143,6 +144,10 @@ class AnalysisResponse(BaseModel):
     @computed_field
     @property
     def date_choices(self) -> list[DateChoice]:
+        if self.model.startswith("image:"):
+            from app.services.image_analysis import closing_choice
+            choices = [closing_choice(item.evidence_text) for item in self.candidates]
+            return [DateChoice(**item) for item in choices if item]
         from app.services.url_deadlines import review_data
         data = review_data(self.input_text)
         return [DateChoice(**item) for item in data["choices"]] if data else []

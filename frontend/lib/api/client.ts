@@ -16,12 +16,15 @@ export async function api<T>(
   path: string,
   options: RequestInit = {},
   authenticated = true,
+  responseType: "json" | "blob" = "json",
 ): Promise<T> {
   // A deployed frontend shares its origin with the reverse-proxied API.
   // Local development can still opt into a different API through .env.local.
-  const base = process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
+  const base =
+    process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
   const headers = new Headers(options.headers);
-  if (options.body) headers.set("Content-Type", "application/json");
+  if (options.body && !(options.body instanceof FormData))
+    headers.set("Content-Type", "application/json");
   const token = authenticated ? tokenStore.get() : null;
   if (authenticated && !token) throw new ApiError("로그인이 필요합니다.", 401);
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -66,5 +69,7 @@ export async function api<T>(
   }
   return response.status === 204
     ? (undefined as T)
-    : (response.json() as Promise<T>);
+    : responseType === "blob"
+      ? (response.blob() as Promise<T>)
+      : (response.json() as Promise<T>);
 }

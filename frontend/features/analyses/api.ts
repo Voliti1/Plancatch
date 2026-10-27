@@ -12,12 +12,15 @@ export const analysesApi = {
     signal?: AbortSignal,
     allowExternalAi = true,
     inputHash?: string,
+    reuseExisting = true,
   ) =>
     api<Analysis>(`/api/sources/${encodeURIComponent(sourceId)}/ai-analyses`, {
       method: "POST",
       body: JSON.stringify({
         allow_external_ai: allowExternalAi,
-        ...(inputHash ? { input_hash: inputHash, reuse_existing: true } : {}),
+        ...(inputHash
+          ? { input_hash: inputHash, reuse_existing: reuseExisting }
+          : {}),
       }),
       signal,
     }),

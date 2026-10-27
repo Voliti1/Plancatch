@@ -15,6 +15,7 @@ import { SourceExtraction } from "./source-extraction";
 import { processingError } from "@/features/analyses/errors";
 import { SourceAnalyses } from "@/features/analyses/source-analyses";
 import { SourceExtractedContent } from "./source-extracted-content";
+import { SourceImage } from "./source-image";
 
 export function SourceDetail({ id }: { id: string }) {
   const loader = useCallback(async () => {
@@ -164,17 +165,35 @@ export function SourceDetail({ id }: { id: string }) {
                 </>
               )}
             </section>
-            <SourceExtraction
-              source={data}
-              disabled={editing || confirmDelete || deleting || workflowBusy}
-              onUpdate={setSourceUpdate}
-              onBusy={setWorkflowBusy}
-            />
-            <SourceAnalyses
-              source={data}
-              disabled={editing || confirmDelete || deleting || workflowBusy}
-              onBusy={setWorkflowBusy}
-            />
+            {data.source_type === "image" ? (
+              <>
+                <SourceImage id={id} />
+                <Link
+                  className="button"
+                  href={`/sources/${encodeURIComponent(id)}/review`}
+                >
+                  이미지 마감일 검토 →
+                </Link>
+              </>
+            ) : (
+              <>
+                <SourceExtraction
+                  source={data}
+                  disabled={
+                    editing || confirmDelete || deleting || workflowBusy
+                  }
+                  onUpdate={setSourceUpdate}
+                  onBusy={setWorkflowBusy}
+                />
+                <SourceAnalyses
+                  source={data}
+                  disabled={
+                    editing || confirmDelete || deleting || workflowBusy
+                  }
+                  onBusy={setWorkflowBusy}
+                />
+              </>
+            )}
             {!editing && (
               <section className="card danger-zone">
                 <div>

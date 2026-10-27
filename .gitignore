@@ -20,3 +20,6 @@ out/
 
 # Logs
 *.log
+
+# Private user uploads (never publish or include in Git archives)
+private_uploads/

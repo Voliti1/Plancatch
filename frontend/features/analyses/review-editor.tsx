@@ -203,7 +203,9 @@ export function ReviewEditor({
                   aria-label={`후보 ${index + 1} 읽은 날짜 선택`}
                 >
                   <p className="small muted">
-                    HTML에서 읽은 날짜 중 마감일을 선택하세요.
+                    {analysis.model.startsWith("image:")
+                      ? "이미지에서 읽은 날짜를 확인하세요. 시각이 없다면 마감 일시를 직접 입력해 주세요."
+                      : "HTML에서 읽은 날짜 중 마감일을 선택하세요."}
                   </p>
                   <div className="review-secondary-actions">
                     {analysis.date_choices!.map((choice) => (

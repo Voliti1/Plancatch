@@ -8,6 +8,7 @@ import { analysesApi } from "@/features/analyses/api";
 import { analysisError, processingError } from "@/features/analyses/errors";
 import type { Source } from "@/types/api";
 import { sourcesApi } from "./api";
+import { SourceImage } from "./source-image";
 
 function pause(signal: AbortSignal) {
   return new Promise<void>((resolve, reject) => {
@@ -43,9 +44,42 @@ export function SourceReview({ id }: { id: string }) {
       try {
         let item = await sourcesApi.get(id, requestSignal());
         signal.throwIfAborted();
-        if (!["url", "text"].includes(item.source_type))
+        if (!["url", "text", "image"].includes(item.source_type))
           throw new Error("이 자료 유형은 아직 검토할 수 없습니다.");
         setSource(item);
+        if (item.source_type === "image") {
+          if (!item.image_sha256)
+            throw new Error("저장한 이미지 버전을 확인하지 못했습니다.");
+          const history = await analysesApi.list(id, 0, requestSignal());
+          signal.throwIfAborted();
+          const existing = history.find(
+            (entry) =>
+              entry.model.startsWith("image:") &&
+              entry.input_hash === item.image_sha256,
+          );
+          if (existing && existing.status !== "failed") {
+            router.replace(`/analyses/${encodeURIComponent(existing.id)}`);
+            return;
+          }
+          if (consent.current !== item.image_sha256) {
+            setProgress(
+              existing
+                ? "이전 분석에 실패했습니다. 이미지 전송에 동의한 뒤 다시 시도할 수 있습니다."
+                : "이미지를 확인하고 AI 전송에 동의하면 분석을 시작합니다.",
+            );
+            return;
+          }
+          const analysis = await analysesApi.start(
+            id,
+            requestSignal(),
+            true,
+            item.image_sha256,
+            !existing,
+          );
+          signal.throwIfAborted();
+          router.replace(`/analyses/${encodeURIComponent(analysis.id)}`);
+          return;
+        }
         setProgress("원문을 추출하고 있습니다.");
         if (!["extracted", "processing"].includes(item.processing_status))
           item = await sourcesApi.extract(id, requestSignal());
@@ -114,11 +148,13 @@ export function SourceReview({ id }: { id: string }) {
     void run();
     return () => controller.abort();
   }, [id, attempt, router]);
+  const image = source?.source_type === "image";
+  const consentVersion = image ? source?.image_sha256 : source?.extracted_text;
   const needsConsent =
-    source?.source_type === "text" && source.processing_status === "extracted";
-  const accepted = Boolean(
-    source?.extracted_text && consentText === source.extracted_text,
-  );
+    image ||
+    (source?.source_type === "text" &&
+      source.processing_status === "extracted");
+  const accepted = Boolean(consentVersion && consentText === consentVersion);
   function retry() {
     if (pending.current || busy) return;
     pending.current = true;
@@ -145,27 +181,35 @@ export function SourceReview({ id }: { id: string }) {
         </p>
         {needsConsent && !busy && !error && (
           <>
-            <p>
-              입력한 원문{" "}
-              {Array.from(source.extracted_text ?? "").length.toLocaleString(
-                "ko-KR",
-              )}
-              자를 분석합니다.
-            </p>
+            {image ? (
+              <p>
+                원본 이미지 한 장을 Google Gemini로 전송합니다. 날짜·시각과
+                제목이 불명확하면 직접 입력한 뒤 승인합니다.
+              </p>
+            ) : (
+              <p>
+                입력한 원문{" "}
+                {Array.from(source.extracted_text ?? "").length.toLocaleString(
+                  "ko-KR",
+                )}
+                자를 분석합니다.
+              </p>
+            )}
             <label className="checkbox">
               <input
                 type="checkbox"
                 checked={accepted}
                 onChange={(event) => {
                   const value = event.target.checked
-                    ? source.extracted_text
+                    ? (consentVersion ?? null)
                     : null;
                   consent.current = value;
                   setConsentText(value);
                 }}
               />
-              이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데
-              동의합니다.
+              {image
+                ? "이 원본 이미지를 Google Gemini에 전송하여 분석하는 데 동의합니다."
+                : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
             </label>
             <button disabled={!accepted} onClick={retry}>
               동의하고 AI 검토 시작
@@ -190,6 +234,7 @@ export function SourceReview({ id }: { id: string }) {
           </Link>
         </p>
       </section>
+      {image && <SourceImage id={id} />}
     </>
   );
 }

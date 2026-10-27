@@ -10,7 +10,7 @@ test("dashboard opens the separate registration screen with responsive inputs", 
 }) => {
   await login(page);
   await expect(
-    page.getByRole("button", { name: "PDF·JPG 파일 선택" }),
+    page.getByRole("button", { name: "PNG·JPG 이미지 선택" }),
   ).toHaveCount(0);
   const main = page.getByRole("main");
   await expect(
@@ -28,13 +28,13 @@ test("dashboard opens the separate registration screen with responsive inputs", 
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "PDF·JPG 파일 선택" }),
+    page.getByRole("button", { name: "PNG·JPG 이미지 선택" }),
   ).toBeEnabled();
   await expect(page.getByLabel("원본 URL", { exact: true })).toBeVisible();
   await expect(page.getByLabel("원본 텍스트", { exact: true })).toBeVisible();
-  await expect(page.getByText("업로드 준비 중", { exact: true })).toBeVisible();
+  await expect(page.getByText("이미지 지원", { exact: true })).toBeVisible();
   const drop = await page
-    .getByRole("button", { name: "PDF·JPG 파일 선택" })
+    .getByRole("button", { name: "PNG·JPG 이미지 선택" })
     .boundingBox();
   const url = await page.getByLabel("원본 URL", { exact: true }).boundingBox();
   expect(drop).not.toBeNull();
@@ -55,7 +55,7 @@ test("dashboard opens the separate registration screen with responsive inputs", 
   await expect(page).toHaveURL(/\/dashboard$/);
 });
 
-test("PDF and JPG selection stays local and cannot be mistaken for an upload", async ({
+test("image selection stays local until save; PDF and mixed inputs are rejected", async ({
   page,
 }) => {
   await login(page);
@@ -64,57 +64,34 @@ test("PDF and JPG selection stays local and cannot be mistaken for an upload", a
   page.on("request", (request) => {
     if (request.method() === "POST") posts.push(request.url());
   });
-  const drop = page.getByRole("button", { name: "PDF·JPG 파일 선택" });
-  const chooserPromise = page.waitForEvent("filechooser");
-  await drop.click();
-  await (
-    await chooserPromise
-  ).setFiles([
-    {
-      name: "테스트-공지.pdf",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.4 test-only"),
-    },
-    {
-      name: "테스트-공지.jpeg",
-      mimeType: "image/jpeg",
-      buffer: Buffer.from([255, 216, 255, 217]),
-    },
-  ]);
+  const picker = page.getByLabel("PNG·JPG 이미지 입력", { exact: true });
+  await picker.setInputFiles({
+    name: "공지.png",
+    mimeType: "image/png",
+    buffer: Buffer.from("synthetic image"),
+  });
   const files = page.getByRole("list", { name: "선택한 파일" });
-  await expect(files.getByRole("listitem")).toHaveCount(2);
-  await expect(files.getByText("미업로드", { exact: false })).toHaveCount(2);
+  await expect(files.getByRole("listitem")).toHaveCount(1);
+  await expect(files).toContainText("미업로드");
+  expect(posts).toHaveLength(0);
+  await picker.setInputFiles({
+    name: "공지.pdf",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4"),
+  });
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "PDF는 아직 지원하지 않습니다",
+  );
+  await expect(files.getByRole("listitem")).toHaveCount(1);
   await page
     .getByLabel("원본 URL", { exact: true })
     .fill("https://example.com/notice");
-  await expect(
-    page.getByRole("button", { name: "자료 저장", exact: true }),
-  ).toBeDisabled();
-  await expect(
-    page.getByText("파일 업로드는 아직 지원하지 않습니다.", { exact: false }),
-  ).toBeVisible();
-  await page.getByLabel("PDF·JPG 파일 입력", { exact: true }).setInputFiles([
-    {
-      name: "지원하지않음.png",
-      mimeType: "image/png",
-      buffer: Buffer.from("test-only"),
-    },
-    {
-      name: "형식불일치.jpg",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("test-only"),
-    },
-  ]);
-  await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "PDF 또는 JPG 파일만 선택할 수 있어요",
+  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert").last()).toContainText(
+    "하나만 등록",
   );
-  await expect(files.getByRole("listitem")).toHaveCount(2);
   expect(posts).toHaveLength(0);
-  await page.getByRole("button", { name: "테스트-공지.pdf 제거" }).click();
-  await page.getByRole("button", { name: "테스트-공지.jpeg 제거" }).click();
-  await expect(
-    page.getByRole("button", { name: "자료 저장", exact: true }),
-  ).toBeEnabled();
+  await page.getByRole("button", { name: "공지.png 제거" }).click();
   const sent = page.waitForRequest(
     (request) =>
       request.method() === "POST" && request.url().endsWith("/api/sources"),
@@ -132,12 +109,12 @@ test("file drop deduplicates files and reload does not persist local selections"
 }) => {
   await login(page);
   await page.goto("/sources/new");
-  const drop = page.getByRole("button", { name: "PDF·JPG 파일 선택" });
+  const drop = page.getByRole("button", { name: "PNG·JPG 이미지 선택" });
   const dataTransfer = await page.evaluateHandle(() => {
     const data = new DataTransfer();
     data.items.add(
-      new File(["%PDF-1.4 test-only"], "드래그-테스트.pdf", {
-        type: "application/pdf",
+      new File(["synthetic PNG"], "드래그-테스트.png", {
+        type: "image/png",
         lastModified: 1,
       }),
     );
@@ -218,7 +195,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
   try {
     await expect(page.getByRole("button", { name: "저장 중…" })).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: "PDF·JPG 파일 선택" }),
+      page.getByRole("button", { name: "PNG·JPG 이미지 선택" }),
     ).toBeDisabled();
     await expect(
       page.getByLabel("원본 텍스트", { exact: true }),
@@ -252,7 +229,7 @@ test("direct registration access still requires login", async ({ page }) => {
   await page.goto("/sources/new");
   await expect(page).toHaveURL(/\/login$/);
   await expect(
-    page.getByRole("button", { name: "PDF·JPG 파일 선택" }),
+    page.getByRole("button", { name: "PNG·JPG 이미지 선택" }),
   ).toHaveCount(0);
 });
 

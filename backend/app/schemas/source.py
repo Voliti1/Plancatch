@@ -60,5 +60,13 @@ class SourceResponse(BaseModel):
 
     @computed_field
     @property
+    def image_sha256(self) -> str | None:
+        if self.source_type != "image":
+            return None
+        from app.services.source_images import image_hash
+        return image_hash(self.storage_key)
+
+    @computed_field
+    @property
     def extracted_text_hash(self) -> str | None:
         return hashlib.sha256(self.extracted_text.encode("utf-8")).hexdigest() if self.extracted_text is not None else None
