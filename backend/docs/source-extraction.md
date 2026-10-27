@@ -117,3 +117,10 @@ The JobPlanet adapter reads the visible closing-date dt/dd pair of one canonical
 posting. Date-only evidence requires a user-supplied time. See
 [JobPlanet extraction and review](jobplanet-period.md), including the current
 HTTP 403 limitation of the existing server transport observed during verification.
+
+## Jasoseol offset-aware application period (2026-10-27)
+
+The Jasoseol adapter cross-checks visible period spans against the exact same job's
+offset-aware dates in inert `__NEXT_DATA__`. Both visible endpoints must agree in
+Seoul time or UTC; mixed/unverified clocks stay manual. See
+[Jasoseol extraction and review](jasoseol-period.md) for identity checks and limits.

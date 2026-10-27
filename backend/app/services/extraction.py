@@ -460,6 +460,19 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                           "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = "\n\n".join((text, jobplanet_snapshot))
+        from app.services.jasoseol_period import period_text as jasoseol_text, read_period as read_jasoseol
+        jasoseol_snapshot = jasoseol_text(decoded, source_url)
+        if jasoseol_snapshot:
+            from app.services.url_deadlines import date_choice
+            info = read_jasoseol(jasoseol_snapshot)
+            if info:
+                evidence = f"마감일 원문: {info['end_text']}"
+                choice = date_choice(info["end_text"], evidence)
+                if choice and info["deadline_at"] is None:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = "\n\n".join((text, jasoseol_snapshot))
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")
