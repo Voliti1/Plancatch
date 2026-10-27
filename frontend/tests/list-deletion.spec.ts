@@ -83,6 +83,35 @@ const remove = (page: Page) =>
 const confirm = (page: Page) =>
   page.getByRole("button", { name: "삭제 확인", exact: true });
 
+test("마감일 삭제 확인에 원본 정리를 안내하고 분석 중이면 한글로 안내한다", async ({
+  page,
+}) => {
+  const state = await seed(page, "deadlines");
+  await page.route("**/test-api/api/deadlines/item-1", (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    return route.fulfill({
+      status: 409,
+      json: { detail: "deadline_source_busy" },
+    });
+  });
+  await mode(page).click();
+  await row(page, 1).click();
+  await remove(page).click();
+  await expect(
+    page.getByText(
+      "다른 마감일이 연결되어 있지 않으면 원본 자료와 검토 기록도 함께 삭제됩니다. 연결된 할 일과 Google 일정은 유지됩니다.",
+      { exact: false },
+    ),
+  ).toBeVisible();
+  expect(state.items).toHaveLength(3);
+  await confirm(page).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "분석이 끝난 뒤 다시 삭제해 주세요",
+  );
+  await expect(row(page, 1)).toBeChecked();
+  expect(state.items).toHaveLength(3);
+});
+
 for (const kind of ["sources", "deadlines"] as const) {
   test(`${kind}: red controls, whole-item/keyboard toggle and exit preserve data`, async ({
     page,

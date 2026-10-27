@@ -66,7 +66,11 @@ export function DeadlineDetail({ id }: { id: string }) {
       <section className="card danger-zone">
         <div>
           <h2>마감일 삭제</h2>
-          <p className="muted">삭제한 마감일은 복구할 수 없습니다.</p>
+          <p className="muted">
+            다른 마감일이 연결되어 있지 않으면 원본 자료와 검토 기록도 함께
+            삭제됩니다. 연결된 할 일과 Google 일정은 유지됩니다. 삭제한 내용은
+            복구할 수 없습니다.
+          </p>
         </div>
         {!confirm ? (
           <button className="danger secondary" onClick={() => setConfirm(true)}>

@@ -5,6 +5,16 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     return await api<T>(path, options);
   } catch (error) {
     if (error instanceof ApiError) {
+      if (error.status === 409 && error.message === "deadline_source_busy")
+        throw new ApiError(
+          "연결된 자료를 분석하고 있습니다. 분석이 끝난 뒤 다시 삭제해 주세요.",
+          409,
+        );
+      if (error.status === 409 && error.message === "deadline_source_changed")
+        throw new ApiError(
+          "연결된 자료가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+          409,
+        );
       if (error.status === 404)
         throw new ApiError(
           "마감일을 찾을 수 없습니다. 삭제되었거나 접근할 수 없는 마감일입니다.",

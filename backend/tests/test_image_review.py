@@ -99,7 +99,7 @@ def test_date_only_crop_defaults_time_but_still_requires_selection_and_review(mo
     assert client.post(apath+"/approve",headers=headers,json={"revision":2}).json()["approved_deadline_ids"] == [identity]
     assert client.delete("/api/deadlines/"+identity,headers=headers).status_code == 204
     key = source["storage_key"]
-    assert client.delete(path,headers=headers).status_code == 204
+    assert client.get(path,headers=headers).status_code == 404
     assert not source_images.image_path(key).exists()
 
 
