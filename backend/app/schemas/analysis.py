@@ -118,7 +118,7 @@ class AutoRegistrationRequest(DecisionRequest):
 
 
 class SourcePeriod(BaseModel):
-    site: Literal["saramin", "jobkorea", "catch", "jobplanet", "jasoseol"] = "saramin"
+    site: Literal["saramin", "jobkorea", "catch", "jobplanet", "jasoseol", "linkareer"] = "saramin"
     start_text: str | None
     end_text: str | None
     deadline_at: AwareDatetime | None
@@ -162,7 +162,8 @@ class AnalysisResponse(BaseModel):
         from app.services.jobkorea_period import read_period as read_jobkorea
         from app.services.jobplanet_period import read_period as read_jobplanet
         from app.services.jasoseol_period import read_period as read_jasoseol
-        period = (read_jasoseol(self.input_text) or read_jobplanet(self.input_text) or read_catch(self.input_text)
+        from app.services.linkareer_period import read_period as read_linkareer
+        period = (read_linkareer(self.input_text) or read_jasoseol(self.input_text) or read_jobplanet(self.input_text) or read_catch(self.input_text)
                   or read_jobkorea(self.input_text)) if self.model.startswith("html:") else None
         period = period or read_period(self.input_text)
         return SourcePeriod(**period) if period else None

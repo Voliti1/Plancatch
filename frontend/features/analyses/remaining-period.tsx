@@ -77,6 +77,7 @@ export function SourcePeriodSummary({
     catch: "캐치",
     jobplanet: "잡플래닛",
     jasoseol: "자소설닷컴",
+    linkareer: "링커리어",
   };
   const siteName = siteNames[period.site ?? "saramin"];
   const title = `${siteName} 접수기간`;
@@ -88,12 +89,13 @@ export function SourcePeriodSummary({
         <dd>{period.start_text || "표시 없음"}</dd>
         <dt>마감일 (원문)</dt>
         <dd>{period.end_text || "확인 필요"}</dd>
-        {period.site === "jasoseol" && period.deadline_at && (
-          <>
-            <dt>마감일 (한국 시간)</dt>
-            <dd>{formatSeoul(period.deadline_at)}</dd>
-          </>
-        )}
+        {(period.site === "jasoseol" || period.site === "linkareer") &&
+          period.deadline_at && (
+            <>
+              <dt>마감일 (한국 시간)</dt>
+              <dd>{formatSeoul(period.deadline_at)}</dd>
+            </>
+          )}
         <dt>현재 남은 기간</dt>
         <dd>{remainingPeriod(period.deadline_at, now)}</dd>
       </dl>

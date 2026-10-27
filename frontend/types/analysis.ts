@@ -13,7 +13,8 @@ export interface AnalysisCandidate extends CandidateEdit {
 }
 export interface SourcePeriod {
   // Additive site label; older responses describe Saramin and omit this field.
-  site?: "saramin" | "jobkorea" | "catch" | "jobplanet" | "jasoseol";
+  site?:
+    "saramin" | "jobkorea" | "catch" | "jobplanet" | "jasoseol" | "linkareer";
   start_text: string | null;
   end_text: string | null;
   deadline_at: string | null;

@@ -473,6 +473,21 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 review = {**review, "choices": [choice] if choice else [],
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = "\n\n".join((text, jasoseol_snapshot))
+        from app.services.linkareer_period import period_text as linkareer_text, read_period as read_linkareer
+        linkareer_snapshot = linkareer_text(decoded, source_url)
+        if linkareer_snapshot:
+            from app.services.url_deadlines import date_choice
+            info = read_linkareer(linkareer_snapshot)
+            if info:
+                due = info["deadline_at"]
+                evidence = "\n".join(line for line in linkareer_snapshot.splitlines()
+                                     if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
+                choice = date_choice(due.isoformat() if due else info["end_text"], evidence)
+                if choice and not due:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = "\n\n".join((text, linkareer_snapshot))
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")
