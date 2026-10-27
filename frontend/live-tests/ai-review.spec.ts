@@ -80,7 +80,7 @@ test("live test account: URL/text extraction, AI review, approval persistence an
         exact: true,
       })
       .click();
-    await page.getByLabel("자료 제목 (선택)").fill(title);
+    await page.getByLabel("일정 제목 (선택)").fill(title);
     await page
       .getByLabel(type === "text" ? "원본 텍스트" : "원본 URL")
       .fill(content);

@@ -61,7 +61,7 @@ export function SourceEditForm({
     <form onSubmit={submit}>
       <fieldset disabled={busy || !hydrated}>
         <label>
-          자료 제목 (선택)
+          일정 제목 (선택)
           <input
             name="title"
             value={title}

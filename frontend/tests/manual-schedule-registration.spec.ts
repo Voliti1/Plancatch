@@ -35,7 +35,7 @@ test("a late manual save cannot navigate away from a fresh registration", async 
     await page
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();
-    await page.getByLabel("자료 제목 (선택)").fill("[테스트] 유지할 새 입력");
+    await page.getByLabel("일정 제목 (선택)").fill("[테스트] 유지할 새 입력");
     const fresh = page.url();
     const response = page.waitForResponse(
       (reply) =>
@@ -52,7 +52,7 @@ test("a late manual save cannot navigate away from a fresh registration", async 
       );
     expect(stale).toBe(false);
     await expect(page).toHaveURL(fresh);
-    await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue(
+    await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue(
       "[테스트] 유지할 새 입력",
     );
   } finally {

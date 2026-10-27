@@ -273,13 +273,14 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
                 return
             # Do not hold a row lock across the provider request.
             source_text, model = analysis.input_text, analysis.model
+            source = db.get(Source, analysis.source_id)
+            source_title = ((source.title or "").strip()
+                            if source is not None and source.user_id == analysis.user_id else "")
             html_source = None
-            if model in {HTML_MODEL, URL_MODEL}:
-                source = db.get(Source, analysis.source_id)
-                if (source is not None and source.user_id == analysis.user_id
-                        and source.source_type == "url" and source.processing_status == "extracted"
-                        and source.extracted_text == source_text):
-                    html_source = (source.original_url, source.title)
+            if (model in {HTML_MODEL, URL_MODEL} and source is not None and source.user_id == analysis.user_id
+                    and source.source_type == "url" and source.processing_status == "extracted"
+                    and source.extracted_text == source_text):
+                html_source = (source.original_url, source.title)
         try:
             if model in {HTML_MODEL, URL_MODEL}:
                 if html_source is None:
@@ -290,6 +291,9 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
                     raise AIError("ai_input_invalid") from exc
             else:
                 result = analyze_text(source_text, model)
+            if source_title:
+                for item in result.deadlines:
+                    item.title = source_title
             candidates = [dict(item.model_dump(mode="json"), id=str(uuid.uuid4()),
                                selected=item.due_at is not None and DEFAULT_TIME_NOTICE not in result.warnings)
                           for item in result.deadlines]

@@ -59,6 +59,10 @@ async function workflow(page: Page, text = false) {
         source_id: source.id,
         input_text: source.extracted_text!,
         model: text ? "test-synthetic" : "html:url:v1",
+        candidates: readyAnalysis.candidates.map((item) => ({
+          ...item,
+          title: source.title || item.title,
+        })),
       };
       return route.fulfill(
         state.lostAnalysis
@@ -90,6 +94,9 @@ test("saving a URL proceeds to HTML review without detail clicks or AI transmiss
   await login(page);
   await page.goto("/sources/new");
   await page
+    .getByLabel("일정 제목 (선택)", { exact: true })
+    .fill("내가 입력한 일정 제목");
+  await page
     .getByLabel("원본 URL", { exact: true })
     .fill("https://example.com/notice");
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
@@ -98,6 +105,9 @@ test("saving a URL proceeds to HTML review without detail clicks or AI transmiss
     page.getByRole("heading", { name: "마감일 검토", exact: true }),
   ).toBeVisible();
   expect(state).toMatchObject({ creates: 1, extracts: 1, analyses: 1 });
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
+    "내가 입력한 일정 제목",
+  );
 });
 
 test("text consent is required once before external analysis; reload reuses result", async ({
@@ -195,7 +205,7 @@ test("leaving during history lookup cannot launch an analysis or redirect a new 
   await expect(page).toHaveURL(/\/sources\/new\?new=/);
   const fresh = page.url();
   release();
-  await page.getByLabel("자료 제목 (선택)").fill("새 자료 입력");
+  await page.getByLabel("일정 제목 (선택)").fill("새 자료 입력");
   await expect(page).toHaveURL(fresh);
   expect(state.analyses).toBe(0);
 });

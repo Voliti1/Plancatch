@@ -470,8 +470,8 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
     await expect(
       page.getByRole("heading", { name: "새 일정 등록", exact: true }),
     ).toBeVisible();
-    await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("");
-    await page.getByLabel("자료 제목 (선택)").fill("[테스트] 이전 화면 입력");
+    await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("");
+    await page.getByLabel("일정 제목 (선택)").fill("[테스트] 이전 화면 입력");
     await page.getByLabel("이미지 파일 입력", { exact: true }).setInputFiles({
       name: "[테스트] 이전화면.png",
       mimeType: "image/png",
@@ -483,7 +483,7 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
     const before = page.url();
     await button.click();
     await expect(page).not.toHaveURL(before);
-    await expect(page.getByLabel("자료 제목 (선택)")).toHaveValue("");
+    await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("");
     await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(
       0,
     );

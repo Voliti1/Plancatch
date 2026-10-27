@@ -80,7 +80,7 @@ test("붙여넣은 캡처는 저장 전 전송하지 않고 저장 후 AI 동의
     page.getByRole("button", { name: "이미지 파일 선택", exact: true }),
   ).toBeEnabled();
   await page
-    .getByLabel("자료 제목 (선택)", { exact: true })
+    .getByLabel("일정 제목 (선택)", { exact: true })
     .fill("내가 입력한 제목");
   expect(
     await paste(page, [{ name: "", type: "image/png" }], 'input[name="title"]'),
@@ -92,7 +92,7 @@ test("붙여넣은 캡처는 저장 전 전송하지 않고 저장 후 AI 동의
     "KB",
   );
   await expect(
-    page.getByLabel("자료 제목 (선택)", { exact: true }),
+    page.getByLabel("일정 제목 (선택)", { exact: true }),
   ).toHaveValue("내가 입력한 제목");
   expect(uploads).toBe(0);
   expect(state.starts).toBe(0);

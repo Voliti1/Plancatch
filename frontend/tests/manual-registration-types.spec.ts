@@ -203,7 +203,7 @@ test("a late deadline save does not navigate away from a newly opened registrati
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();
     await expect(page).toHaveURL(/\/sources\/new\?new=.+$/);
-    await page.getByLabel("자료 제목 (선택)").fill("[테스트] 새 입력 유지");
+    await page.getByLabel("일정 제목 (선택)").fill("[테스트] 새 입력 유지");
     const fresh = page.url();
     const response = page.waitForResponse(
       (r) =>

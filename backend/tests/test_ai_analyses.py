@@ -52,6 +52,25 @@ def edit_payload(analysis):
     } for item in analysis["candidates"]]}
 
 
+@pytest.mark.parametrize("title", ["내 일정 제목", "일" * 255, None])
+def test_text_schedule_title_overrides_extracted_title_and_survives_approval(title, monkeypatch):
+    source_id, headers = source_and_headers()
+    assert client.patch(f"/api/sources/{source_id}", headers=headers, json={"title": title}).status_code == 200
+    monkeypatch.setattr(service, "analyze_text", lambda *_: ProviderResult(
+        deadlines=[PROPOSAL, dict(PROPOSAL, title="다른 추출 제목")], warnings=[]))
+    started = client.post(f"/api/sources/{source_id}/ai-analyses", headers=headers,
+                          json={"allow_external_ai": True})
+    path = f"/api/ai-analyses/{started.json()['id']}"
+    analysis = client.get(path, headers=headers).json()
+    assert [item["title"] for item in analysis["candidates"]] == (
+        [title, title] if title else [PROPOSAL["title"], "다른 추출 제목"])
+    assert all(item["evidence_text"] == TEXT for item in analysis["candidates"])
+    approved = client.post(path + "/approve", headers=headers, json={"revision": 1})
+    assert approved.status_code == 200 and len(approved.json()["approved_deadline_ids"]) == 2
+    saved = client.get("/api/deadlines", headers=headers).json()
+    assert sorted(item["title"] for item in saved) == sorted(item["title"] for item in analysis["candidates"])
+
+
 def test_review_approval_is_explicit_and_idempotent():
     analysis, source_id, headers = ready_analysis()
     assert client.get("/api/deadlines", headers=headers).json() == []

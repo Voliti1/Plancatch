@@ -112,10 +112,10 @@ export function SourceForm({
       )}
       <form className="card source-registration" onSubmit={submit} noValidate>
         <div className="source-registration-heading">
-          <h2>자료 입력</h2>
+          <h2>일정 입력</h2>
           <ol className="source-registration-steps" aria-label="일정 등록 단계">
             <li aria-current="step">
-              <span>1</span>자료 입력
+              <span>1</span>일정 입력
             </li>
             <li>
               <span>2</span>AI 검토
@@ -127,13 +127,13 @@ export function SourceForm({
         </div>
         <fieldset disabled={busy || !hydrated}>
           <label>
-            자료 제목 (선택)
+            일정 제목 (선택)
             <input
               name="title"
               maxLength={255}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="예: 프로젝트 최종 발표 안내"
+              placeholder="예: 프로젝트 최종 보고서 제출"
             />
           </label>
           <div className="source-registration-grid">
