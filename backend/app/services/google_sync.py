@@ -19,6 +19,7 @@ from app.services import google_calendar as google
 from app.services import google_changes as changes
 from app.services import google_events
 from app.services import google_export as transport
+from app.services.google_reminders import provider_value
 
 logger = logging.getLogger(__name__)
 
@@ -39,14 +40,18 @@ def lock_owner(db, user_id, *, skip_locked=False):
     return db.scalar(select(User.id).where(User.id == user_id).with_for_update(skip_locked=skip_locked))
 
 
-def payload(title, start, end):
+def payload(title, start, end, reminders=None):
     start, end = utc(start), utc(end)
     start = start.replace(microsecond=start.microsecond // 1000 * 1000)
     end = end.replace(microsecond=end.microsecond // 1000 * 1000)
     if end <= start:
         return None
-    return {"summary": title, "start": {"dateTime": start.isoformat(), "timeZone": "Asia/Seoul"},
+    result = {"summary": title, "start": {"dateTime": start.isoformat(), "timeZone": "Asia/Seoul"},
             "end": {"dateTime": end.isoformat(), "timeZone": "Asia/Seoul"}}
+    settings = provider_value(reminders)
+    if settings is not None:
+        result["reminders"] = settings
+    return result
 
 
 def enqueue(db, user_id, kind, item_id, desired, task_id=None, *, force=False):
@@ -83,7 +88,7 @@ def enqueue_deadline(db, user_id, item_id, *, force=False):
     desired = None
     if item and item.is_confirmed:
         try:
-            desired = payload(item.title, item.due_at, item.due_at + timedelta(minutes=1))
+            desired = payload(item.title, item.due_at, item.due_at + timedelta(minutes=1), item.google_reminders)
         except OverflowError:
             pass  # An unrepresentable time remains local, like the manual export contract.
     enqueue(db, user_id, "deadline", item_id, desired, force=force)
@@ -96,11 +101,11 @@ def enqueue_task(db, user_id, task_id, *, force=False):
         ScheduledEvent.user_id == user_id)))
     desired = None
     if item and not events and item.schedule_type == "fixed" and item.earliest_start and item.latest_end:
-        desired = payload(item.title, item.earliest_start, item.latest_end)
+        desired = payload(item.title, item.earliest_start, item.latest_end, item.google_reminders)
     enqueue(db, user_id, "task", task_id, desired, task_id, force=force)
     known = {event.id for event in events}
     for event in events:
-        desired = (payload(item.title, event.start_at, event.end_at) if item and event.status == "approved"
+        desired = (payload(item.title, event.start_at, event.end_at, item.google_reminders) if item and event.status == "approved"
             and event.is_user_approved and not event.google_event_id else None)
         enqueue(db, user_id, "event", event.id, desired, task_id, force=force)
     for identity in db.scalars(select(GoogleExport.item_id).where(GoogleExport.user_id == user_id,

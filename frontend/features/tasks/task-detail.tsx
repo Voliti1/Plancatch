@@ -11,6 +11,7 @@ import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 import "./schedule-overview.css";
+import { reminderSummary } from "@/features/google-calendar/reminder-settings";
 export function TaskDetail({ id }: { id: string }) {
   const loader = useCallback(() => tasksApi.get(id), [id]);
   const { data, error, loading, reload } = useResource(loader);
@@ -162,6 +163,9 @@ export function TaskDetail({ id }: { id: string }) {
                       )}
                     </p>
                   </details>
+                  <p className="small">
+                    구글 캘린더 알림: {reminderSummary(data.google_reminders)}
+                  </p>
                   <p className="muted small schedule-window-note">
                     {data.schedule_type === "fixed"
                       ? "입력한 시작·종료 시간으로 캘린더에 표시됩니다."

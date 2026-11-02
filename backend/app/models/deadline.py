@@ -5,6 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     CheckConstraint,
     DateTime,
@@ -19,6 +20,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
 from app.services.deadline_safety import calculate_safe_due_at
+from app.services.google_reminders import new_default
 
 
 class Deadline(Base):
@@ -51,6 +53,7 @@ class Deadline(Base):
     safety_buffer_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     deadline_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    google_reminders: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True, default=new_default)
     confidence: Mapped[Decimal | None] = mapped_column(
         Numeric(5, 4),
         nullable=True,

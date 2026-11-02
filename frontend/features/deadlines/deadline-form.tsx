@@ -6,6 +6,14 @@ import { ErrorNotice } from "@/components/feedback";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { Deadline, DeadlineInput } from "@/types/api";
 import { parseSafetyBuffer, splitSafetyBuffer } from "./safety-buffer";
+import {
+  ReminderSettings,
+  validateReminders,
+} from "@/features/google-calendar/reminder-settings";
+import {
+  newReminderSettings,
+  type GoogleReminderSettings,
+} from "@/types/google-reminders";
 export function DeadlineForm({
   initial,
   onSave,
@@ -18,6 +26,9 @@ export function DeadlineForm({
   const submitting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [reminders, setReminders] = useState<GoogleReminderSettings | null>(
+    initial ? (initial.google_reminders ?? null) : newReminderSettings(),
+  );
   const [title, setTitle] = useState(initial?.title ?? "");
   const [dueAt, setDueAt] = useState(
     initial ? toSeoulInput(initial.due_at) : "",
@@ -41,7 +52,9 @@ export function DeadlineForm({
     setError("");
     try {
       if (!title.trim()) throw new Error("제목을 입력해 주세요.");
+      validateReminders(reminders);
       await onSave({
+        ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
         due_at:
           initial && dueAt === toSeoulInput(initial.due_at)
@@ -162,6 +175,11 @@ export function DeadlineForm({
           />
           확인한 마감일로 표시
         </label>
+        <ReminderSettings
+          allowPreserve={Boolean(initial) && initial?.google_reminders == null}
+          value={reminders}
+          onChange={setReminders}
+        />
         {error && <ErrorNotice message={error} />}
         <button type="submit">
           {busy ? "저장 중…" : initial ? "변경 사항 저장" : "마감일 등록"}
