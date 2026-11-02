@@ -377,17 +377,10 @@ export function TaskForm({
             {completion}
           </>
         )}
-        {simple && (
+        {simple && isDeadline && (
           <p className="muted small calendar-task-help">
-            {isDeadline ? (
-              "입력한 종료 일시를 마감일로 저장하고 캘린더에 표시합니다. Google 계정이 연결되어 있으면 자동 반영됩니다."
-            ) : (
-              <>
-                고정 일정은 입력한 시작·종료 시간에 캘린더에 표시됩니다. 유동
-                작업의 가능 기간은 일정으로 표시하지 않습니다. Google 계정이
-                연결되어 있으면 실제 일정이 자동 반영됩니다.
-              </>
-            )}
+            입력한 종료 일시를 마감일로 저장하고 캘린더에 표시합니다. Google
+            계정이 연결되어 있으면 자동 반영됩니다.
           </p>
         )}
         {error && <ErrorNotice message={error} />}
