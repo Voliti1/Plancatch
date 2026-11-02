@@ -155,6 +155,8 @@ def update_event(
 def delete_event(
     event_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession
 ) -> Response:
+    from app.services.google_changes import prevent_local_delete
+    prevent_local_delete(db, current_user.id, "event", event_id)
     event = owned_event(event_id, current_user.id, db)
     require_local_event(event)
     db.delete(event)

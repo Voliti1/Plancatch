@@ -3,7 +3,8 @@
 - `/settings/google-calendar`, 로그인 사용자 전용. 주 메뉴에서 진입한다.
 - 연결 API의 상태/연결 시작/해제를 사용. /calendar의 선택형 기본 구글 일정 조회를 추가했다.
   별도 [명시적 전송](../../backend/docs/google-calendar-export.md)으로 선택한 마감일·고정 할 일·확정 배치를 등록할 수 있다.
-  로컬 수정/삭제의 자동 반영·양방향 동기화는 후속이다.
+  수정·삭제는 [별도 미리보기와 직접 확인](../../backend/docs/google-calendar-changes.md)으로 실행한다.
+  연결 화면의 ‘보낸 일정 관리’에서도 사본을 관리한다. 로컬 수정/삭제의 자동 반영·양방향 동기화는 후속이다.
 - 연결 시작은 명시적 클릭만, credentials include로 HttpOnly PKCE/state 브라우저 쿠키 유지.
 - 응답 주소는 `https://accounts.google.com/o/oauth2/v2/auth`만 이동 허용한다.
   토큰/인증 코드/인증 URL을 저장하거나 로그로 출력하지 않는다.

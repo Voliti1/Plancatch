@@ -1,11 +1,11 @@
-"""Explicit snapshot export only; never updates/deletes a Google event."""
+"""Explicit initial exports; modifications are handled by separate confirmed operations."""
 
 import json
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, HTTPException, Response
+from fastapi import APIRouter, HTTPException, Query, Response
 from sqlalchemy import select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
@@ -24,6 +24,7 @@ from app.schemas.google_export import (
     ExportTarget,
 )
 from app.services import google_calendar as google
+from app.services import google_changes as changes
 from app.services import google_events
 from app.services import google_export as transport
 
@@ -148,6 +149,7 @@ def prevent_family_duplicate(db, user_id, target, task_id):
             GoogleExport.user_id == user_id,
             GoogleExport.task_id == task_id,
             GoogleExport.kind == other_kind,
+            GoogleExport.deleted_at.is_(None),
         )
         .limit(1)
     ):
@@ -167,14 +169,27 @@ def preview(
     response.headers.update(SAFE_HEADERS)
     config = _config()
     connection = connected(db, current_user.id)
-    current, task_id = payload_for(db, current_user.id, target)
     row = stored(db, current_user.id, target)
+    local_available = True
+    try:
+        current, task_id = payload_for(db, current_user.id, target)
+    except HTTPException:
+        if row is None:
+            raise
+        current, task_id = row.payload, row.task_id
+        local_available = False
     if row is None:
         prevent_family_duplicate(db, current_user.id, target, task_id)
     payload = row.payload if row else current
     status = row.status if row else "new"
+    if row and row.deleted_at:
+        status = "deleted"
+    elif row and changes.pending(row):
+        status = "changing"
+    elif row and row.mutation and row.mutation.get("state") == "conflict":
+        status = "conflict"
     changed = digest(current) != digest(payload)
-    if row and row.connection_binding != transport.binding(connection):
+    if row and not row.deleted_at and row.connection_binding != transport.binding(connection):
         status = "blocked"
     token = None
     if status in {"new", "pending"}:
@@ -197,6 +212,12 @@ def preview(
         note += " 연결이 바뀌어 기존 항목을 재전송하지 않습니다. Google 캘린더에서 이전 전송을 확인해 주세요."
     if status == "conflict":
         note += " Google에서 삭제·수정됐거나 결과가 일치하지 않아 덮어쓰거나 새로 만들지 않습니다."
+    if status == "changing":
+        note += " 이전에 확인한 수정·삭제의 결과를 먼저 확인해 주세요."
+    if status == "deleted":
+        note = "Google 일정은 삭제되었습니다. 플랜캐치 자료는 유지되며 같은 항목을 다시 전송하지 않습니다."
+    if not local_available:
+        note += " 로컬 자료가 없거나 전송 가능한 시간이 아닙니다. Google 삭제 상태는 확인할 수 있습니다."
     return ExportPreview(
         title=payload["summary"],
         start_at=payload["start"]["dateTime"],
@@ -205,6 +226,8 @@ def preview(
         changed=changed,
         preview_token=token,
         note=note,
+        local_available=local_available,
+        pending_action=row.mutation["action"] if row and changes.pending(row) else None,
     )
 
 
@@ -239,6 +262,8 @@ def confirm(
         )
     payload, task_id = payload_for(db, current_user.id, target)
     row = stored(db, current_user.id, target)
+    if row and (row.deleted_at or changes.pending(row)):
+        raise HTTPException(409, "삭제되었거나 변경 결과를 확인 중인 일정은 새로 전송하지 않습니다.")
     if row is None:
         prevent_family_duplicate(db, current_user.id, target, task_id)
         if digest(payload) != claims["hash"]:
@@ -308,3 +333,14 @@ def confirm(
     return ExportResult(
         status="sent", google_event_id=row.google_event_id, already_sent=False
     )
+
+
+@router.get("")
+def list_exports(current_user: CurrentUser, db: DatabaseSession, response: Response,
+                 limit: int = Query(20, ge=1, le=50), offset: int = Query(0, ge=0)):
+    response.headers.update(SAFE_HEADERS)
+    rows = list(db.scalars(select(GoogleExport).where(GoogleExport.user_id == current_user.id)
+                          .order_by(GoogleExport.created_at.desc(), GoogleExport.id).limit(limit + 1).offset(offset)))
+    return {"entries": [{"kind": row.kind, "item_id": row.item_id, "title": row.payload["summary"],
+                              "status": "deleted" if row.deleted_at else "changing" if changes.pending(row) else "conflict" if row.mutation and row.mutation.get("state") == "conflict" else row.status}
+                         for row in rows[:limit]], "has_more": len(rows) > limit}

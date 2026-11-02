@@ -6,6 +6,7 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { checkedGoogleAuthorizationUrl, googleCalendarApi } from "./api";
+import { ManagedExports } from "./managed-exports";
 
 export function GoogleCalendarConnectionPage() {
   const status = useResource(googleCalendarApi.status);
@@ -14,6 +15,7 @@ export function GoogleCalendarConnectionPage() {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [managing, setManaging] = useState(false);
   const active = useRef(false);
   const operating = useRef(false);
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -173,6 +175,15 @@ export function GoogleCalendarConnectionPage() {
               >
                 상태 다시 확인
               </button>
+              {status.data.connected && (
+                <button
+                  className="secondary"
+                  disabled={busy || confirming}
+                  onClick={() => setManaging((value) => !value)}
+                >
+                  {managing ? "보낸 일정 관리 닫기" : "보낸 일정 관리"}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -211,6 +222,9 @@ export function GoogleCalendarConnectionPage() {
           </section>
         )}
       </section>
+      {status.data?.connected && managing && (
+        <ManagedExports key={status.data.connected_at} />
+      )}
     </>
   );
 }

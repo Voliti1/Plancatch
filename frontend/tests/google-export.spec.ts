@@ -146,7 +146,28 @@ for (const status of ["blocked", "conflict", "sent"]) {
       .getByRole("button", { name: "Google 전송 미리보기", exact: true })
       .click();
     await expect(panel.getByRole("status")).toBeVisible();
-    await expect(panel.getByRole("button")).toHaveCount(1);
+    await expect(
+      panel.getByRole("button", { name: "확인 후 Google에 등록", exact: true }),
+    ).toHaveCount(0);
+    await expect(
+      panel.getByRole("button", { name: "같은 전송 확인·재시도", exact: true }),
+    ).toHaveCount(0);
+    if (status === "blocked") {
+      await expect(panel.getByRole("button")).toHaveCount(1);
+    } else {
+      await expect(
+        panel.getByRole("button", {
+          name: "Google 수정 미리보기",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        panel.getByRole("button", {
+          name: "Google 삭제 미리보기",
+          exact: true,
+        }),
+      ).toBeVisible();
+    }
   });
 }
 
