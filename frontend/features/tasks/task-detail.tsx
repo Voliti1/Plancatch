@@ -9,7 +9,6 @@ import { useResource } from "@/lib/api/use-resource";
 import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
-import { TaskPlacements } from "@/features/calendar/task-placements";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 import "./schedule-overview.css";
 export function TaskDetail({ id }: { id: string }) {
@@ -164,8 +163,9 @@ export function TaskDetail({ id }: { id: string }) {
                     </p>
                   </details>
                   <p className="muted small schedule-window-note">
-                    입력한 시간은 일정의 가능 기간입니다. 아래의 캘린더 배치에서
-                    실제 시간을 지정할 수 있습니다.
+                    {data.schedule_type === "fixed"
+                      ? "입력한 시작·종료 시간으로 캘린더에 표시됩니다."
+                      : "유동 작업의 가능 기간입니다. 고정 일정으로 바꾸면 입력한 시간에 캘린더에 표시됩니다."}
                   </p>
                   <div className="form-actions">
                     <button
@@ -191,7 +191,6 @@ export function TaskDetail({ id }: { id: string }) {
                 disabled={busy || confirmDelete}
               />
             )}
-            {!editing && <TaskPlacements task={data} />}
             {!editing && (
               <section className="card danger-zone schedule-detail-danger">
                 <div>

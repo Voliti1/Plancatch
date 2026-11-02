@@ -82,9 +82,7 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
             <div className="calendar-agenda-actions">
               <span className="tag schedule-kind-task">할 일</span>
               <span className="small muted">{statusLabel[event.status]}</span>
-              <Link
-                href={`/tasks/${encodeURIComponent(event.task_id)}#calendar-placements`}
-              >
+              <Link href={`/tasks/${encodeURIComponent(event.task_id)}`}>
                 상세, 수정 →
               </Link>
             </div>
@@ -188,7 +186,7 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
 
 function CalendarBody({ initialDate }: { initialDate?: string }) {
   const [selected, setSelected] = useState(initialDate ?? todaySeoul);
-  const [view, setView] = useState<"month" | "week" | "day">("month");
+  const [view, setView] = useState<"month" | "week" | "day">("day");
   const [showCancelled, setShowCancelled] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
   const anchor = `${selected.slice(0, 7)}-01`;
@@ -294,7 +292,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         kind: "task" as const,
         start: item.start_at,
         end: item.end_at,
-        href: `/tasks/${encodeURIComponent(item.task_id)}#calendar-placements`,
+        href: `/tasks/${encodeURIComponent(item.task_id)}`,
         cancelled: item.status === "cancelled",
       })),
       ...googleRows.map((item) => ({

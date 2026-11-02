@@ -28,6 +28,8 @@ export function TaskForm({
   onCancel,
   submitLabel = "작업 등록",
   disabled = false,
+  submitDisabled = false,
+  onUserEdit,
   variant = "task",
 }: {
   initial?: Task;
@@ -38,6 +40,8 @@ export function TaskForm({
   onCancel: () => void;
   submitLabel?: string;
   disabled?: boolean;
+  submitDisabled?: boolean;
+  onUserEdit?: () => void;
   variant?: "task" | "calendar";
 }) {
   const simple = variant === "calendar";
@@ -82,7 +86,7 @@ export function TaskForm({
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || submitDisabled) return;
     submitting.current = true;
     setBusy(true);
     setError("");
@@ -277,6 +281,7 @@ export function TaskForm({
     <form
       className={simple ? "calendar-task-form" : undefined}
       onSubmit={submit}
+      onChangeCapture={onUserEdit}
       noValidate={simple}
     >
       {canChooseKind && (
@@ -291,6 +296,7 @@ export function TaskForm({
             aria-pressed={registrationKind === "task"}
             disabled={disabled || busy || !hydrated}
             onClick={() => {
+              onUserEdit?.();
               setRegistrationKind("task");
               setError("");
             }}
@@ -305,6 +311,7 @@ export function TaskForm({
             aria-pressed={registrationKind === "deadline"}
             disabled={disabled || busy || !hydrated}
             onClick={() => {
+              onUserEdit?.();
               setRegistrationKind("deadline");
               setError("");
             }}
@@ -363,8 +370,8 @@ export function TaskForm({
             {settings}
             {times}
             <p className="muted small">
-              가능 기간과 작업 유형을 저장합니다. 실제 시간은 저장 후 일정
-              상세에서 캘린더에 배치할 수 있습니다. 자동 배치는 준비 중입니다.
+              가능 기간과 작업 유형을 저장합니다. 고정 일정은 입력한 시작·종료
+              시간으로 캘린더에 표시됩니다.
             </p>
             {descriptionField}
             {completion}
@@ -388,7 +395,7 @@ export function TaskForm({
           <button type="button" className="secondary" onClick={onCancel}>
             취소
           </button>
-          <button type="submit">
+          <button type="submit" disabled={submitDisabled}>
             {busy
               ? "저장 중…"
               : initial

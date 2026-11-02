@@ -38,10 +38,10 @@ test("account row replaces coming box; theme persists through reload and calenda
   ).toBeVisible();
   await page.getByRole("link", { name: "캘린더", exact: true }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator(".calendar-day:not(.outside-month)").first()).toHaveCSS(
-    "color",
-    "rgb(230, 237, 247)",
-  );
+  await page.getByRole("button", { name: "월간", exact: true }).click();
+  await expect(
+    page.locator(".calendar-day:not(.outside-month)").first(),
+  ).toHaveCSS("color", "rgb(230, 237, 247)");
   await page.screenshot({
     path: test.info().outputPath("dark-calendar.png"),
     fullPage: true,

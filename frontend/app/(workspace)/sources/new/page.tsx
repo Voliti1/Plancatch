@@ -14,11 +14,7 @@ export default async function NewSourcePage({
   const params = await searchParams;
   const entry = typeof params.new === "string" ? params.new : "default";
   const mode =
-    params.mode === "manual"
-      ? "manual"
-      : params.mode === "natural"
-        ? "natural"
-        : "source";
+    params.mode === "manual" || params.mode === "natural" ? "manual" : "source";
   const deadlineId =
     typeof params.deadline_id === "string" ? params.deadline_id : undefined;
   let manualDraft: NaturalScheduleDraft | undefined;

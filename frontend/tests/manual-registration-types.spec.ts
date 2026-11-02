@@ -23,10 +23,9 @@ test("manual card matches source width and type buttons sit above the shared tit
     kind.getByRole("button", { name: "할 일", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   const intro = await card
-    .getByText(
-      "일정명과 시간을 입력하세요. 필요한 내용은 나중에 수정할 수 있습니다.",
-      { exact: true },
-    )
+    .getByText("문장으로 입력하거나 아래 항목을 직접 입력해 등록하세요.", {
+      exact: true,
+    })
     .boundingBox();
   const menu = await kind.boundingBox(),
     title = await page.getByLabel("일정명", { exact: true }).boundingBox();
@@ -99,6 +98,7 @@ test("deadline registration sends only the end time to Deadline API and appears 
   await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
   expect(writes).toEqual(["/test-api/api/deadlines"]);
   await page.goto("/calendar?date=2026-11-06");
+  await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(page.locator(".bar-deadline")).toHaveText(
     "[테스트] 제안서 마감",
   );
