@@ -77,7 +77,7 @@ test("날짜만 있는 URL은 23:59와 남은 기간을 표시하고 직접 승�
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료" }),
@@ -121,7 +121,7 @@ test("HTML dates remain choices, missing time is never invented, selected date s
     page.getByRole("status").filter({ hasText: "빠진 연도나 시간" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "선택한 1개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
   ).toBeDisabled();
   await group
     .getByRole("button", { name: "2026.11.03 23:59", exact: true })
@@ -133,11 +133,11 @@ test("HTML dates remain choices, missing time is never invented, selected date s
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "선택한 1개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
   ).toBeEnabled();
   expect(state.deadlines).toHaveLength(0);
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료", exact: true }),
@@ -162,7 +162,7 @@ test("open ended URL requires an explicitly entered date and selected candidate"
     page.getByText(/원하는 마감 날짜와 시간을 직접 입력해야/),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   await page
     .getByLabel("후보 1 마감일 (한국 시간)", { exact: true })
@@ -174,7 +174,7 @@ test("open ended URL requires an explicitly entered date and selected candidate"
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "선택한 1개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
   ).toBeEnabled();
   expect(state.deadlines).toHaveLength(0);
 });

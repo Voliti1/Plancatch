@@ -48,8 +48,8 @@ test("consent, analysis polling, full candidate save and selected approval persi
     .getByLabel("후보 2 마감일 (한국 시간)", { exact: true })
     .fill("2026-10-03T18:00");
   await expect(
-    page.getByRole("button", { name: "선택한 1개 승인", exact: true }),
-  ).toBeDisabled();
+    page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
+  ).toBeEnabled();
   const save = page.waitForRequest((request) => request.method() === "PATCH");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
@@ -77,7 +77,7 @@ test("consent, analysis polling, full candidate save and selected approval persi
     request.url().endsWith("/approve"),
   );
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   expect((await approval).postDataJSON()).toEqual({ revision: 2 });
   await expect(
@@ -162,7 +162,7 @@ test("changed source blocks approval and leaves result visible", async ({
   await login(page);
   await page.goto("/analyses/analysis-1");
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page
@@ -186,7 +186,7 @@ test("empty result and ambiguous date can be rejected without creating deadlines
     page.getByText("마감일 후보가 없습니다. 원문과 주의사항을 확인해 주세요."),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   await page.getByRole("button", { name: "전체 거부", exact: true }).click();
   await page.getByRole("button", { name: "거부 취소", exact: true }).click();
@@ -407,7 +407,7 @@ test("missing dates, blank titles and 422 validation keep review input", async (
     .getByRole("checkbox", { name: "후보 2 포함", exact: true })
     .check();
   await expect(
-    page.getByRole("button", { name: "선택한 2개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 2개 일정 등록", exact: true }),
   ).toBeDisabled();
   await page.getByLabel("후보 1 제목", { exact: true }).fill("   ");
   await page

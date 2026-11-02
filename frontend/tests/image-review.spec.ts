@@ -120,7 +120,7 @@ test("image upload requires consent, preserves missing time and original preview
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료" }),
@@ -209,7 +209,7 @@ for (const scenario of [
       page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
     ).toHaveValue(scenario.expected);
     await expect(
-      page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+      page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
     ).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("due_at");
     await expect(page.locator("body")).not.toContainText("null");
@@ -233,7 +233,7 @@ for (const scenario of [
       .getByRole("button", { name: "검토 내용 저장", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "선택한 1개 승인", exact: true })
+      .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: "마감일 등록 완료" }),

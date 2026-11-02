@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { PageHeading } from "@/components/page-heading";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { Pagination } from "@/components/pagination";
+import { TaskListIcon } from "@/components/task-list-icon";
 import {
   HighlightTitle,
   TitleSearch,
@@ -47,7 +48,7 @@ function ScheduleRows({
         const content = (
           <>
             <span className="date-icon" aria-hidden>
-              {entry.kind === "deadline" ? "◷" : "✓"}
+              {entry.kind === "deadline" ? "◷" : <TaskListIcon />}
             </span>
             <div className="row-title">
               <strong>

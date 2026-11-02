@@ -65,7 +65,7 @@ test("review shows summary and brief evidence without full source or a full-sour
   expect(state.analyses[0].input_text).toBe(snapshot);
   expect(state.analyses[0].candidates[0].evidence_text).toBe(evidence);
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료" }),
@@ -124,7 +124,7 @@ test("source metadata failure does not prevent candidate approval", async ({
     ),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료" }),
