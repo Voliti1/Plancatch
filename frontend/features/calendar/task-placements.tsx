@@ -55,8 +55,8 @@ export function TaskPlacements({ task }: { task: Task }) {
         <Link href="/calendar">캘린더 보기 →</Link>
       </div>
       <p className="small muted">
-        배치 버튼으로 확정한 시간만 플랜캐치 캘린더에 저장합니다. Google에는
-        아래 전송 미리보기에서 확인한 뒤 별도로 등록합니다.
+        배치 버튼으로 확정한 시간을 플랜캐치 캘린더에 저장합니다. Google 계정이
+        연결되어 있으면 해당 시간도 자동 반영됩니다.
       </p>
       {message && (
         <p role="status" className="success">

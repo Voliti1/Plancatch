@@ -5,6 +5,7 @@ from datetime import datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     CheckConstraint,
     DateTime,
     ForeignKey,
@@ -47,6 +48,10 @@ class GoogleExport(Base):
     revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
     mutation: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    desired_payload: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    sync_pending: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false", index=True)
+    sync_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    retry_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

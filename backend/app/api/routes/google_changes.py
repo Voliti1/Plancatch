@@ -50,6 +50,8 @@ def manageable(db, user_id, target, connection):
     row = stored(db, user_id, target)
     if row is None or row.status == "pending":
         raise HTTPException(409, "먼저 같은 일정의 Google 전송 결과를 확인해 주세요.")
+    if row.sync_pending:
+        raise HTTPException(409, "변경 내용을 자동 반영하고 있습니다. 동기화 상태를 확인해 주세요.")
     if row.connection_binding != transport.binding(connection):
         raise HTTPException(409, "연결된 Google 계정이 변경되었습니다. 이전 계정의 일정은 직접 확인해 주세요.")
     return row

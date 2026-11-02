@@ -184,7 +184,7 @@ def preview(
     status = row.status if row else "new"
     if row and row.deleted_at:
         status = "deleted"
-    elif row and changes.pending(row):
+    elif row and (changes.pending(row) or row.sync_pending):
         status = "changing"
     elif row and row.mutation and row.mutation.get("state") == "conflict":
         status = "conflict"
@@ -262,7 +262,7 @@ def confirm(
         )
     payload, task_id = payload_for(db, current_user.id, target)
     row = stored(db, current_user.id, target)
-    if row and (row.deleted_at or changes.pending(row)):
+    if row and (row.deleted_at or changes.pending(row) or row.sync_pending):
         raise HTTPException(409, "삭제되었거나 변경 결과를 확인 중인 일정은 새로 전송하지 않습니다.")
     if row is None:
         prevent_family_duplicate(db, current_user.id, target, task_id)
@@ -342,5 +342,5 @@ def list_exports(current_user: CurrentUser, db: DatabaseSession, response: Respo
     rows = list(db.scalars(select(GoogleExport).where(GoogleExport.user_id == current_user.id)
                           .order_by(GoogleExport.created_at.desc(), GoogleExport.id).limit(limit + 1).offset(offset)))
     return {"entries": [{"kind": row.kind, "item_id": row.item_id, "title": row.payload["summary"],
-                              "status": "deleted" if row.deleted_at else "changing" if changes.pending(row) else "conflict" if row.mutation and row.mutation.get("state") == "conflict" else row.status}
+                              "status": "changing" if row.sync_pending else "deleted" if row.deleted_at else "conflict" if row.error_code else "changing" if changes.pending(row) else "conflict" if row.mutation and row.mutation.get("state") == "conflict" else row.status}
                          for row in rows[:limit]], "has_more": len(rows) > limit}

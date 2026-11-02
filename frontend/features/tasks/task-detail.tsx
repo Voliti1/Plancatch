@@ -22,27 +22,6 @@ export function TaskDetail({ id }: { id: string }) {
   const [mutationError, setMutationError] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(false);
   const pending = useRef(false);
-  async function toggleCompletion() {
-    if (pending.current || !data) return;
-    pending.current = true;
-    setBusy(true);
-    setMutationError("");
-    setSaved("");
-    try {
-      await tasksApi.update(id, { is_completed: !data.is_completed });
-      setSaved(
-        data.is_completed
-          ? "미완료 일정으로 변경했습니다."
-          : "일정을 완료했습니다.",
-      );
-      reload();
-    } catch (err) {
-      setMutationError(errorMessage(err));
-    } finally {
-      pending.current = false;
-      setBusy(false);
-    }
-  }
   async function remove() {
     if (pending.current) return;
     pending.current = true;
@@ -199,16 +178,6 @@ export function TaskDetail({ id }: { id: string }) {
                       }}
                     >
                       일정 수정
-                    </button>
-                    <button
-                      disabled={busy || confirmDelete}
-                      onClick={() => void toggleCompletion()}
-                    >
-                      {busy
-                        ? "처리 중…"
-                        : data.is_completed
-                          ? "미완료로 변경"
-                          : "완료 처리"}
                     </button>
                   </div>
                 </>

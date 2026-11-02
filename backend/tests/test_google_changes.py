@@ -9,6 +9,9 @@ from tests.test_auth import TestingSession
 from tests.test_google_calendar import setup as setup  # noqa: PLC0414
 from tests.test_google_events import connected
 from tests.test_google_exports import BASE, deadline, preview, send
+from tests.test_google_exports import (
+    manual_protocol as manual_protocol,  # noqa: PLC0414
+)
 from tests.test_sources import configure_test_jwt as configure_test_jwt  # noqa: PLC0414
 
 
@@ -89,7 +92,7 @@ def test_update_preview_is_read_only_and_patch_preserves_unmanaged_fields(setup,
 def test_delete_copy_is_confirmed_idempotent_and_does_not_delete_local_data(setup, changes):
     auth, target, identity, remote, _, applied, failure = changes
     local = '/api/deadlines/' + target['item_id']
-    assert setup.client.delete(local, headers=auth).status_code == 409
+    assert setup.client.get(local, headers=auth).status_code == 200
     proposal = view(setup, auth, target, 'delete').json()
     assert identity in remote and applied == ['POST']
     assert confirm(setup, auth, target, 'delete', proposal).status_code == 200
@@ -111,7 +114,7 @@ def test_uncertain_writes_recover_the_same_intent_without_repeating_applied_chan
     failure[when] = method
     assert confirm(setup, auth, target, action, proposal).status_code == 502
     assert preview(setup, auth, target)['status'] == 'changing'
-    assert setup.client.delete('/api/deadlines/' + target['item_id'], headers=auth).status_code == 409
+    assert setup.client.get('/api/deadlines/' + target['item_id'], headers=auth).status_code == 200
     retry = view(setup, auth, target, action).json()
     assert retry['state'] == 'pending'
     assert confirm(setup, auth, target, action, retry).status_code == 200

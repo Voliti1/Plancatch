@@ -1,9 +1,9 @@
 # PlanCatch backend
 
 현재 기능·지원 제한은 [저장소 개요](../README.md)와 [main 통합 범위](docs/main-integration-20261102.md)를 참고하세요.
-Google 연결/조회 외에 [명시적 일정 전송·중복 방지](docs/google-calendar-export.md)도 구현되어 있습니다.
-전체 DB 구조 기준은 migration20261102_0009이며 기존 운영 DB를 자동 downgrade하지 않습니다.
-[확인 후 Google 일정 수정·삭제](docs/google-calendar-changes.md)와 연결 화면의 보낸 일정 관리도 제공합니다.
+Google 연결/조회 외에 [일정 등록·수정·삭제 자동 반영](docs/google-calendar-auto-sync.md)을 제공합니다.
+전체 DB 구조 기준은 migration20261102_0010이며 기존 운영 DB를 자동 downgrade하지 않습니다.
+이전 수동 전송·수정 API는 호환용으로 남고, 현재 화면은 자동 반영 상태와 재시도를 표시합니다.
 POST /api/auth/password는 현재 비밀번호를 확인하고 새 해시를 저장한 뒤 현재 브라우저용 토큰을 반환합니다.
 신규 로그인은 비밀번호 변경 후 이전 세션을 차단하며, 도입 전 토큰은 원래 만료까지 호환됩니다.
 

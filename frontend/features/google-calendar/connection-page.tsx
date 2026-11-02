@@ -97,8 +97,8 @@ export function GoogleCalendarConnectionPage() {
       <section className="card form-card" aria-label="구글 계정 연결 설정">
         <h2>Google Calendar 계정</h2>
         <p className="muted">
-          연결 후 캘린더에서 구글 일정을 함께 볼 수 있습니다. 연결해도 일정이
-          자동 등록되거나 기존 Google 일정이 변경되지 않습니다.
+          연결 후 플랜캐치에 등록·수정·삭제하는 일정이 Google 기본 캘린더에 자동
+          반영됩니다. 다른 앱에서 만든 Google 일정은 변경하지 않습니다.
         </p>
         {status.loading && <Loading />}
         {status.error && (

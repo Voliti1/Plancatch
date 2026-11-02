@@ -18,6 +18,7 @@ from app.schemas.analysis import (
     DecisionRequest,
     ReviewRequest,
 )
+from app.services import google_sync as sync
 from app.services.ai_analysis import (
     MAX_INPUT,
     AIError,
@@ -175,6 +176,7 @@ def review_analysis(analysis_id: uuid.UUID, payload: ReviewRequest,
 @router.post("/api/ai-analyses/{analysis_id}/approve", response_model=AnalysisResponse)
 def approve_analysis(analysis_id: uuid.UUID, payload: DecisionRequest,
                      current_user: CurrentUser, db: DatabaseSession) -> Analysis:
+    sync.lock_owner(db, current_user.id)
     analysis = owned_analysis(analysis_id, current_user.id, db)
     if analysis.status == "approved":
         return analysis  # Idempotent retry; no duplicate deadlines.
@@ -203,6 +205,7 @@ def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
                             evidence_text=item["evidence_text"], is_confirmed=True)
         db.add(deadline)
         db.flush()
+        sync.enqueue_deadline(db, current_user.id, deadline.id)
         ids.append(str(deadline.id))
     analysis.approved_deadline_ids = ids
     analysis.status = "approved"
@@ -214,6 +217,7 @@ def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
 @router.post("/api/ai-analyses/{analysis_id}/auto-register", response_model=AnalysisResponse)
 def auto_register_analysis(analysis_id: uuid.UUID, payload: AutoRegistrationRequest,
                            current_user: CurrentUser, db: DatabaseSession) -> Analysis:
+    sync.lock_owner(db, current_user.id)
     analysis = owned_analysis(analysis_id, current_user.id, db)
     if analysis.status == "approved":
         return analysis  # Recover a lost success response without creating another deadline.

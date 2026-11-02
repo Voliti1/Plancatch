@@ -36,6 +36,17 @@ export async function mockApi(
     const url = new URL(request.url());
     const path = url.pathname.replace("/test-api", "");
     const method = request.method();
+    if (
+      path === "/api/integrations/google-calendar/auto-sync" &&
+      method === "GET"
+    )
+      return route.fulfill({
+        json: {
+          state: "not_connected",
+          note: "Google 계정을 연결하면 이후 변경이 자동 반영됩니다.",
+          retryable: false,
+        },
+      });
     if (path === "/api/auth/signup") {
       const body = request.postDataJSON();
       expect(body.password.length).toBeGreaterThanOrEqual(8);
