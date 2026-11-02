@@ -1,5 +1,7 @@
 """Password hashing and access-token helpers."""
 
+import hashlib
+import hmac
 from datetime import datetime, timedelta, timezone
 
 import jwt
@@ -33,22 +35,30 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
 
 
-def create_access_token(subject: str) -> str:
+def password_stamp(hashed_password: str) -> str:
+    """Bind new sessions to the password hash without exposing the hash in JWTs."""
+    return hmac.new(get_jwt_secret().encode(), hashed_password.encode(), hashlib.sha256).hexdigest()
+
+
+def create_access_token(subject: str, hashed_password: str | None = None) -> str:
     """Create a signed, expiring access token for a user ID."""
     settings = get_settings()
 
     expires_at = datetime.now(timezone.utc) + timedelta(
         minutes=settings.jwt_access_token_expire_minutes,
     )
+    payload = {"sub": subject, "exp": expires_at}
+    if hashed_password is not None:
+        payload["pwd"] = password_stamp(hashed_password)
     return jwt.encode(
-        {"sub": subject, "exp": expires_at},
+        payload,
         get_jwt_secret(),
         algorithm=settings.jwt_algorithm,
     )
 
 
-def decode_access_token(token: str) -> str:
-    """Validate an access token and return its subject."""
+def decode_access_claims(token: str) -> dict:
+    """Verify the signature/expiry once and return the validated claims."""
     settings = get_settings()
 
     payload = jwt.decode(
@@ -60,4 +70,22 @@ def decode_access_token(token: str) -> str:
     subject = payload.get("sub")
     if not isinstance(subject, str) or not subject:
         raise jwt.InvalidTokenError("Token subject is missing")
-    return subject
+    return payload
+
+
+def verify_access_password(payload: dict, hashed_password: str) -> None:
+    """Check password binding on claims whose signature was already verified."""
+    # Existing sessions created before password binding retain their original expiry.
+    # New logins and password changes are bound and revoke on the next password change.
+    if "pwd" in payload:
+        stamp = payload["pwd"]
+        if not isinstance(stamp, str) or not hmac.compare_digest(stamp, password_stamp(hashed_password)):
+            raise jwt.InvalidTokenError("Password changed")
+
+
+def decode_access_token(token: str, hashed_password: str | None = None) -> str:
+    """Keep the subject-only helper compatible with existing callers."""
+    payload = decode_access_claims(token)
+    if hashed_password is not None:
+        verify_access_password(payload, hashed_password)
+    return payload["sub"]

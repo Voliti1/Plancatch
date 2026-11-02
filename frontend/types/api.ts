@@ -17,6 +17,8 @@ export interface Source {
   original_url: string | null;
   original_text: string | null;
   extracted_text: string | null;
+  extracted_text_hash?: string | null;
+  image_sha256?: string | null;
   storage_key: string | null;
   processing_status: string;
   error_message: string | null;
@@ -34,6 +36,8 @@ export interface Deadline {
   source_id: string | null;
   title: string;
   due_at: string;
+  safety_buffer_minutes: number | null;
+  safe_due_at: string | null;
   deadline_type: string | null;
   description: string | null;
   confidence: string | number | null;
@@ -45,6 +49,7 @@ export interface Deadline {
 export interface DeadlineInput {
   title: string;
   due_at: string;
+  safety_buffer_minutes: number | null;
   source_id: string | null;
   deadline_type: string | null;
   description: string | null;

@@ -4,12 +4,14 @@ import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deadlinesApi } from "./api";
 import { DeadlineForm } from "./deadline-form";
+import { DeadlineTimes } from "./deadline-times";
 import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
 import { formatSeoul } from "@/lib/date/seoul";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { DeadlineTasks } from "@/features/tasks/deadline-tasks";
+import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 export function DeadlineDetail({ id }: { id: string }) {
   const loader = useCallback(() => deadlinesApi.get(id), [id]);
   const { data, loading, error, reload } = useResource(loader);
@@ -33,6 +35,7 @@ export function DeadlineDetail({ id }: { id: string }) {
       />
       <section className="card form-card">
         <h2>{data.title}</h2>
+        <DeadlineTimes deadline={data} />
         {saved && (
           <p className="success" role="status">
             변경 사항을 저장했습니다.
@@ -53,11 +56,21 @@ export function DeadlineDetail({ id }: { id: string }) {
           </div>
         )}
       </section>
+      <GoogleExportPanel
+        key={`${id}-${data.updated_at}`}
+        kind="deadline"
+        itemId={id}
+        disabled={deleting}
+      />
       <DeadlineTasks deadlineId={id} />
       <section className="card danger-zone">
         <div>
           <h2>마감일 삭제</h2>
-          <p className="muted">삭제한 마감일은 복구할 수 없습니다.</p>
+          <p className="muted">
+            다른 마감일이 연결되어 있지 않으면 원본 자료와 검토 기록도 함께
+            삭제됩니다. 연결된 할 일과 Google 일정은 유지됩니다. 삭제한 내용은
+            복구할 수 없습니다.
+          </p>
         </div>
         {!confirm ? (
           <button className="danger secondary" onClick={() => setConfirm(true)}>

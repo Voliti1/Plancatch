@@ -1,0 +1,302 @@
+"use client";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import { Loading, ErrorNotice } from "@/components/feedback";
+import { PageHeading } from "@/components/page-heading";
+import { useAuth } from "@/features/auth/provider";
+import { analysisError } from "@/features/analyses/errors";
+import { useHydrated } from "@/lib/use-hydrated";
+import {
+  registerAutomatically,
+  type RegistrationDraft,
+} from "./automatic-registration";
+
+export function AutoDeadlineForm() {
+  const hydrated = useHydrated();
+  const { user } = useAuth();
+  const entry = useSearchParams().get("new") ?? "direct";
+  return hydrated && user ? (
+    <RegistrationSession key={`${user.id}:${entry}`} userId={user.id} />
+  ) : (
+    <Loading />
+  );
+}
+
+function RegistrationSession({ userId }: { userId: string }) {
+  const storageKey = `plancatch.auto-deadline.${userId}`;
+  const [draft, setDraft] = useState<RegistrationDraft>({ title: "", url: "" });
+  const [resumeDraft, setResumeDraft] = useState<RegistrationDraft | null>(
+    () => {
+      try {
+        const saved = JSON.parse(sessionStorage.getItem(storageKey) ?? "null");
+        if (
+          saved &&
+          typeof saved.title === "string" &&
+          typeof saved.url === "string" &&
+          typeof saved.sourceId === "string" &&
+          saved.sourceId.trim() &&
+          (saved.analysisId === undefined ||
+            typeof saved.analysisId === "string")
+        )
+          return {
+            title: saved.title,
+            url: saved.url,
+            sourceId: saved.sourceId,
+            analysisId: saved.analysisId,
+          };
+      } catch {
+        /* Storage unavailable: the current page can still register. */
+      }
+      return null;
+    },
+  );
+  const [consent, setConsent] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
+  const [error, setError] = useState("");
+  const [reviewId, setReviewId] = useState("");
+  const pending = useRef(false);
+  const controller = useRef<AbortController | null>(null);
+  const router = useRouter();
+  useEffect(() => () => controller.current?.abort(), []);
+  function save(next: RegistrationDraft) {
+    // A late response from a hidden/unmounted route must not overwrite a new run.
+    if (controller.current?.signal.aborted) return;
+    setDraft(next);
+    setResumeDraft(null);
+    try {
+      sessionStorage.setItem(storageKey, JSON.stringify(next));
+    } catch {
+      /* No credentials or extracted text are stored. */
+    }
+  }
+  function reset() {
+    try {
+      sessionStorage.removeItem(storageKey);
+    } catch {
+      /* Optional storage. */
+    }
+    setDraft({ title: "", url: "" });
+    setResumeDraft(null);
+    setConsent(false);
+    setReviewId("");
+    setError("");
+    setProgress("");
+  }
+  function edit(field: "title" | "url", value: string) {
+    if (value === draft[field]) return;
+    if (draft.sourceId) {
+      // Never reuse a saved source/analysis for changed input or alter its data.
+      // Keep the accepted resume prompt dismissed while editing. The previous
+      // draft stays in sessionStorage until the new source is actually created.
+      setDraft({ title: draft.title, url: draft.url, [field]: value });
+      setProgress(
+        "입력을 변경하여 새 등록으로 진행합니다. 이전 자료와 분석은 그대로 유지됩니다.",
+      );
+    } else {
+      setDraft({ ...draft, [field]: value });
+    }
+    setConsent(false);
+    setReviewId("");
+    setError("");
+  }
+  async function submit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (pending.current || !consent) return;
+    const title = draft.title.trim(),
+      url = draft.url.trim();
+    if (!title) {
+      setError("일정 제목을 입력해 주세요.");
+      return;
+    }
+    try {
+      const parsed = new URL(url);
+      if (
+        !["http:", "https:"].includes(parsed.protocol) ||
+        parsed.username ||
+        parsed.password
+      )
+        throw new Error();
+    } catch {
+      setError(
+        "로그인 정보가 포함되지 않은 공개 HTTP 또는 HTTPS URL을 입력해 주세요.",
+      );
+      return;
+    }
+    pending.current = true;
+    setBusy(true);
+    setError("");
+    const run = new AbortController();
+    controller.current = run;
+    try {
+      const result = await registerAutomatically(
+        { ...draft, title, url },
+        run.signal,
+        save,
+        setProgress,
+      );
+      if (run.signal.aborted) return;
+      if (result.kind === "review") {
+        setReviewId(result.id);
+        setProgress(
+          "HTML에서 읽은 날짜를 확인해 주세요. 검토 화면에서 선택·승인해야 마감일이 등록됩니다.",
+        );
+      } else {
+        try {
+          sessionStorage.removeItem(storageKey);
+        } catch {
+          /* Optional resume storage. */
+        }
+        setDraft({ title: "", url: "" });
+        setResumeDraft(null);
+        setConsent(false);
+        setProgress("");
+        router.replace(`/deadlines/${encodeURIComponent(result.id)}`);
+      }
+    } catch (err) {
+      if (!run.signal.aborted) setError(analysisError(err));
+    } finally {
+      pending.current = false;
+      // Also release state when a preserved route is hidden and later reopened.
+      setBusy(false);
+    }
+  }
+  return (
+    <>
+      <Link className="back-link" href="/dashboard">
+        ← 대시보드
+      </Link>
+      <PageHeading
+        eyebrow="AUTOMATIC DEADLINE"
+        title="자동 일정 등록"
+        description="제목과 공개 URL을 입력하면 원문을 읽고 마감일을 추출해 등록합니다."
+      />
+      <form className="card form-card" onSubmit={submit}>
+        <fieldset disabled={busy}>
+          {resumeDraft && (
+            <section className="notice" aria-label="이전 등록 재개">
+              <p>
+                중단된 등록이 남아 있습니다. 새 일정은 아래에 입력하거나, 이전
+                등록을 이어서 진행할 수 있습니다. 기존 서버 자료는 삭제하지
+                않습니다.
+              </p>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setDraft(resumeDraft);
+                  setResumeDraft(null);
+                  setConsent(false);
+                  setReviewId("");
+                  setError("");
+                  setProgress("");
+                }}
+              >
+                이전 등록 이어서
+              </button>
+            </section>
+          )}
+          <label>
+            일정 제목
+            <input
+              name="title"
+              required
+              maxLength={255}
+              value={draft.title}
+              onChange={(event) => edit("title", event.target.value)}
+              placeholder="예: 프로젝트 최종 보고서 제출"
+            />
+          </label>
+          <label>
+            원본 URL
+            <input
+              name="url"
+              type="url"
+              required
+              value={draft.url}
+              onChange={(event) => edit("url", event.target.value)}
+              placeholder="https://…"
+            />
+          </label>
+          <p className="muted small">
+            공개 HTML·텍스트 페이지만 지원합니다. 로그인 필요 페이지,
+            PDF·이미지, JavaScript 실행이 필요한 페이지는 읽지 않습니다.
+          </p>
+          <p className="muted small">
+            URL의 HTML에서 날짜를 직접 읽습니다. Gemini 등 외부 AI로 원문을
+            전송하지 않습니다.
+          </p>
+          <p className="notice">
+            날짜가 하나여도 검토 후 승인해야 등록됩니다. 여러 날짜는 선택지로
+            제공하고, 채용 시 마감이나 날짜 누락은 직접 일시를 입력해야 합니다.
+            작업 생성·자동 배치·Google Calendar 동기화는 하지 않습니다.
+          </p>
+          <label className="checkbox analysis-consent">
+            <input
+              type="checkbox"
+              checked={consent}
+              onChange={(event) => setConsent(event.target.checked)}
+            />
+            <span>
+              HTML에서 읽은 날짜를 원문과 비교하고, 검토 후 등록하겠습니다.
+            </span>
+          </label>
+          {draft.sourceId && !busy && (
+            <p className="small muted">
+              입력을 그대로 두면 이전 자료를 이어서 처리하며 중복 생성하지
+              않습니다. 제목이나 URL을 수정하면 기존 자료는 유지하고 새 등록으로
+              진행합니다.
+            </p>
+          )}
+          {progress && (
+            <p role="status" aria-live="polite">
+              {progress}
+            </p>
+          )}
+          {error && <ErrorNotice message={error} />}
+          {reviewId ? (
+            <Link
+              className="button"
+              href={`/analyses/${encodeURIComponent(reviewId)}`}
+            >
+              마감일 검토하기 →
+            </Link>
+          ) : (
+            <button type="submit" disabled={!consent}>
+              {busy
+                ? "일정 등록 중…"
+                : draft.sourceId
+                  ? "이어서 등록"
+                  : "일정 등록"}
+            </button>
+          )}
+        </fieldset>
+      </form>
+      {draft.sourceId && (
+        <p>
+          <Link
+            className="source-detail-link"
+            href={`/sources/${encodeURIComponent(draft.sourceId)}`}
+          >
+            저장된 원본 자료 확인 →
+          </Link>
+          {draft.analysisId && (
+            <>
+              {" "}
+              ·{" "}
+              <Link href={`/analyses/${encodeURIComponent(draft.analysisId)}`}>
+                분석 상태 확인 →
+              </Link>
+            </>
+          )}
+        </p>
+      )}
+      {draft.sourceId && !busy && (
+        <button className="secondary" onClick={reset}>
+          다른 일정 입력
+        </button>
+      )}
+    </>
+  );
+}

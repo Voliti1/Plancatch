@@ -1,5 +1,17 @@
 import type { AnalysisStatus } from "@/types/analysis";
-export function analysisStatusLabel(status: AnalysisStatus): string {
+export const isHtmlAnalysis = (model: string | undefined) =>
+  model === "html:saramin:v1" || model === "html:url:v1";
+export function warningLabel(value: string): string {
+  if (/\bdue_at\b|\bnull\b/i.test(value))
+    return "마감 날짜와 시간을 확인해 주세요. 시간이 없으면 오후 11시 59분으로 설정됩니다.";
+  return value;
+}
+export function analysisStatusLabel(
+  status: AnalysisStatus,
+  model?: string,
+): string {
+  if (isHtmlAnalysis(model) && status === "processing") return "HTML 확인 중";
+  if (isHtmlAnalysis(model) && status === "failed") return "HTML 확인 실패";
   return (
     {
       processing: "AI 분석 중",

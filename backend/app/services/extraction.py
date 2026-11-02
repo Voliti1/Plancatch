@@ -2,16 +2,29 @@
 
 import http.client
 import ipaddress
+import json
+import re
 import socket
 import ssl
 import time
 from dataclasses import dataclass
+from datetime import date, datetime
 from html.parser import HTMLParser
-from urllib.parse import urljoin, urlsplit
+from urllib.parse import parse_qs, parse_qsl, urljoin, urlsplit, urlunsplit
 from urllib.robotparser import RobotFileParser
 
 MAX_BYTES = 2_000_000
 MAX_TEXT = 100_000
+MAX_JSON_LD = 100_000
+MAX_JSON_LD_BLOCKS = 16
+STRUCTURED_DATE_NOTICES = (
+    "주의: 원문에는 마감 날짜만 있고 시간과 시간대가 없습니다. 사용자 확인이 필요합니다.",
+    # Keep the old notice recognizable for already stored source snapshots.
+    "주의: 원문 마감일에 시간대가 명시되지 않았습니다. 사용자 확인이 필요합니다.",
+)
+DEFAULT_TIMEZONE_POLICY = (
+    "서비스 처리 기준: 날짜와 시간이 있고 시간대만 없으면 한국 시간(Asia/Seoul, UTC+09:00)으로 처리합니다."
+)
 USER_AGENT = "PlanCatchBot/0.1"
 
 
@@ -23,6 +36,7 @@ class ExtractionError(Exception):
 class Document:
     text: str
     title: str | None = None
+    review: dict | None = None
 
 
 def public_target(url: str) -> tuple[str, int, str]:
@@ -71,7 +85,9 @@ def fetch_once(url: str, deadline: float) -> tuple[int, dict[str, str], bytes]:
         if headers.get("content-encoding", "identity").lower() not in {"identity", ""}:
             raise ExtractionError("unsupported_encoding")
         chunks, size = [], 0
-        while True:
+        # Content-Length (including zero) closes the response as soon as the
+        # final bytes are consumed. Do not dereference its released file/socket.
+        while not response.isclosed():
             remaining = deadline - time.monotonic()
             if remaining <= 0:
                 raise ExtractionError("fetch_timeout")
@@ -109,60 +125,397 @@ class PageParser(HTMLParser):
 
     def __init__(self):
         super().__init__(convert_charrefs=True)
-        self.stack: list[tuple[str, bool]] = []
+        # Text exclusions (navigation) are distinct from unrendered elements.
+        # A visible password input in a header still represents a login gate.
+        self.stack: list[tuple[str, bool, bool]] = []
         self.body: list[str] = []
         self.main: list[str] = []
         self.title: list[str] = []
         self.password_form = False
+        self.canonical_links: list[str] = []
+        self.json_ld_blocks: list[str] = []
+        self.json_ld_current: list[str] | None = None
+        self.json_ld_characters = 0
+        self.json_ld_overflow = False
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
-        if tag == "input" and values.get("type", "").lower() == "password":
+        if (tag == "script" and (values.get("type") or "").strip().lower() == "application/ld+json"
+                and "src" not in values and not any(skip for _, skip, _ in self.stack)
+                and "hidden" not in values and (values.get("aria-hidden") or "").lower() != "true"
+                and not hidden_inline_style(values.get("style") or "")
+                and len(self.json_ld_blocks) < MAX_JSON_LD_BLOCKS):
+            # Capture inert structured data separately, never arbitrary JS or
+            # metadata inside hidden/login/navigation containers.
+            self.json_ld_current = []
+            self.json_ld_overflow = False
+        unrendered = (tag in {"script", "style", "template", "noscript"}
+                      or "hidden" in values or (values.get("aria-hidden") or "").lower() == "true"
+                      or hidden_inline_style(values.get("style") or "")
+                      or any(hidden for _, _, hidden in self.stack))
+        if tag == "input" and (values.get("type") or "").lower() == "password" and not unrendered:
             self.password_form = True
-        hidden = (tag in {"script", "style", "nav", "footer", "header", "noscript"}
-                  or "hidden" in values or values.get("aria-hidden") == "true"
-                  or any(skip for _, skip in self.stack))
+        if (tag == "link" and "canonical" in (values.get("rel") or "").lower().split()
+                and any(name == "head" for name, _, _ in self.stack) and values.get("href")):
+            self.canonical_links.append(values["href"])
+        hidden = (unrendered or tag in {"nav", "footer", "header"}
+                  or any(skip for _, skip, _ in self.stack))
         if tag not in {"area", "base", "br", "col", "embed", "hr", "img", "input",
                        "link", "meta", "param", "source", "track", "wbr"}:
-            self.stack.append((tag, hidden))
+            self.stack.append((tag, hidden, unrendered))
 
     def handle_endtag(self, tag):
+        if tag == "script" and self.json_ld_current is not None:
+            if not self.json_ld_overflow:
+                self.json_ld_blocks.append("".join(self.json_ld_current))
+            self.json_ld_current = None
         for i in range(len(self.stack) - 1, -1, -1):
             if self.stack[i][0] == tag:
                 del self.stack[i:]
                 break
 
     def handle_data(self, data):
+        if self.json_ld_current is not None:
+            self.json_ld_characters += len(data)
+            if self.json_ld_characters <= MAX_JSON_LD:
+                self.json_ld_current.append(data)
+            else:
+                self.json_ld_current.clear()
+                self.json_ld_overflow = True
+            return
         text = " ".join(data.split())
         if not text:
             return
-        if any(tag == "title" for tag, _ in self.stack):
+        if any(tag == "title" for tag, _, _ in self.stack):
             self.title.append(text)
-        elif not any(skip for _, skip in self.stack):
+        elif not any(skip for _, skip, _ in self.stack):
             self.body.append(text)
-            if any(tag in {"main", "article"} for tag, _ in self.stack):
+            if any(tag in {"main", "article"} for tag, _, _ in self.stack):
                 self.main.append(text)
 
 
-def parse_page(body: bytes, content_type: str) -> Document:
-    media_type = content_type.split(";", 1)[0].strip().lower()
+class ReviewPageParser(PageParser):
+    """Dates only from the first main/article, excluding recommendation UI.
+
+    This is conservative static HTML extraction, not a universal DOM contract.
+    Unknown layouts remain manual-review-only rather than falling back to AI.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.primary_seen = False
+        self.primary_depth = 0
+
+    def handle_starttag(self, tag, attrs):
+        super().handle_starttag(tag, attrs)
+        values = dict(attrs)
+        tokens = " ".join((values.get("class") or "", values.get("id") or "")).lower()
+        if (self.stack and self.stack[-1][0] == tag
+                and (tag == "aside" or re.search(r"recommend|related|advert|sponsor", tokens))):
+            name, _, hidden = self.stack[-1]
+            self.stack[-1] = (name, True, hidden)
+        if (tag in {"main", "article"} and not self.primary_seen
+                and not any(skip for _, skip, _ in self.stack)):
+            self.primary_seen = True
+            self.primary_depth = len(self.stack)
+
+    def handle_data(self, data):
+        if self.primary_depth:
+            super().handle_data(data)
+
+    def handle_endtag(self, tag):
+        super().handle_endtag(tag)
+        if self.primary_depth > len(self.stack):
+            self.primary_depth = 0
+
+
+def hidden_inline_style(style: str) -> bool:
+    """Recognize explicit hiding only; never infer it from arbitrary CSS classes."""
+    properties: dict[str, tuple[str, bool]] = {}
+    style = re.sub(r"/\*.*?\*/", "", style, flags=re.DOTALL)
+    for declaration in style.split(";"):
+        key, separator, value = declaration.partition(":")
+        if not separator:
+            continue
+        key, value = key.strip().lower(), value.strip().lower()
+        important = re.search(r"!\s*important\s*$", value) is not None
+        if important:
+            value = re.sub(r"!\s*important\s*$", "", value).strip()
+        if key not in properties or important or not properties[key][1]:
+            properties[key] = (value, important)
+    return (properties.get("display", ("", False))[0] == "none"
+            or properties.get("visibility", ("", False))[0] in {"hidden", "collapse"})
+
+
+def decode_page(body: bytes, content_type: str) -> str:
     charset = "utf-8"
     for parameter in content_type.split(";")[1:]:
         if parameter.strip().lower().startswith("charset="):
             charset = parameter.split("=", 1)[1].strip().strip('"')
     try:
-        decoded = body.decode(charset, errors="replace")
+        return body.decode(charset, errors="replace")
     except LookupError as exc:
         raise ExtractionError("unsupported_encoding") from exc
+
+
+def same_job_page(reference: str, source_url: str) -> bool:
+    """Compare identities only; never follow or fetch a metadata URL."""
+    try:
+        source, target = urlsplit(source_url), urlsplit(urljoin(source_url, reference))
+        if (not reference.strip() or any(ord(char) < 32 for char in reference)
+                or target.scheme not in {"http", "https"}
+                or target.username is not None or target.password is not None):
+            return False
+        def identity(parts):
+            return (parts.scheme, parts.hostname, parts.port or (443 if parts.scheme == "https" else 80),
+                    parts.path or "/")
+        if identity(source) != identity(target):
+            return False
+        source_query = sorted(parse_qsl(source.query, keep_blank_values=True, max_num_fields=100))
+        target_query = sorted(parse_qsl(target.query, keep_blank_values=True, max_num_fields=100))
+        # JobKorea's numeric path identifies a job; submitted search/tracking
+        # queries are not present in its metadata URL. No generic query removal.
+        if (source.hostname in {"www.jobkorea.co.kr", "jobkorea.co.kr"}
+                and re.fullmatch(r"/Recruit/GI_Read/[0-9]{1,20}", source.path)
+                and not target_query):
+            return True
+        return source_query == target_query
+    except ValueError:
+        return False
+
+
+def job_postings(blocks: list[str]) -> list[dict]:
+    """Only traverse top-level lists/@graph, with a bounded inert JSON walk."""
+    postings = []
+    for block in blocks:
+        try:
+            pending = [(json.loads(block), 0)]
+        except (ValueError, RecursionError):
+            continue
+        visited, current = 0, []
+        while pending:
+            value, depth = pending.pop()
+            visited += 1
+            if visited > 128 or depth > 8:
+                current = []  # Do not trust a partially inspected graph.
+                break
+            if isinstance(value, list):
+                if len(value) > 128:
+                    current = []
+                    break
+                pending.extend((item, depth + 1) for item in value)
+            elif isinstance(value, dict):
+                types = value.get("@type", [])
+                if isinstance(types, str):
+                    types = [types]
+                if isinstance(types, list) and any(item in (
+                    "JobPosting", "https://schema.org/JobPosting", "http://schema.org/JobPosting",
+                ) for item in types):
+                    current.append(value)
+                graph = value.get("@graph")
+                if isinstance(graph, (list, dict)):
+                    pending.append((graph, depth + 1))
+        postings.extend(current)
+    return postings
+
+
+def structured_job_text(blocks: list[str], source_url: str | None) -> str:
+    """Expose same-page JobPosting evidence, without inventing dates/timezones."""
+    if not source_url:
+        return ""
+    matching = []
+    for item in job_postings(blocks):
+        references = [item[key] for key in ("url", "@id") if key in item]
+        if not references:
+            reference = item.get("mainEntityOfPage")
+            references = [reference.get("@id") if isinstance(reference, dict) else reference]
+        if not all(isinstance(ref, str) and same_job_page(ref, source_url) for ref in references):
+            continue
+        source = urlsplit(source_url)
+        if (source.hostname in {"www.jobkorea.co.kr", "jobkorea.co.kr"}
+                and re.fullmatch(r"/Recruit/GI_Read/[0-9]{1,20}", source.path)
+                and "identifier" in item):
+            identifier = item["identifier"]
+            value = identifier.get("value") if isinstance(identifier, dict) else identifier
+            if str(value) != source.path.rsplit("/", 1)[1]:
+                continue
+        matching.append(item)
+    # Multiple incompatible records cannot establish one deadline. Identical
+    # duplicates are harmless. Do not mix in related jobs or advertisement dates.
+    unique = {json.dumps({key: item.get(key) for key in ("title", "validThrough", "description")},
+                         sort_keys=True, ensure_ascii=False): item for item in matching}
+    if len(unique) != 1:
+        return ""
+    item = next(iter(unique.values()))
+    title, expires = item.get("title"), item.get("validThrough")
+    if (not isinstance(title, str) or not title.strip() or len(title) > 1000
+            or not isinstance(expires, str) or len(expires) > 80
+            or not re.fullmatch(r"\d{4}-\d{2}-\d{2}(?:T(?:[01]\d|2[0-3]):[0-5]\d"
+                                r"(?::[0-5]\d(?:\.\d{1,6})?)?"
+                                r"(?:Z|[+-](?:[01]\d|2[0-3]):[0-5]\d)?)?", expires)):
+        return ""
+    try:
+        parsed = datetime.fromisoformat(expires) if "T" in expires else date.fromisoformat(expires)
+    except ValueError:
+        return ""
+    lines = ["[동일 페이지의 채용공고 구조화 데이터: JSON-LD JobPosting]",
+             f"공고 제목: {' '.join(title.split())}", f"공고 URL: {source_url}",
+             f"마감일 (validThrough): {expires}"]
+    if not isinstance(parsed, datetime):
+        lines.append(STRUCTURED_DATE_NOTICES[0])
+    elif parsed.utcoffset() is None:
+        lines.append(DEFAULT_TIMEZONE_POLICY)
+    description = item.get("description")
+    if isinstance(description, str):
+        parser = PageParser()
+        parser.feed(description)
+        if not parser.password_form and (parser.main or parser.body):
+            lines.extend(["공고 설명:", "\n".join(parser.main or parser.body)])
+    text = "\n".join(lines)
+    try:
+        text.encode("utf-8")  # Reject invalid escaped surrogates before DB/AI storage.
+    except UnicodeError:
+        return ""
+    return text
+
+
+def parse_page(body: bytes, content_type: str, source_url: str | None = None) -> Document:
+    media_type = content_type.split(";", 1)[0].strip().lower()
+    decoded = decode_page(body, content_type)
+    review = None
     if media_type == "text/plain":
         text, title = decoded.strip(), None
     elif media_type in {"text/html", "application/xhtml+xml"}:
-        parser = PageParser()
+        from app.services.work24_period import Work24Parser
+        from app.services.work24_period import job_id as work24_id
+        parser = Work24Parser(source_url) if work24_id(source_url or "") else PageParser()
         parser.feed(decoded)
-        # Password inputs are a conservative heuristic; never submit the form.
+        # Visible password inputs remain a conservative gate heuristic. Hidden
+        # optional login popups neither block public content nor enter AI input.
         if parser.password_form:
             raise ExtractionError("requires_login")
         text = "\n".join(parser.main or parser.body)
+        job_text = structured_job_text(parser.json_ld_blocks, source_url)
+        from app.services.saramin_period import (
+            PeriodParser,
+            is_job_url,
+            period_text,
+            read_period,
+        )
+        from app.services.url_deadlines import collect_review
+
+        period = None
+        if source_url and is_job_url(source_url):
+            period = PeriodParser()
+            period.feed(decoded)
+        review_parser = ReviewPageParser()
+        review_parser.feed(decoded)
+        review = collect_review("\n".join(review_parser.main), job_text, period,
+                                scoped=bool(review_parser.main))
+        saramin_text = period_text(decoded, source_url, parser=period)
+        parsed_period = read_period(saramin_text)
+        if parsed_period and parsed_period["has_conflict"]:
+            review["has_conflict"] = True
+        if job_text:
+            text = "\n\n".join(part for part in (text, job_text) if part)
+        if saramin_text:
+            text = "\n\n".join(part for part in (text, saramin_text) if part)
+        from app.services.jobkorea_period import period_text as jobkorea_text
+        from app.services.jobkorea_period import read_period as read_jobkorea
+        jobkorea_snapshot = jobkorea_text(decoded, source_url, job_text)
+        if jobkorea_snapshot:
+            from app.services.url_deadlines import date_choice
+            period_info = read_jobkorea(jobkorea_snapshot)
+            if period_info:
+                evidence = f"마감일 원문: {period_info['end_text']}"
+                choice = date_choice(period_info["end_text"], evidence)
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": period_info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{jobkorea_snapshot}"
+        from app.services.catch_period import period_text as catch_text
+        from app.services.catch_period import read_period as read_catch
+        catch_snapshot = catch_text(decoded, source_url)
+        if catch_snapshot:
+            from app.services.url_deadlines import OPEN, date_choice
+            info = read_catch(catch_snapshot)
+            if info:
+                due = info["deadline_at"]
+                raw = due.isoformat() if due else info["end_text"]
+                evidence = "\n".join(line for line in catch_snapshot.splitlines()
+                                     if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
+                choice = date_choice(raw, evidence)
+                if choice and not due and not choice["time_defaulted"]:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{catch_snapshot}"
+        from app.services.jobplanet_period import period_text as jobplanet_text
+        from app.services.jobplanet_period import read_period as read_jobplanet
+        jobplanet_snapshot = jobplanet_text(decoded, source_url)
+        if jobplanet_snapshot:
+            from app.services.url_deadlines import OPEN, date_choice
+            info = read_jobplanet(jobplanet_snapshot)
+            if info:
+                evidence = f"마감일 원문: {info['end_text']}"
+                choice = date_choice(info["end_text"], evidence)
+                if choice and info["deadline_at"] is None and not choice["time_defaulted"]:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{jobplanet_snapshot}"
+        from app.services.jasoseol_period import period_text as jasoseol_text
+        from app.services.jasoseol_period import read_period as read_jasoseol
+        jasoseol_snapshot = jasoseol_text(decoded, source_url)
+        if jasoseol_snapshot:
+            from app.services.url_deadlines import date_choice
+            info = read_jasoseol(jasoseol_snapshot)
+            if info:
+                evidence = f"마감일 원문: {info['end_text']}"
+                choice = date_choice(info["end_text"], evidence)
+                if choice and info["deadline_at"] is None and not choice["time_defaulted"]:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{jasoseol_snapshot}"
+        from app.services.linkareer_period import period_text as linkareer_text
+        from app.services.linkareer_period import read_period as read_linkareer
+        linkareer_snapshot = linkareer_text(decoded, source_url)
+        if linkareer_snapshot:
+            from app.services.url_deadlines import date_choice
+            info = read_linkareer(linkareer_snapshot)
+            if info:
+                due = info["deadline_at"]
+                evidence = "\n".join(line for line in linkareer_snapshot.splitlines()
+                                     if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
+                choice = date_choice(due.isoformat() if due else info["end_text"], evidence)
+                if choice and not due and not choice["time_defaulted"]:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{linkareer_snapshot}"
+        from app.services.work24_period import period_text as work24_text
+        from app.services.work24_period import read_period as read_work24
+        work24_snapshot = work24_text(decoded, source_url, parser if isinstance(parser, Work24Parser) else None)
+        if work24_snapshot:
+            from app.services.url_deadlines import OPEN, date_choice
+            info = read_work24(work24_snapshot)
+            if info:
+                due = info["deadline_at"]
+                evidence = f"마감일 원문: {info['end_text']}"
+                choice = date_choice(due.isoformat() if due else info["end_text"], evidence)
+                if choice and not due and not choice["time_defaulted"]:
+                    choice["due_at"] = None
+                review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "has_conflict": info["has_conflict"], "scope_confirmed": True}
+            text = f"{text}\n\n{work24_snapshot}"
+        from app.services.job_company import company_for_page
+        review["company_name"] = company_for_page(decoded, source_url, parser)
+        if review.get("has_conflict"):
+            for choice in review["choices"]:
+                choice.update(due_at=None, time_defaulted=False)
         title = " ".join(parser.title)[:255] or None
     else:
         raise ExtractionError("unsupported_content_type")
@@ -170,7 +523,41 @@ def parse_page(body: bytes, content_type: str) -> Document:
         raise ExtractionError("empty_content_or_rendering_required")
     if len(text) > MAX_TEXT:
         raise ExtractionError("text_too_large")
-    return Document(text, title)
+    return Document(text, title, review)
+
+
+def public_job_canonical(url: str, body: bytes, content_type: str) -> str | None:
+    """Saramin relay shells link to a public, server-rendered version of the same job.
+
+    This is a bounded site adapter, not a generic canonical/iframe crawler. The
+    original document must already pass parse_page's login gate before calling.
+    """
+    source = urlsplit(url)
+    if (source.hostname != "www.saramin.co.kr" or source.path != "/zf_user/jobs/relay/view"
+            or content_type.split(";", 1)[0].strip().lower() not in {"text/html", "application/xhtml+xml"}):
+        return None
+    try:
+        source_ids = parse_qs(source.query, keep_blank_values=True, max_num_fields=30).get("rec_idx", [])
+        if len(source_ids) != 1 or not re.fullmatch(r"[0-9]{1,20}", source_ids[0]):
+            return None
+        parser = PageParser()
+        parser.feed(decode_page(body, content_type))
+        # Conflicting canonical declarations cannot establish a single identity.
+        targets = {urljoin(url, href) for href in parser.canonical_links}
+        if len(targets) != 1:
+            return None
+        target = urlsplit(targets.pop())
+        target_query = parse_qs(target.query, keep_blank_values=True, max_num_fields=30)
+        if (target.scheme != source.scheme or target.hostname != source.hostname
+                or (target.port or (443 if target.scheme == "https" else 80))
+                != (source.port or (443 if source.scheme == "https" else 80))
+                or target.username is not None or target.password is not None
+                or target.path != "/zf_user/jobs/view"
+                or target_query != {"rec_idx": source_ids}):
+            return None
+        return urlunsplit((target.scheme, target.netloc, target.path, target.query, ""))
+    except ValueError:
+        return None
 
 
 def extract(source_type: str, original_url: str | None, original_text: str | None) -> Document:
@@ -185,6 +572,7 @@ def extract(source_type: str, original_url: str | None, original_text: str | Non
         raise ExtractionError("unsupported_source_type")
     url = original_url
     deadline = time.monotonic() + 30
+    canonical_followed = False
     for _ in range(4):
         public_target(url)
         check_robots(url, deadline)
@@ -203,5 +591,18 @@ def extract(source_type: str, original_url: str | None, original_text: str | Non
             raise ExtractionError("rate_limited")
         if code != 200:
             raise ExtractionError("http_error")
-        return parse_page(body, headers.get("content-type", ""))
+        content_type = headers.get("content-type", "")
+        document = parse_page(body, content_type, url)  # Never leave an actual login gate.
+        canonical = None if canonical_followed else public_job_canonical(url, body, content_type)
+        if canonical:
+            canonical_followed = True
+            url = canonical
+            # The next iteration checks robots/public DNS/TLS/limits again.
+            continue
+        from app.services.url_deadlines import append_snapshot, collect_review
+        review = document.review or collect_review(document.text, "", scoped=True)
+        document.text = append_snapshot(document.text, original_url, url, review)
+        if len(document.text) > MAX_TEXT:
+            raise ExtractionError("text_too_large")
+        return document
     raise ExtractionError("too_many_redirects")

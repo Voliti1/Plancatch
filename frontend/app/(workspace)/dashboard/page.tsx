@@ -4,9 +4,11 @@ import { useAuth } from "@/features/auth/provider";
 import { deadlinesApi } from "@/features/deadlines/api";
 import { sourcesApi } from "@/features/sources/api";
 import { DeadlineRows } from "@/features/deadlines/deadline-list";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import { useResource } from "@/lib/api/use-resource";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
+import { DashboardSchedules } from "@/features/tasks/dashboard-schedules";
 const load = async () => {
   const [deadlines, sources] = await Promise.all([
     deadlinesApi.list(),
@@ -33,9 +35,9 @@ export default function DashboardPage() {
             눈앞의 계획으로.
           </h2>
           <p>링크 하나, 메모 한 줄부터 시작해 보세요.</p>
-          <Link className="button" href="/sources/new">
-            새 자료 등록하기 ↗
-          </Link>
+          <NewRegistrationLink className="button">
+            새 일정 등록하기 ↗
+          </NewRegistrationLink>
         </div>
         <div className="hero-art" aria-hidden>
           <div className="paper paper-back" />
@@ -54,6 +56,7 @@ export default function DashboardPage() {
           </div>
         </div>
       </section>
+      <DashboardSchedules />
       {loading ? (
         <Loading />
       ) : error ? (

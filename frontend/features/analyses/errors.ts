@@ -64,6 +64,8 @@ const messages: Record<string, string> = {
   ai_provider_error:
     "AI 서비스에서 분석을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
   ai_processing_failed: "AI 분석에 실패했습니다. 잠시 후 다시 분석해 주세요.",
+  ai_input_invalid:
+    "분석 원문을 사용할 수 없거나 자료가 변경됐습니다. 원문 상태를 확인한 뒤 다시 분석해 주세요.",
 };
 
 export function processingError(code: string): string {

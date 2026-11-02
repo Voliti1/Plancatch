@@ -13,7 +13,13 @@ from app.core.security import (
     verify_password,
 )
 from app.models.user import User
-from app.schemas.user import TokenResponse, UserCreate, UserLogin, UserResponse
+from app.schemas.user import (
+    PasswordChange,
+    TokenResponse,
+    UserCreate,
+    UserLogin,
+    UserResponse,
+)
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
@@ -65,7 +71,7 @@ def login(payload: UserLogin, db: DatabaseSession) -> TokenResponse:
 
     settings = get_settings()
     return TokenResponse(
-        access_token=create_access_token(str(user.id)),
+        access_token=create_access_token(str(user.id), user.password_hash),
         expires_in=settings.jwt_access_token_expire_minutes * 60,
     )
 
@@ -74,3 +80,22 @@ def login(payload: UserLogin, db: DatabaseSession) -> TokenResponse:
 def read_current_user(current_user: CurrentUser) -> User:
     """Return the account represented by a valid bearer token."""
     return current_user
+
+
+@router.post("/password", response_model=TokenResponse)
+def change_password(payload: PasswordChange, current_user: CurrentUser, db: DatabaseSession) -> TokenResponse:
+    """Change only the caller's password, under a row lock, and renew its session."""
+    user = db.scalar(select(User).where(User.id == current_user.id).with_for_update()
+                     .execution_options(populate_existing=True))
+    if user is None or not user.is_active:
+        raise unauthorized()
+    if not verify_password(payload.current_password, user.password_hash):
+        raise HTTPException(400, "current_password_incorrect")
+    if payload.new_password == payload.current_password:
+        raise HTTPException(400, "new_password_unchanged")
+    new_hash = hash_password(payload.new_password)
+    response = TokenResponse(access_token=create_access_token(str(user.id), new_hash),
+                             expires_in=get_settings().jwt_access_token_expire_minutes * 60)
+    user.password_hash = new_hash
+    db.commit()
+    return response

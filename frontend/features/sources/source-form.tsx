@@ -1,105 +1,211 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { sourcesApi } from "./api";
+import { SourceFileInput } from "./source-file-input";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useHydrated } from "@/lib/use-hydrated";
-export function SourceForm() {
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
+import "./source-registration.css";
+export function SourceForm({
+  embedded = false,
+  onBusyChange,
+}: {
+  embedded?: boolean;
+  onBusyChange?: (busy: boolean) => void;
+}) {
   const hydrated = useHydrated();
-  const [type, setType] = useState<"url" | "text">("url");
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [text, setText] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const pending = useRef(false);
+  const active = useRef(true);
+  useEffect(() => {
+    active.current = true;
+    return () => {
+      active.current = false;
+    };
+  }, []);
   const router = useRouter();
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setBusy(true);
+    if (pending.current || !hydrated) return;
     setError("");
-    try {
-      const title = String(form.get("title")).trim() || undefined;
-      const content = String(form.get("content")).trim();
-      if (!content) throw new Error("내용을 입력해 주세요.");
-      if (type === "url" && !/^https?:\/\//i.test(content))
-        throw new Error("http 또는 https로 시작하는 URL을 입력해 주세요.");
-      await sourcesApi.create(
-        type === "url"
-          ? { source_type: type, title, original_url: content }
-          : { source_type: type, title, original_text: content },
+    const originalUrl = url.trim();
+    const hasText = Boolean(text.trim());
+    if (files.length > 1 || (files.length && (originalUrl || hasText))) {
+      setError("한 번에 이미지 한 장, URL, 텍스트 중 하나만 등록해 주세요.");
+      return;
+    }
+    if (!originalUrl && !hasText && !files.length) {
+      setError("이미지, URL 또는 텍스트를 입력해 주세요.");
+      return;
+    }
+    if (originalUrl && hasText) {
+      setError(
+        "한 번에 하나의 자료를 저장할 수 있어요. URL 또는 텍스트 중 하나만 입력해 주세요.",
       );
-      router.push("/sources");
+      return;
+    }
+    if (originalUrl) {
+      try {
+        const parsed = new URL(originalUrl);
+        if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
+      } catch {
+        setError(
+          "http:// 또는 https://로 시작하는 올바른 URL을 입력해 주세요.",
+        );
+        return;
+      }
+    }
+    pending.current = true;
+    setBusy(true);
+    onBusyChange?.(true);
+    try {
+      const sourceTitle = title.trim() || undefined;
+      const source = files.length
+        ? await sourcesApi.uploadImage(files[0], sourceTitle)
+        : await sourcesApi.create(
+            originalUrl
+              ? {
+                  source_type: "url",
+                  title: sourceTitle,
+                  original_url: originalUrl,
+                }
+              : {
+                  source_type: "text",
+                  title: sourceTitle,
+                  original_text: text,
+                },
+          );
+      // A new keyed registration can replace this form while a save is in flight.
+      // Keep the saved source, but never redirect or update its replacement.
+      if (active.current)
+        router.push(`/sources/${encodeURIComponent(source.id)}/review`);
     } catch (err) {
+      if (!active.current) return;
       setError(errorMessage(err));
-    } finally {
+      pending.current = false;
       setBusy(false);
+      onBusyChange?.(false);
     }
   }
   return (
     <>
-      <PageHeading
-        eyebrow="NEW SOURCE"
-        title="자료 등록"
-        description="마감일을 정리할 때 필요한 원본 자료를 저장하세요."
-      />
-      <form className="card form-card" onSubmit={submit}>
+      {!embedded && (
+        <>
+          <Link className="back-link" href="/dashboard">
+            ← 대시보드
+          </Link>
+          <PageHeading
+            eyebrow="NEW SCHEDULE"
+            title="새 일정 등록"
+            description="자료를 저장하면 바로 원문 추출과 마감일 검토를 이어갑니다."
+          />
+        </>
+      )}
+      <form className="card source-registration" onSubmit={submit} noValidate>
+        <div className="source-registration-heading">
+          <h2>일정 입력</h2>
+          <ol className="source-registration-steps" aria-label="일정 등록 단계">
+            <li aria-current="step">
+              <span>1</span>일정 입력
+            </li>
+            <li>
+              <span>2</span>AI 검토
+            </li>
+            <li>
+              <span>3</span>마감일 승인
+            </li>
+          </ol>
+        </div>
         <fieldset disabled={busy || !hydrated}>
-          <div className="segmented" aria-label="자료 유형">
-            <button
-              type="button"
-              className={type === "url" ? "selected" : "secondary"}
-              aria-pressed={type === "url"}
-              onClick={() => setType("url")}
-            >
-              URL 링크
-            </button>
-            <button
-              type="button"
-              className={type === "text" ? "selected" : "secondary"}
-              aria-pressed={type === "text"}
-              onClick={() => setType("text")}
-            >
-              텍스트
-            </button>
-          </div>
           <label>
-            자료 제목 (선택)
+            일정 제목 (선택)
             <input
               name="title"
               maxLength={255}
-              placeholder="예: 프로젝트 최종 발표 안내"
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="예: 프로젝트 최종 보고서 제출"
             />
           </label>
-          <label>
-            {type === "url" ? "원본 URL" : "원본 텍스트"}
-            {type === "url" ? (
-              <input
-                key="url"
-                name="content"
-                type="url"
-                required
-                placeholder="https://…"
-              />
-            ) : (
-              <textarea
-                key="text"
-                name="content"
-                rows={9}
-                required
-                placeholder="공지, 과제 안내, 메모 등을 붙여 넣어 주세요."
-              />
-            )}
-          </label>
-          <p className="muted small">
-            자료 저장 후 상세 화면에서 원문 추출과 AI 분석을 시작할 수 있습니다.
+          <div className="source-registration-grid">
+            <SourceFileInput
+              files={files}
+              onChange={setFiles}
+              disabled={busy || !hydrated}
+            />
+            <div className="source-registration-fields">
+              <section aria-labelledby="source-url-heading">
+                <h3 id="source-url-heading">URL로 추가</h3>
+                <label htmlFor="source-new-url">원본 URL</label>
+                <input
+                  id="source-new-url"
+                  name="url"
+                  type="url"
+                  value={url}
+                  onChange={(event) => setUrl(event.target.value)}
+                  placeholder="https://example.com/notice"
+                  aria-describedby="source-url-help"
+                />
+                <p id="source-url-help" className="small muted">
+                  일정이 안내된 공지나 게시글 주소를 붙여 넣으세요.
+                </p>
+                <NewRegistrationLink
+                  className="text-button"
+                  href="/deadlines/auto"
+                >
+                  URL 자동 등록 화면 열기 →
+                </NewRegistrationLink>
+              </section>
+              <section aria-labelledby="source-text-heading">
+                <h3 id="source-text-heading">텍스트로 추가</h3>
+                <label htmlFor="source-new-text">원본 텍스트</label>
+                <textarea
+                  id="source-new-text"
+                  name="text"
+                  rows={6}
+                  value={text}
+                  onChange={(event) => setText(event.target.value)}
+                  placeholder="공지, 과제 안내, 메모 등을 붙여 넣어 주세요."
+                  aria-describedby="source-text-count"
+                />
+                <p
+                  id="source-text-count"
+                  className="small muted source-text-count"
+                >
+                  {text.length.toLocaleString("ko-KR")}자 입력
+                </p>
+              </section>
+            </div>
+          </div>
+          <p className="small muted source-registration-help">
+            저장 후 바로 원문 추출과 마감일 검토로 이어집니다. URL은 HTML에서
+            날짜를 읽고, 텍스트와 이미지는 AI 전송에 동의한 뒤 분석합니다. 검토
+            후 승인해야 마감일이 등록됩니다.
           </p>
           {error && <ErrorNotice message={error} />}
-          <div className="form-actions">
-            <Link className="button secondary" href="/sources">
+          <div className="form-actions source-registration-actions">
+            <Link
+              className="button secondary"
+              href="/sources"
+              aria-disabled={busy || undefined}
+              onClick={(event) => {
+                if (busy) event.preventDefault();
+              }}
+            >
               취소
             </Link>
-            <button type="submit">{busy ? "저장 중…" : "자료 저장"}</button>
+            <button type="submit" disabled={busy || !hydrated}>
+              {busy ? "저장 중…" : "자료 저장"}
+            </button>
           </div>
         </fieldset>
       </form>

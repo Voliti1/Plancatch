@@ -14,6 +14,7 @@ from app.models.deadline import Deadline
 from app.schemas.analysis import (
     AnalysisRequest,
     AnalysisResponse,
+    AutoRegistrationRequest,
     DecisionRequest,
     ReviewRequest,
 )
@@ -25,14 +26,27 @@ from app.services.ai_analysis import (
     process_analysis,
     slots,
 )
+from app.services.html_analysis import HTML_MODEL, matching_period
+from app.services.url_deadlines import URL_MODEL
 
 router = APIRouter(tags=["ai-analyses"])
 
 
-def owned_analysis(analysis_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession) -> Analysis:
-    analysis = db.scalar(select(Analysis).where(
+def owned_analysis(analysis_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession,
+                   *, for_update: bool = True) -> Analysis:
+    source_id = db.scalar(select(Analysis.source_id).where(
         Analysis.id == analysis_id, Analysis.user_id == user_id,
-    ).with_for_update())
+    ))
+    if source_id is None:
+        raise HTTPException(404, "Analysis not found")
+    # Match source deletion's parent-before-child order, including cascade locks.
+    get_owned_source(source_id, user_id, db, for_update=for_update)
+    statement = select(Analysis).where(
+        Analysis.id == analysis_id, Analysis.user_id == user_id,
+    )
+    if for_update:
+        statement = statement.with_for_update()
+    analysis = db.scalar(statement)
     if analysis is None:
         raise HTTPException(404, "Analysis not found")
     return analysis
@@ -50,15 +64,35 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
                    background_tasks: BackgroundTasks, current_user: CurrentUser,
                    db: DatabaseSession) -> Analysis:
     source = get_owned_source(source_id, current_user.id, db)
+    if source.source_type == "image":
+        from app.api.routes.images import start_image_analysis
+        return start_image_analysis(source, payload, db, background_tasks)
     if source.processing_status != "extracted" or not source.extracted_text:
         raise HTTPException(409, "Extract source text first")
-    if len(source.extracted_text) > MAX_INPUT:
+    snapshot_hash = content_hash(source.extracted_text)
+    if payload.input_hash is not None and payload.input_hash != snapshot_hash:
+        raise HTTPException(409, "Source changed; confirm the source again")
+    if source.source_type != "url" and not payload.allow_external_ai:
+        raise HTTPException(422, "External AI consent is required for text analysis")
+    if source.source_type != "url" and len(source.extracted_text) > MAX_INPUT:
         raise HTTPException(422, "AI input exceeds 40000 characters; split the source")
+    if payload.reuse_existing:
+        # get_owned_source holds the source row lock, including concurrent refreshes.
+        previous = select(Analysis).where(
+            Analysis.source_id == source.id, Analysis.user_id == current_user.id,
+            Analysis.input_hash == snapshot_hash,
+        )
+        if source.source_type == "url":
+            previous = previous.where(Analysis.model.in_([HTML_MODEL, URL_MODEL]))
+        existing = db.scalar(previous.order_by(Analysis.created_at.desc(), Analysis.id.desc()).limit(1))
+        if existing is not None:
+            return existing  # Viewing any previous result never starts another AI request.
     if db.scalar(select(Analysis.id).where(Analysis.source_id == source.id,
                                          Analysis.status == "processing")) is not None:
         raise HTTPException(409, "Source analysis is already processing")
     try:
-        model = configured_model()
+        model = ((HTML_MODEL if matching_period(source.extracted_text, source.original_url)
+                  is not None else URL_MODEL) if source.source_type == "url" else configured_model())
     except AIError as exc:
         raise HTTPException(503, str(exc)) from exc
     if not slots.acquire(blocking=False):
@@ -86,7 +120,7 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
 def list_analyses(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession,
                   limit: Annotated[int, Query(ge=1, le=30)] = 10,
                   offset: Annotated[int, Query(ge=0)] = 0) -> list[Analysis]:
-    get_owned_source(source_id, current_user.id, db)
+    get_owned_source(source_id, current_user.id, db, for_update=False)
     return list(db.scalars(select(Analysis).where(
         Analysis.source_id == source_id, Analysis.user_id == current_user.id,
     ).order_by(Analysis.created_at.desc(), Analysis.id).limit(limit).offset(offset)))
@@ -94,7 +128,32 @@ def list_analyses(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseS
 
 @router.get("/api/ai-analyses/{analysis_id}", response_model=AnalysisResponse)
 def read_analysis(analysis_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession) -> Analysis:
-    return owned_analysis(analysis_id, current_user.id, db)
+    return owned_analysis(analysis_id, current_user.id, db, for_update=False)
+
+
+@router.post("/api/ai-analyses/{analysis_id}/recover-html", response_model=AnalysisResponse,
+             status_code=202)
+def recover_html(analysis_id: uuid.UUID, background_tasks: BackgroundTasks,
+                 current_user: CurrentUser, db: DatabaseSession) -> Analysis:
+    """Keep the failed record; create a fresh local-only review of the same source."""
+    previous = owned_analysis(analysis_id, current_user.id, db)
+    if previous.status != "failed":
+        raise HTTPException(409, "Only failed URL analyses can be recovered")
+    source = get_owned_source(previous.source_id, current_user.id, db)
+    if source.source_type != "url":
+        raise HTTPException(422, "HTML recovery requires a URL source")
+    if content_hash(source.extracted_text or "") != previous.input_hash:
+        raise HTTPException(409, "Source changed; extract and analyze it again")
+    existing = db.scalar(select(Analysis).where(
+        Analysis.source_id == source.id, Analysis.user_id == current_user.id,
+        Analysis.input_hash == previous.input_hash,
+        Analysis.model.in_([HTML_MODEL, URL_MODEL]),
+        Analysis.status.in_(["processing", "ready", "approved"]),
+        Analysis.id != previous.id,
+    ).order_by(Analysis.created_at.desc()).limit(1))
+    if existing is not None:
+        return existing
+    return start_analysis(source.id, AnalysisRequest(), background_tasks, current_user, db)
 
 
 @router.patch("/api/ai-analyses/{analysis_id}", response_model=AnalysisResponse)
@@ -120,9 +179,18 @@ def approve_analysis(analysis_id: uuid.UUID, payload: DecisionRequest,
     if analysis.status == "approved":
         return analysis  # Idempotent retry; no duplicate deadlines.
     ensure_ready(analysis, payload.revision)
+    return create_approved_deadlines(analysis, current_user, db)
+
+
+def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
+                              db: DatabaseSession) -> Analysis:
     source = get_owned_source(analysis.source_id, current_user.id, db)
+    from app.services.source_images import image_hash
+    snapshot_hash = (image_hash(source.storage_key) if source.source_type == "image"
+                     else content_hash(source.extracted_text or ""))
     if (source.processing_status != "extracted" or not source.extracted_text
-            or content_hash(source.extracted_text) != analysis.input_hash):
+            or snapshot_hash != analysis.input_hash
+            or (source.source_type == "image" and source.extracted_text != analysis.input_text)):
         raise HTTPException(409, "Source changed; extract and analyze it again")
     selected = [item for item in analysis.candidates if item["selected"]]
     if not selected or any(item["due_at"] is None for item in selected):
@@ -141,6 +209,30 @@ def approve_analysis(analysis_id: uuid.UUID, payload: DecisionRequest,
     db.commit()
     db.refresh(analysis)
     return analysis
+
+
+@router.post("/api/ai-analyses/{analysis_id}/auto-register", response_model=AnalysisResponse)
+def auto_register_analysis(analysis_id: uuid.UUID, payload: AutoRegistrationRequest,
+                           current_user: CurrentUser, db: DatabaseSession) -> Analysis:
+    analysis = owned_analysis(analysis_id, current_user.id, db)
+    if analysis.status == "approved":
+        return analysis  # Recover a lost success response without creating another deadline.
+    ensure_ready(analysis, payload.revision)
+    source = get_owned_source(analysis.source_id, current_user.id, db)
+    if source.source_type in {"url", "image"}:
+        raise HTTPException(422, "url_registration_requires_review" if source.source_type == "url"
+                            else "image_registration_requires_review")
+    # Never arbitrarily choose among dates, infer a missing date, or auto-approve a manual edit.
+    if (analysis.revision != 1 or analysis.warnings or len(analysis.candidates) != 1
+            or not analysis.candidates[0]["selected"] or analysis.candidates[0]["due_at"] is None):
+        raise HTTPException(422, "auto_registration_requires_review")
+    source = get_owned_source(analysis.source_id, current_user.id, db)
+    if source.title != payload.title:
+        raise HTTPException(409, "Source changed; confirm the registration title again")
+    analysis.candidates = [dict(analysis.candidates[0], title=payload.title)]
+    analysis.revision += 1
+    # Title replacement and deadline creation share one transaction and the analysis row lock.
+    return create_approved_deadlines(analysis, current_user, db)
 
 
 @router.post("/api/ai-analyses/{analysis_id}/reject", response_model=AnalysisResponse)

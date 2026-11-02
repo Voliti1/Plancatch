@@ -39,14 +39,17 @@ test("URL and text source registration and empty list", async ({ page }) => {
   await page.getByRole("link", { name: "원본 자료", exact: true }).click();
   await expect(page.getByText("등록된 자료가 없습니다")).toBeVisible();
   await page.getByRole("link", { name: "＋ 자료 등록" }).click();
-  await page.getByLabel("자료 제목 (선택)").fill("수업 공지");
+  await page.getByLabel("일정 제목 (선택)").fill("수업 공지");
   await page.getByLabel("원본 URL").fill("https://example.com/notice");
   await page.getByRole("button", { name: "자료 저장" }).click();
+  await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
+  await page.goto("/sources");
   await expect(page.getByRole("heading", { name: "수업 공지" })).toBeVisible();
   await page.getByRole("link", { name: "＋ 자료 등록" }).click();
-  await page.getByRole("button", { name: "텍스트", exact: true }).click();
   await page.getByLabel("원본 텍스트").fill("다음 주 발표 자료 제출");
   await page.getByRole("button", { name: "자료 저장" }).click();
+  await expect(page).toHaveURL(/\/sources\/source-2\/review$/);
+  await page.goto("/sources");
   await page.getByText("텍스트 내용 보기").click();
   await expect(
     page.getByText("다음 주 발표 자료 제출", { exact: true }),
@@ -124,6 +127,7 @@ test("editing a title preserves deadline seconds", async ({ page }) => {
   await login(page);
   const deadline = {
     id: "precision-check", title: "초 단위 마감", due_at: "2026-10-01T00:30:45.123Z",
+    safety_buffer_minutes: null, safe_due_at: null,
     source_id: null, deadline_type: null, description: null, confidence: null,
     evidence_text: null, is_confirmed: false,
     created_at: "2026-09-16T00:00:00Z", updated_at: "2026-09-16T00:00:00Z",

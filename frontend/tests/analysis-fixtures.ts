@@ -134,6 +134,7 @@ export async function mockAnalyses(
       analysis.candidates = body.candidates.map((item: CandidateEdit) => ({
         ...analysis.candidates.find((saved) => saved.id === item.id),
         ...item,
+        suggested_due_at: null,
       }));
       analysis.revision++;
     }
@@ -146,6 +147,8 @@ export async function mockAnalyses(
           source_id: aiSource.id,
           title: candidate.title,
           due_at: candidate.due_at!,
+          safety_buffer_minutes: null,
+          safe_due_at: null,
           description: candidate.description,
           confidence: candidate.confidence,
           evidence_text: candidate.evidence_text,

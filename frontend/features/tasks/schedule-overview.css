@@ -1,0 +1,79 @@
+.dashboard-schedules {
+  margin: 0 0 24px;
+}
+.dashboard-schedule-list {
+  list-style: none;
+  padding: 0;
+  margin: 18px 0;
+}
+.dashboard-schedule-list li + li {
+  border-top: 1px solid var(--line);
+}
+.dashboard-schedule-link {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 18px 0;
+}
+.dashboard-schedule-link:hover strong {
+  color: var(--blue);
+}
+.dashboard-schedule-summary {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dashboard-schedule-link > .tag {
+  flex-shrink: 0;
+}
+.schedule-window-note {
+  line-height: 1.7;
+}
+.schedule-detail-navigation {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+.schedule-detail-navigation .back-link {
+  margin: 0;
+}
+.schedule-detail-navigation > a:last-child {
+  font-size: 13px;
+  color: var(--muted);
+}
+.task-detail.schedule-detail,
+.danger-zone.schedule-detail-danger {
+  max-width: 720px;
+}
+.schedule-detail .task-description {
+  padding-top: 0;
+  border-top: 0;
+  margin-bottom: 24px;
+}
+.schedule-extra-details {
+  margin: 24px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+.schedule-extra-details summary {
+  padding: 15px 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.schedule-extra-details > .task-details-grid {
+  margin-top: 8px;
+}
+@media (max-width: 600px) {
+  .dashboard-schedule-link {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .schedule-detail .form-actions {
+    flex-wrap: wrap;
+  }
+}

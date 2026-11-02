@@ -1,0 +1,48 @@
+.calendar-task-form input[name="title"] {
+  font-size: 17px;
+}
+.calendar-task-form .form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.calendar-task-timezone {
+  margin: -10px 0 22px;
+}
+.calendar-task-settings {
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  margin: 0 0 18px;
+}
+.calendar-task-settings summary {
+  padding: 15px 0;
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+}
+.calendar-task-settings > div {
+  padding-top: 8px;
+}
+.calendar-task-help {
+  line-height: 1.7;
+  margin: 0 0 22px;
+}
+.calendar-task-form .form-actions {
+  padding-top: 8px;
+}
+.calendar-task-form button[type="submit"] {
+  min-width: 125px;
+}
+@media (max-width: 600px) {
+  .calendar-task-form .form-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+  .calendar-task-form input,
+  .calendar-task-form textarea,
+  .calendar-task-form select {
+    font-size: 16px;
+  }
+  .calendar-task-form button[type="submit"] {
+    flex: 1;
+  }
+}

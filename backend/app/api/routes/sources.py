@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy import select, update
 
 from app.api.dependencies import CurrentUser, DatabaseSession
+from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.source import SourceCreate, SourceResponse, SourceUpdate
 from app.services.source_processing import process_source, slots
@@ -15,11 +16,13 @@ from app.services.source_processing import process_source, slots
 router = APIRouter(prefix="/api/sources", tags=["sources"])
 
 
-def get_owned_source(source_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession) -> Source:
+def get_owned_source(source_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSession,
+                     *, for_update: bool = True) -> Source:
     """Return a source owned by a user without leaking other users' records."""
-    source = db.scalar(
-        select(Source).where(Source.id == source_id, Source.user_id == user_id).with_for_update(),
-    )
+    statement = select(Source).where(Source.id == source_id, Source.user_id == user_id)
+    if for_update:
+        statement = statement.with_for_update()
+    source = db.scalar(statement)
     if source is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -54,12 +57,15 @@ def list_sources(
     db: DatabaseSession,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    q: Annotated[str, Query(max_length=255)] = "",
 ) -> list[Source]:
     """List the authenticated user's source material, newest first."""
+    statement = select(Source).where(Source.user_id == current_user.id)
+    if query := q.strip():
+        statement = statement.where(Source.title.icontains(query, autoescape=True))
     return list(
         db.scalars(
-            select(Source)
-            .where(Source.user_id == current_user.id)
+            statement
             .order_by(Source.created_at.desc(), Source.id)
             .limit(limit)
             .offset(offset),
@@ -74,7 +80,7 @@ def read_source(
     db: DatabaseSession,
 ) -> Source:
     """Return one source owned by the authenticated user."""
-    return get_owned_source(source_id, current_user.id, db)
+    return get_owned_source(source_id, current_user.id, db, for_update=False)
 
 
 @router.post(
@@ -93,6 +99,8 @@ def request_source_analysis(
     `extracted` means text is ready, not that AI analysis has run.
     """
     source = get_owned_source(source_id, current_user.id, db)
+    if source.source_type == "image":
+        raise HTTPException(422, "이미지는 이미지 검토 화면에서 전송 동의 후 분석해 주세요.")
     if not slots.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="Extraction capacity reached; retry later")
     try:
@@ -123,6 +131,15 @@ def update_source(
     if source.processing_status == "processing":
         raise HTTPException(status_code=409, detail="Source is currently processing")
     changes = payload.model_dump(exclude_unset=True)
+
+    if source.source_type == "image":
+        if set(changes) - {"title"}:
+            raise HTTPException(422, "이미지는 제목만 수정할 수 있습니다.")
+        if "title" in changes:
+            source.title = changes["title"]
+        db.commit()
+        db.refresh(source)
+        return source
 
     try:
         candidate = SourceCreate(
@@ -162,6 +179,11 @@ def delete_source(
     source = get_owned_source(source_id, current_user.id, db)
     if source.processing_status == "processing":
         raise HTTPException(status_code=409, detail="Source is currently processing")
+    if db.scalar(select(Deadline.id).where(Deadline.source_id == source.id).limit(1)) is not None:
+        raise HTTPException(status_code=409, detail="source_has_deadlines")
     db.delete(source)
     db.commit()
+    if source.source_type == "image":
+        from app.services.source_images import remove_image
+        remove_image(source.storage_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

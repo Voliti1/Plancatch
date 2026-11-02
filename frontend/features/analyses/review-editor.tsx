@@ -10,6 +10,9 @@ import type {
 } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError } from "./errors";
+import { RemainingPeriod } from "./remaining-period";
+import { isHtmlAnalysis } from "./display";
+import { briefEvidence } from "./brief-evidence";
 
 type Draft = {
   id: string;
@@ -17,6 +20,8 @@ type Draft = {
   due: string;
   description: string;
   selected: boolean;
+  chosenDue?: string;
+  suggestionTouched?: boolean;
 };
 const draftOf = (candidate: AnalysisCandidate): Draft => ({
   id: candidate.id,
@@ -25,6 +30,14 @@ const draftOf = (candidate: AnalysisCandidate): Draft => ({
   description: candidate.description ?? "",
   selected: candidate.selected,
 });
+function suggestedDraftOf(candidate: AnalysisCandidate): Draft {
+  const draft = draftOf(candidate);
+  if (candidate.suggested_due_at) {
+    draft.due = toSeoulInput(candidate.suggested_due_at);
+    draft.chosenDue = candidate.suggested_due_at;
+  }
+  return draft;
+}
 function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
   if (!draft.title.trim())
     throw new Error("제외한 후보를 포함해 모든 후보의 제목을 입력해 주세요.");
@@ -33,42 +46,52 @@ function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
     title: draft.title.trim(),
     due_at: !draft.due
       ? null
-      : original.due_at && draft.due === toSeoulInput(original.due_at)
-        ? original.due_at
-        : seoulInputToUtc(draft.due),
+      : draft.chosenDue && draft.due === toSeoulInput(draft.chosenDue)
+        ? draft.chosenDue
+        : original.due_at && draft.due === toSeoulInput(original.due_at)
+          ? original.due_at
+          : seoulInputToUtc(draft.due),
     description: draft.description.trim() || null,
     selected: draft.selected,
   };
 }
 export function CandidateEvidence({
   candidate,
+  fromHtml = false,
 }: {
   candidate: AnalysisCandidate;
+  fromHtml?: boolean;
 }) {
   return (
     <div className="candidate-evidence">
       <h4>원문 근거</h4>
-      <p className="analysis-text">{candidate.evidence_text}</p>
+      <p className="analysis-text">{briefEvidence(candidate.evidence_text)}</p>
       <p className="small muted">
-        AI 신뢰도 참고값 {Math.round(candidate.confidence * 100)}% · 정확도를
-        보장하지 않습니다.
+        {fromHtml
+          ? "HTML에 명시된 접수기간을 직접 확인한 결과입니다. AI 추정값이 아닙니다."
+          : `AI 신뢰도 참고값 ${Math.round(candidate.confidence * 100)}% · 정확도를 보장하지 않습니다.`}
       </p>
     </div>
   );
 }
 export function ReviewEditor({
   analysis,
+  now,
   onUpdated,
 }: {
   analysis: Analysis;
+  now: number | null;
   onUpdated: (data: Analysis, message: string) => void;
 }) {
-  const [drafts, setDrafts] = useState(() => analysis.candidates.map(draftOf));
+  const [drafts, setDrafts] = useState(() =>
+    analysis.candidates.map(suggestedDraftOf),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
   const [confirmReject, setConfirmReject] = useState(false);
   const [confirmReload, setConfirmReload] = useState(false);
+  const [choiceNotice, setChoiceNotice] = useState("");
   const pending = useRef(false);
   const formId = useId();
   const dirty =
@@ -106,7 +129,7 @@ export function ReviewEditor({
             : action === "reject"
               ? await analysesApi.reject(analysis.id, analysis.revision)
               : await analysesApi.get(analysis.id);
-      setDrafts(result.candidates.map(draftOf));
+      setDrafts(result.candidates.map(suggestedDraftOf));
       setConfirmReject(false);
       setConfirmReload(false);
       onUpdated(
@@ -135,6 +158,27 @@ export function ReviewEditor({
       <fieldset disabled={busy}>
         {drafts.map((draft, index) => {
           const original = analysis.candidates[index];
+          const originalDate =
+            analysis.source_period &&
+            (analysis.source_period.site === "jobplanet" ||
+              analysis.source_period.site === "linkareer" ||
+              analysis.source_period.site === "work24") &&
+            !analysis.source_period.has_conflict
+              ? analysis.date_choices?.find(
+                  (choice) => choice.date && !choice.due_at,
+                )?.date
+              : undefined;
+          const dateChanged =
+            draft.due !==
+            (original.due_at ? toSeoulInput(original.due_at) : "");
+          let countdownDate = original.due_at;
+          if (dateChanged) {
+            try {
+              countdownDate = draft.due ? seoulInputToUtc(draft.due) : null;
+            } catch {
+              countdownDate = null;
+            }
+          }
           return (
             <article className="analysis-candidate" key={draft.id}>
               <h3>후보 {index + 1}</h3>
@@ -167,14 +211,91 @@ export function ReviewEditor({
                 id={`${formId}-${index}-due`}
                 type="datetime-local"
                 value={draft.due}
-                onChange={(event) => update(index, { due: event.target.value })}
+                onChange={(event) =>
+                  update(index, {
+                    due: event.target.value,
+                    chosenDue: undefined,
+                    suggestionTouched: original.suggested_due_at
+                      ? true
+                      : undefined,
+                  })
+                }
               />
-              {!original.due_at && (
+              {(analysis.date_choices?.length ?? 0) > 0 && (
+                <div
+                  role="group"
+                  aria-label={`후보 ${index + 1} 읽은 날짜 선택`}
+                >
+                  <p className="small muted">
+                    {analysis.model.startsWith("image:")
+                      ? "사진에서 읽은 마감일을 확인하세요. 시간이 없으면 오후 11시 59분으로 설정됩니다."
+                      : "HTML에서 읽은 날짜 중 마감일을 선택하세요."}
+                  </p>
+                  <div className="review-secondary-actions">
+                    {analysis.date_choices!.map((choice) => (
+                      <button
+                        key={choice.id}
+                        type="button"
+                        className="secondary"
+                        aria-pressed={Boolean(
+                          choice.due_at &&
+                          draft.due === toSeoulInput(choice.due_at),
+                        )}
+                        onClick={() => {
+                          update(index, {
+                            due:
+                              choice.due_at && !analysis.is_open_ended
+                                ? toSeoulInput(choice.due_at)
+                                : "",
+                            selected: true,
+                            chosenDue: !analysis.is_open_ended
+                              ? (choice.due_at ?? undefined)
+                              : undefined,
+                          });
+                          setChoiceNotice(
+                            choice.due_at && !analysis.is_open_ended
+                              ? `선택한 날짜: ${choice.raw_text}. 검토 내용을 저장한 후 승인하세요.`
+                              : `선택한 원문: ${choice.raw_text}. 빠진 연도나 시간을 추측하지 않습니다. 마감 일시를 직접 입력해 주세요.`,
+                          );
+                        }}
+                      >
+                        {choice.raw_text}
+                        {!choice.due_at ? " · 일시 입력 필요" : ""}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {analysis.is_open_ended && (
                 <p className="notice small">
-                  원문에서 날짜를 확정하지 못했습니다. 마감일을 직접 확인하거나
-                  후보를 제외해 주세요.
+                  채용 시 마감·상시 모집입니다. 원하는 마감 날짜와 시간을 직접
+                  입력해야 등록할 수 있습니다.
                 </p>
               )}
+              {original.time_defaulted && draft.due && (
+                <p className="notice small">
+                  마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면
+                  변경해 주세요.
+                </p>
+              )}
+              {original.suggested_due_at && draft.due && (
+                <p className="notice small">
+                  원문에서 확인한 마감일을 입력했습니다. 검토 내용을 저장한 후
+                  승인해 주세요.
+                </p>
+              )}
+              {!original.due_at && !original.suggested_due_at && !draft.due && (
+                <p className="notice small">
+                  {originalDate
+                    ? `원문 마감 날짜는 ${originalDate}입니다. 마감 시각을 직접 입력하고 후보를 포함해 주세요.`
+                    : "원문에서 날짜를 확정하지 못했습니다. 마감일을 직접 확인하거나 후보를 제외해 주세요."}
+                </p>
+              )}
+              <RemainingPeriod
+                dueAt={countdownDate}
+                now={now}
+                editing={dateChanged}
+              />
               <label htmlFor={`${formId}-${index}-description`}>
                 후보 {index + 1} 설명 (선택)
               </label>
@@ -187,7 +308,10 @@ export function ReviewEditor({
                   update(index, { description: event.target.value })
                 }
               />
-              <CandidateEvidence candidate={original} />
+              <CandidateEvidence
+                candidate={original}
+                fromHtml={isHtmlAnalysis(analysis.model)}
+              />
             </article>
           );
         })}
@@ -197,6 +321,11 @@ export function ReviewEditor({
           </p>
         )}
         <div className="review-actions">
+          {choiceNotice && (
+            <p className="notice small" role="status">
+              {choiceNotice}
+            </p>
+          )}
           <p>
             {selected.length}개 선택 · 승인 전에는 실제 마감일이 생성되지
             않습니다.

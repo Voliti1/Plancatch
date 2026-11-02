@@ -1,5 +1,7 @@
 # Source extraction API (stage 2)
 
+> 2026-10-27 변경: 날짜가 명확하고 시간만 없으면 한국 시간 23:59를 후보에 미리 입력하고 사용자 승인을 받습니다. 이전의 시간 누락 시 빈칸 유지 규칙은 [마감 시간 처리 정책](deadline-clock-policy.md)으로 대체합니다.
+
 Authenticated `POST /api/sources/{source_id}/analyze` accepts no body and returns
 202 with a SourceResponse snapshot in `processing`. The source must belong to
 the caller. Poll `GET /api/sources/{source_id}` for completion.
@@ -8,8 +10,11 @@ States:
 - `pending`: not yet requested, or source contents changed.
 - `processing`: extraction in progress.
 - `extracted`: extracted_text is ready. **No AI inference has run.**
-- `requires_login`: HTTP 401 or a page containing a password input; not fetched
-  with credentials. Password-form detection is conservative, not definitive.
+- `requires_login`: HTTP 401 or a page containing a non-hidden password input;
+  not fetched with credentials. Password-form detection is conservative, not definitive.
+  Explicitly hidden optional login popups (hidden/aria-hidden/inline display or
+  visibility, including inherited hiding) do not block public content. Their
+  text is excluded from extraction and AI input. External CSS is not evaluated.
 - `failed`: inspect error_message (safe code).
 - `completed`: reserved for a later AI pipeline; this worker never sets it.
 
@@ -26,6 +31,61 @@ resources are not forwarded or fetched. There is no browser rendering or
 CAPTCHA bypass. robots.txt 404/410 is treated as absent; other non-200 responses
 fail closed. Site terms/permission still need separate review for supported sites.
 
+Saramin public relay job URLs have a bounded adapter: when the HTML itself links
+to a single same-origin `/zf_user/jobs/view` canonical with exactly the same
+numeric `rec_idx`, extraction reads that public server-rendered job page instead
+of the JavaScript-only relay shell. The original page must first pass the login
+gate. The canonical consumes the existing navigation budget and is subject to
+the same DNS pinning, TLS, robots, timeout and size checks. Different jobs,
+origins, credentials, ports, extra query fields and conflicting canonical links
+are not followed. No generic canonical crawler, AJAX calls, cookies, login or
+automatic iframe fetching are enabled. The stored original_url remains unchanged.
+
+### Same-page structured job evidence
+
+The extractor reads HTML already downloaded under the existing policy. In addition
+to visible main/body text, it now reads inert inline `application/ld+json` blocks
+containing Schema.org `JobPosting` records. No JavaScript is executed, no JSON-LD
+context or metadata URL is fetched, and arbitrary scripts/hidden body content are
+still excluded. No general browser, AJAX, iframe or login bypass is introduced.
+
+Only a record whose `url`, `@id`, or fallback `mainEntityOfPage` identifies the
+fetched page is usable. Conflicting references, other jobs/hosts, credentials,
+ports, invalid dates and incompatible multiple same-page records are ignored.
+Generic query parameters remain part of the page identity. JobKorea's numeric
+`/Recruit/GI_Read/{id}` path permits its query-free metadata URL when the submitted
+URL contains tracking/search parameters; a supplied posting identifier must also
+match that path ID. This adapter never changes or fetches an identity link.
+
+Validated ISO `validThrough` is appended with a clear JSON-LD provenance label,
+job title, page URL and sanitized description. Dates and offsets are preserved
+verbatim: no current year, end-of-day time or offset is added to the original evidence.
+Date-only values still add a Korean review notice: the AI adapter keeps proposals
+null/unselected until the user supplies the missing clock time, even if the model
+invented 23:59. A complete date/time without a zone instead adds a service-policy
+disclosure and is interpreted as Asia/Seoul (UTC+09:00) during analysis. This is
+not a claim that the website specifies KST. Explicit source offsets/zones are
+respected; conflicting dates/offsets or other warnings still block auto-registration.
+
+JSON-LD capture is limited to 16 blocks and 100,000 characters in total; each
+graph walk is limited to 128 nodes and depth 8. Malformed/oversized/unrelated
+metadata does not replace usable visible content. Combined text retains the
+existing 100,000-character extraction and 40,000-character AI input limits.
+An empty page may be extracted only when usable same-page job evidence exists.
+Other JavaScript-only pages still require manual text input or future rendering.
+
+For the observed public JobKorea job 50076426, the original HTML contains
+`validThrough: 2026-10-31T23:59`; visible job text lives in a hidden streamed
+container in the initial HTML. The old extractor dropped that text and all scripts,
+so the AI never received the deadline. The metadata supplies the missing evidence,
+and the service now supplies its documented KST default for the absent timezone.
+
+Existing stored extracts are not rewritten automatically. Re-extract the original
+Source when new evidence is needed, then start a new analysis; a prior Analysis
+keeps its own original snapshot. New analysis of a previously stored complete ISO
+datetime also supports the old missing-timezone notice without rewriting the Source.
+No DB migration, frontend change, secret change or security-group update is needed.
+
 Limits: 2 simultaneous jobs per application process, 2 MB response,
 100,000 characters, at most 3 followed redirects, 8-second socket timeout,
 30-second HTTP read budget. OS DNS resolution may outlast that budget.
@@ -37,3 +97,47 @@ This MVP uses FastAPI BackgroundTasks, not a durable queue. A process restart
 may leave jobs in processing; restart recovery and a persistent queue are
 required before larger-scale use. Do not deploy schema changes without applying
 Alembic revision 20260930_0004 first. No frontend changes are included here.
+
+## JobKorea countdown evidence (2026-10-27)
+
+The same-job JobKorea adapter also reads the countdown's explicit, offset-aware
+`endDate` from inert HTML Flight JSON and checks it against `validThrough`.
+See [JobKorea extraction, review and verification](jobkorea-period.md) for the
+accepted structure, limits and frontend site label. This follow-up changes both
+backend and frontend code; it requires no additional migration or configuration.
+
+## Catch closing-period evidence (2026-10-27)
+
+The Catch adapter matches `view2_{job ID}.recr_pop_dday p.t1` to the same page's
+canonical URL, heading and JobPosting `validThrough`. See
+[Catch extraction and review](catch-period.md) for year/time validation, limits
+and the additive frontend `catch` site label.
+
+## JobPlanet visible closing date (2026-10-27)
+
+The JobPlanet adapter reads the visible closing-date dt/dd pair of one canonical
+posting. Date-only evidence requires a user-supplied time. See
+[JobPlanet extraction and review](jobplanet-period.md), including the current
+HTTP 403 limitation of the existing server transport observed during verification.
+
+## Jasoseol offset-aware application period (2026-10-27)
+
+The Jasoseol adapter cross-checks visible period spans against the exact same job's
+offset-aware dates in inert `__NEXT_DATA__`. Both visible endpoints must agree in
+Seoul time or UTC; mixed/unverified clocks stay manual. See
+[Jasoseol extraction and review](jasoseol-period.md) for identity checks and limits.
+
+## Linkareer application period (2026-10-27)
+
+The Linkareer adapter matches the visible start/end fields to a same-page
+JobPosting expiry and explains when its time comes from metadata. Without a
+verified metadata clock the user supplies the time. See
+[Linkareer extraction and review](linkareer-period.md) for scope checks and limits.
+
+## Work24 public job deadline (2026-10-27)
+
+The Work24 adapter verifies the URL/form/visible job certificate and reads its
+closing-date block. Explicit 24:00 becomes the next day's 00:00 Seoul time while
+preserving the original evidence. See [Work24 extraction and review](work24-period.md)
+for the tightly scoped handling of closed account-maintenance footer dialogs;
+active or unverified password gates remain blocked.

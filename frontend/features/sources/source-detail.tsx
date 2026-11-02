@@ -14,6 +14,8 @@ import type { Source } from "@/types/api";
 import { SourceExtraction } from "./source-extraction";
 import { processingError } from "@/features/analyses/errors";
 import { SourceAnalyses } from "@/features/analyses/source-analyses";
+import { SourceExtractedContent } from "./source-extracted-content";
+import { SourceImage } from "./source-image";
 
 export function SourceDetail({ id }: { id: string }) {
   const loader = useCallback(async () => {
@@ -137,12 +139,7 @@ export function SourceDetail({ id }: { id: string }) {
                     </section>
                   )}
                   {data.extracted_text !== null && (
-                    <section className="source-content">
-                      <h3>추출된 내용</h3>
-                      <p className="source-text">
-                        {data.extracted_text || "추출된 내용이 없습니다."}
-                      </p>
-                    </section>
+                    <SourceExtractedContent text={data.extracted_text} />
                   )}
                   {data.source_type === "url" || data.source_type === "text" ? (
                     <button
@@ -168,17 +165,35 @@ export function SourceDetail({ id }: { id: string }) {
                 </>
               )}
             </section>
-            <SourceExtraction
-              source={data}
-              disabled={editing || confirmDelete || deleting || workflowBusy}
-              onUpdate={setSourceUpdate}
-              onBusy={setWorkflowBusy}
-            />
-            <SourceAnalyses
-              source={data}
-              disabled={editing || confirmDelete || deleting || workflowBusy}
-              onBusy={setWorkflowBusy}
-            />
+            {data.source_type === "image" ? (
+              <>
+                <SourceImage id={id} />
+                <Link
+                  className="button"
+                  href={`/sources/${encodeURIComponent(id)}/review`}
+                >
+                  이미지 마감일 검토 →
+                </Link>
+              </>
+            ) : (
+              <>
+                <SourceExtraction
+                  source={data}
+                  disabled={
+                    editing || confirmDelete || deleting || workflowBusy
+                  }
+                  onUpdate={setSourceUpdate}
+                  onBusy={setWorkflowBusy}
+                />
+                <SourceAnalyses
+                  source={data}
+                  disabled={
+                    editing || confirmDelete || deleting || workflowBusy
+                  }
+                  onBusy={setWorkflowBusy}
+                />
+              </>
+            )}
             {!editing && (
               <section className="card danger-zone">
                 <div>
@@ -187,7 +202,8 @@ export function SourceDetail({ id }: { id: string }) {
                     삭제한 원본 자료는 복구할 수 없습니다.
                   </p>
                   <p className="muted">
-                    연결된 마감일은 유지되며 이 자료와의 연결만 해제됩니다.
+                    마감일이 등록된 원본 자료는 삭제할 수 없습니다. 연결된
+                    마감일을 먼저 삭제해 주세요.
                   </p>
                 </div>
                 {!confirmDelete ? (

@@ -4,11 +4,14 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
+import { AccountControls } from "@/features/settings/account-controls";
 const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
   ["/deadlines", "◷", "마감일"],
-  ["/tasks", "✓", "작업"],
+  ["/calendar", "▦", "캘린더"],
+  ["/settings/google-calendar", "↗", "구글 캘린더 연결"],
 ];
 export default function WorkspaceLayout({
   children,
@@ -40,6 +43,9 @@ export default function WorkspaceLayout({
           <span className="logo">P</span>PlanCatch
           <span className="brand-dot">.</span>
         </Link>
+        <NewRegistrationLink className="sidebar-new-registration">
+          새 일정 등록하기
+        </NewRegistrationLink>
         <p className="nav-caption">MY WORKSPACE</p>
         <nav aria-label="주 메뉴">
           {nav.map(([href, icon, label]) => (
@@ -58,16 +64,11 @@ export default function WorkspaceLayout({
             </Link>
           ))}
         </nav>
-        <div className="coming">
-          <span className="tag">준비 중</span>
-          <p>자동 일정 · 캘린더</p>
-          <small>
-            계획의 다음 단계도
-            <br />곧 이곳에서 함께해요.
-          </small>
-        </div>
         <div className="account">
-          <strong>{user.display_name || "사용자"}</strong>
+          <AccountControls
+            name={user.display_name || "사용자"}
+            email={user.email}
+          />
           <span>{user.email}</span>
           <button
             className="text-button"
