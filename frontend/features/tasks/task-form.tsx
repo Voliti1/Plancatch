@@ -10,6 +10,14 @@ import type { DeadlineInput } from "@/types/api";
 import type { NaturalScheduleDraft } from "@/types/natural-schedule";
 import { loadDeadlineOptions } from "./deadline-options";
 import "./calendar-task-form.css";
+import {
+  ReminderSettings,
+  validateReminders,
+} from "@/features/google-calendar/reminder-settings";
+import {
+  newReminderSettings,
+  type GoogleReminderSettings,
+} from "@/types/google-reminders";
 
 function optionalUtc(value: string, original: string | null): string | null {
   if (!value) return null;
@@ -80,6 +88,9 @@ export function TaskForm({
       : "",
   );
   const [completed, setCompleted] = useState(initial?.is_completed ?? false);
+  const [reminders, setReminders] = useState<GoogleReminderSettings | null>(
+    initial ? (initial.google_reminders ?? null) : newReminderSettings(),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
@@ -91,6 +102,7 @@ export function TaskForm({
     setBusy(true);
     setError("");
     try {
+      validateReminders(reminders);
       if (!title.trim())
         throw new Error(
           simple ? "일정명을 입력해 주세요." : "작업명을 입력해 주세요.",
@@ -98,6 +110,7 @@ export function TaskForm({
       if (isDeadline && onSaveDeadline) {
         if (!end) throw new Error("종료 일시를 입력해 주세요.");
         await onSaveDeadline({
+          ...(reminders ? { google_reminders: reminders } : {}),
           title: title.trim(),
           due_at: seoulInputToUtc(end),
           description: description.trim() || null,
@@ -137,6 +150,7 @@ export function TaskForm({
             : "최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.",
         );
       await onSave({
+        ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
         deadline_id: deadline || null,
         description: description.trim() || null,
@@ -377,6 +391,14 @@ export function TaskForm({
             {completion}
           </>
         )}
+        <ReminderSettings
+          allowPreserve={Boolean(initial) && initial?.google_reminders == null}
+          value={reminders}
+          onChange={(value) => {
+            onUserEdit?.();
+            setReminders(value);
+          }}
+        />
         {simple && isDeadline && (
           <p className="muted small calendar-task-help">
             입력한 종료 일시를 마감일로 저장하고 캘린더에 표시합니다. Google

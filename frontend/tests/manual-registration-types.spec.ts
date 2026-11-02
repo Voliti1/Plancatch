@@ -87,6 +87,7 @@ test("deadline registration sends only the end time to Deadline API and appears 
   );
   await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
   expect((await sent).postDataJSON()).toEqual({
+    google_reminders: { mode: "none", overrides: [] },
     title: "[테스트] 제안서 마감",
     due_at: "2026-11-06T14:59:00.000Z",
     description: null,

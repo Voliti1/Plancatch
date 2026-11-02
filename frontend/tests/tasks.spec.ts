@@ -86,6 +86,7 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   );
   await page.getByRole("button", { name: "작업 등록", exact: true }).click();
   expect((await create).postDataJSON()).toEqual({
+    google_reminders: { mode: "none", overrides: [] },
     title: "발표 초안 작성",
     deadline_id: "deadline-1",
     description: "슬라이드 초안을 준비합니다.",

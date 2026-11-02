@@ -97,7 +97,7 @@ def test_preview_does_not_write_and_confirmation_is_durable_and_idempotent(
     assert [method for method, _ in calls] == ["GET", "POST"]
     event = next(iter(remote.values()))
     assert not ({"description", "attendees", "attachments"} & event.keys())
-    assert event["reminders"] == {"useDefault": False}
+    assert event["reminders"] == {"useDefault": False, "overrides": []}
     assert first.headers["cache-control"] == "no-store"
     assert preview(setup, auth, target)["preview_token"] is None
 

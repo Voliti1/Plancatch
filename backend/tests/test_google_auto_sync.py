@@ -97,12 +97,13 @@ def test_registration_update_and_delete_need_no_preview_or_confirm(setup, automa
     drain()
     assert writes == ['POST'] and state(setup, auth, target)['state'] == 'synced'
     identity = rows()[0].google_event_id
-    remote[identity].update(description='Google 메모', reminders={'useDefault': True})
+    alarm = copy.deepcopy(remote[identity]['reminders'])
+    remote[identity].update(description='Google 메모')
     assert setup.client.patch('/api/deadlines/' + target['item_id'], headers=auth,
         json={'title': '변경한 제목', 'due_at': '2026-11-12T18:00:00+09:00'}).status_code == 200
     drain()
     assert remote[identity]['summary'] == '변경한 제목' and writes == ['POST', 'PATCH']
-    assert remote[identity]['description'] == 'Google 메모' and remote[identity]['reminders']['useDefault']
+    assert remote[identity]['description'] == 'Google 메모' and remote[identity]['reminders'] == alarm
     count = len(calls)
     setup.client.patch('/api/deadlines/' + target['item_id'], headers=auth, json={'description': '로컬 메모'})
     drain()

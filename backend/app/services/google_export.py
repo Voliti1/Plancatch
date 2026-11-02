@@ -8,6 +8,7 @@ from urllib.request import Request, build_opener
 
 from app.services import google_calendar as google
 from app.services.google_events import EVENTS_URL
+from app.services.google_reminders import matches as reminders_match
 
 
 class ExportError(Exception):
@@ -25,7 +26,7 @@ def request(token, method, event_id, body=None, *, etag=None):
         not isinstance(etag, str) or not 1 <= len(etag) <= 512 or "\r" in etag or "\n" in etag
     ):
         raise ExportError(409, "conflict")
-    fields = "fields=id,etag,summary,status,start,end,extendedProperties(private),attendees(self),recurrence,recurringEventId,eventType,organizer(self)"
+    fields = "fields=id,etag,summary,status,start,end,reminders,extendedProperties(private),attendees(self),recurrence,recurringEventId,eventType,organizer(self)"
     url = (
         EVENTS_URL + ("" if method == "POST" else "/" + event_id)
         + "?" + ("sendUpdates=none" if method == "DELETE" else ("" if method == "GET" else "sendUpdates=none&") + fields)
@@ -85,6 +86,7 @@ def matches(item, event_id, export_id, payload):
             and item["extendedProperties"]["private"]["plancatchExport"]
             == str(export_id)
             and item["summary"] == payload["summary"]
+            and reminders_match(item.get("reminders"), payload)
             and all(
                 datetime.fromisoformat(item[key]["dateTime"].replace("Z", "+00:00"))
                 == datetime.fromisoformat(payload[key]["dateTime"])
@@ -104,7 +106,7 @@ def send_once(token, row):
             **row.payload,
             "id": row.google_event_id,
             "extendedProperties": {"private": {"plancatchExport": str(row.id)}},
-            "reminders": {"useDefault": False},
+            "reminders": row.payload.get("reminders", {"useDefault": False}),
         }
         status, item = request(token, "POST", row.google_event_id, body)
         if status == 409:

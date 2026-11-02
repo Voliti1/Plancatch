@@ -74,7 +74,8 @@ def edit(setup, auth, target, title="새 마감일"):
 
 def test_update_preview_is_read_only_and_patch_preserves_unmanaged_fields(setup, changes):
     auth, target, identity, remote, calls, applied, _ = changes
-    remote[identity].update(description="사용자가 Google에서 추가한 메모", reminders={"useDefault": True})
+    alarm = copy.deepcopy(remote[identity]['reminders'])
+    remote[identity].update(description="사용자가 Google에서 추가한 메모")
     edit(setup, auth, target)
     result = view(setup, auth, target, "update")
     assert result.status_code == 200
@@ -84,7 +85,7 @@ def test_update_preview_is_read_only_and_patch_preserves_unmanaged_fields(setup,
     assert confirm(setup, auth, target, 'update', proposal).status_code == 200
     assert confirm(setup, auth, target, 'update', proposal).json()['already_applied']
     assert remote[identity]['summary'] == '새 마감일'
-    assert remote[identity]['description'].endswith('추가한 메모') and remote[identity]['reminders']['useDefault']
+    assert remote[identity]['description'].endswith('추가한 메모') and remote[identity]['reminders'] == alarm
     assert applied == ['POST', 'PATCH']
     assert preview(setup, auth, target)['changed'] is False
 

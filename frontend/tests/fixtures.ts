@@ -232,6 +232,7 @@ export async function mockApi(
       if (method === "POST") {
         const body = request.postDataJSON();
         const allowed = [
+          "google_reminders",
           "deadline_id",
           "title",
           "description",

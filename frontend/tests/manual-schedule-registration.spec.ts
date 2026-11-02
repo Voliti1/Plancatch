@@ -104,6 +104,7 @@ test("manual registration replaces the sidebar task entry and saves through the 
   );
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   expect((await sent).postDataJSON()).toEqual({
+    google_reminders: { mode: "none", overrides: [] },
     title: "[테스트] 직접 등록한 발표 준비",
     deadline_id: null,
     description: null,
@@ -322,6 +323,7 @@ test("collapsed settings and memo keep their values across mode changes and save
   );
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   expect((await sent).postDataJSON()).toEqual({
+    google_reminders: { mode: "none", overrides: [] },
     title: "[테스트] 밤샘 회의",
     description: "[테스트] 회의실 A",
     deadline_id: "deadline-1",

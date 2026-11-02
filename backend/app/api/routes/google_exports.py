@@ -27,6 +27,7 @@ from app.services import google_calendar as google
 from app.services import google_changes as changes
 from app.services import google_events
 from app.services import google_export as transport
+from app.services.google_reminders import provider_value
 
 router = APIRouter(prefix=google.PREFIX + "/exports", tags=["google-calendar"])
 
@@ -128,11 +129,15 @@ def payload_for(db, user_id, target):
     end = end.replace(microsecond=end.microsecond // 1000 * 1000)
     if end <= start:
         raise HTTPException(422, "종료 시각은 시작보다 늦어야 합니다.")
-    return {
+    result = {
         "summary": title,
         "start": {"dateTime": start.isoformat(), "timeZone": "Asia/Seoul"},
         "end": {"dateTime": end.isoformat(), "timeZone": "Asia/Seoul"},
-    }, task_id
+    }
+    reminders = provider_value(task.google_reminders if target.kind == "event" else item.google_reminders)
+    if reminders is not None:
+        result["reminders"] = reminders
+    return result, task_id
 
 
 def digest(payload):

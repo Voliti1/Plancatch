@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.schemas.google_reminders import GoogleReminders, default_reminders
 from app.services.deadline_safety import calculate_safe_due_at
 
 
@@ -39,6 +40,7 @@ class DeadlineCreate(DeadlineTimes):
     safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     deadline_type: str | None = Field(default=None, max_length=50)
     description: str | None = None
+    google_reminders: GoogleReminders = Field(default_factory=default_reminders)
     confidence: Decimal | None = Field(default=None, ge=0, le=1)
     evidence_text: str | None = None
     is_confirmed: bool = False
@@ -58,6 +60,7 @@ class DeadlineUpdate(DeadlineTimes):
     safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
     deadline_type: str | None = Field(default=None, max_length=50)
     description: str | None = None
+    google_reminders: GoogleReminders | None = None
     confidence: Decimal | None = Field(default=None, ge=0, le=1)
     evidence_text: str | None = None
     is_confirmed: bool | None = None
@@ -71,6 +74,8 @@ class DeadlineUpdate(DeadlineTimes):
             raise ValueError("due_at cannot be null")
         if "is_confirmed" in self.model_fields_set and self.is_confirmed is None:
             raise ValueError("is_confirmed cannot be null")
+        if "google_reminders" in self.model_fields_set and self.google_reminders is None:
+            raise ValueError("google_reminders cannot be null")
         return self
 
 
@@ -87,6 +92,7 @@ class DeadlineResponse(BaseModel):
     safe_due_at: datetime | None
     deadline_type: str | None
     description: str | None
+    google_reminders: GoogleReminders | None = None
     confidence: Decimal | None
     evidence_text: str | None
     is_confirmed: bool
