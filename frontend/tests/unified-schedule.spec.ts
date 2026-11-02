@@ -41,6 +41,8 @@ test("unified title search, native type chips, distinct deletion keys and task d
   const filters = page.getByRole("group", { name: "표시할 일정 종류" }),
     rows = page.locator(".schedule-rows > *");
   await expect(rows).toHaveCount(2);
+  await expect(rows.locator("svg.task-list-icon")).toHaveCount(1);
+  await expect(rows.locator("svg.task-list-icon rect")).toHaveCount(1);
   await expect(filters.getByLabel("할 일", { exact: true })).toBeChecked();
   expect(
     await filters

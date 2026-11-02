@@ -37,7 +37,7 @@ test("HTML analysis is labelled as direct extraction, not AI confidence; review 
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-10-16T23:59");
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료", exact: true }),
@@ -87,7 +87,7 @@ test("unresolved HTML periods remain editable review results rather than AI erro
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   await expect(page.locator(".candidate-evidence")).not.toContainText("신뢰도");
 });

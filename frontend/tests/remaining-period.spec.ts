@@ -242,7 +242,7 @@ test("JobKorea uses the HTML deadline clock and keeps the removed snapshot row h
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();

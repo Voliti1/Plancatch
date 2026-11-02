@@ -81,7 +81,7 @@ test("Jasoseol renders 23:50 Seoul, ticks and preserves that instant through tit
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();
@@ -147,6 +147,6 @@ test("Jasoseol source clock conflicts require user review and never show a defin
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
 });

@@ -95,7 +95,7 @@ test("Work24 keeps raw 24:00 and the next-day Seoul midnight through edit, appro
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();
@@ -157,7 +157,7 @@ test("Work24 missing clock and conflicting weekday never prefill a deadline", as
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
 });
 
@@ -211,7 +211,7 @@ test("Work24 date-only field requires the user to enter a clock", async ({
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   expect(state.deadlines).toHaveLength(0);
 });
