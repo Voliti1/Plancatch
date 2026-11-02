@@ -23,7 +23,6 @@ export function DashboardSchedules() {
           <Link href="/tasks">전체 일정 보기 →</Link>
         </div>
       </div>
-      <p className="muted small">최근 등록순으로 최대 5개를 보여줍니다.</p>
       {loading ? (
         <Loading />
       ) : error ? (
@@ -71,10 +70,6 @@ export function DashboardSchedules() {
           새 일정 등록하기에서 수동 일정을 입력해 보세요.
         </Empty>
       )}
-      <p className="muted small schedule-window-note">
-        표시된 시간은 입력한 가능 기간입니다. 실제 배치 시간은 캘린더에서
-        확인하세요.
-      </p>
     </section>
   );
 }

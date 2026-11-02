@@ -1,6 +1,9 @@
 .dashboard-schedules {
   margin: 0 0 24px;
 }
+.dashboard-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .dashboard-schedule-list {
   list-style: none;
   padding: 0;
