@@ -43,7 +43,7 @@ export function TaskDetail({ id }: { id: string }) {
         <Link className="back-link" href="/dashboard">
           ← 대시보드
         </Link>
-        <Link href="/tasks">전체 일정 보기 →</Link>
+        <Link href="/deadlines">전체 일정 보기 →</Link>
       </div>
       <PageHeading
         eyebrow="SCHEDULE DETAILS"

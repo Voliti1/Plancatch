@@ -464,7 +464,7 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
   expect(styles.white).toBe("rgb(255, 255, 255)");
   expect(styles.above).toBe(true);
   expect(styles.overflow).toBe(false);
-  for (const menu of ["원본 자료", "마감일"]) {
+  for (const menu of ["원본 자료", "일정"]) {
     await page.getByRole("link", { name: menu, exact: true }).click();
     await button.click();
     await expect(

@@ -97,26 +97,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #fff;
-  background: #305ee8;
+  background: var(--schedule-task);
   font-size: 11px;
   line-height: 1.4;
   font-weight: 600;
   text-align: left;
 }
 .calendar-event-bar.bar-deadline {
-  background: #be185d;
+  background: var(--schedule-deadline);
 }
 .calendar-event-bar.bar-fixed_task {
-  background: #305ee8;
+  background: var(--schedule-task);
 }
 .calendar-event-bar.bar-placement {
-  background: #6d28d9;
+  background: var(--schedule-task);
 }
 .calendar-event-bar.bar-google {
-  background: #137333;
+  background: var(--schedule-task);
 }
 .calendar-event-bar.bar-cancelled {
-  background: #64748b;
+  background: var(--schedule-task);
   text-decoration: line-through;
 }
 .calendar-more {

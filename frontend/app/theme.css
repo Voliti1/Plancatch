@@ -276,3 +276,17 @@ html:has(.account-settings[open]) {
     text-align: left;
   }
 }
+:root {
+  --schedule-task: #305ee8;
+  --schedule-deadline: #be185d;
+}
+.tag.schedule-kind-task,
+:root[data-theme="dark"] .tag.schedule-kind-task {
+  background: var(--schedule-task);
+  color: #fff;
+}
+.tag.schedule-kind-deadline,
+:root[data-theme="dark"] .tag.schedule-kind-deadline {
+  background: var(--schedule-deadline);
+  color: #fff;
+}

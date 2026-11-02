@@ -11,6 +11,7 @@ import { deadlinesApi } from "@/features/deadlines/api";
 import { NaturalSchedule } from "./natural-schedule";
 import type { TaskInput } from "@/types/task";
 import type { DeadlineInput } from "@/types/api";
+import type { NaturalScheduleDraft } from "@/types/natural-schedule";
 import "./manual-registration.css";
 
 type RegistrationMode = "source" | "natural" | "manual";
@@ -18,9 +19,11 @@ type RegistrationMode = "source" | "natural" | "manual";
 export function ScheduleRegistration({
   initialMode = "source",
   deadlineId,
+  manualDraft,
 }: {
   initialMode?: RegistrationMode;
   deadlineId?: string;
+  manualDraft?: NaturalScheduleDraft;
 }) {
   const router = useRouter();
   const id = useId();
@@ -179,7 +182,7 @@ export function ScheduleRegistration({
               <h2>수동 일정 등록</h2>
               <Link
                 className="text-button"
-                href="/tasks"
+                href="/deadlines"
                 aria-disabled={saving || undefined}
                 onClick={(event) => {
                   if (saving) event.preventDefault();
@@ -194,6 +197,7 @@ export function ScheduleRegistration({
             </p>
             <TaskForm
               deadlineId={deadlineId}
+              draft={manualDraft}
               variant="calendar"
               submitLabel="일정 등록"
               disabled={saving}

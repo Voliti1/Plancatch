@@ -32,10 +32,11 @@ export const tasksApi = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  remove: async (id: string) => {
+  remove: async (id: string, signal?: AbortSignal) => {
     try {
       await api<void>(`/api/tasks/${encodeURIComponent(id)}`, {
         method: "DELETE",
+        signal,
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 409)
