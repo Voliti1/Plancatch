@@ -1,4 +1,4 @@
-/* Local design preview. Remove the root class to compare the current layout. */
+/* Readability theme. Component-sized calendar and icon controls keep their geometry. */
 html.readability-preview {
   --preview-detail-width: 920px;
 }
@@ -111,7 +111,16 @@ html.readability-preview h3 {
   :is(.row-title strong, .task-title, .dashboard-schedule-summary strong) {
   font-size: 18px;
 }
-html.readability-preview :is(button, .button) {
+html.readability-preview
+  :is(button, .button):not(
+    :where(
+      .calendar-day,
+      .time-day-heading,
+      .account-icon,
+      .source-dialog-close,
+      .natural-examples button
+    )
+  ) {
   min-height: 48px;
   padding: 12px 22px;
   font-size: 16px;
@@ -171,11 +180,6 @@ html.readability-preview .account span {
 html.readability-preview .account :is(button, a) {
   font-size: 14px;
 }
-html.readability-preview .account-actions :is(button, a) {
-  min-width: 44px;
-  min-height: 44px;
-  padding: 8px;
-}
 html.readability-preview .topbar {
   font-size: 14px;
   min-height: 72px;
@@ -233,6 +237,30 @@ html.readability-preview .schedule-registration-modes button {
   font-size: 16px;
   min-height: 54px;
 }
+html.readability-preview .natural-examples button {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 14px;
+}
+html.readability-preview .natural-sentence-input textarea {
+  padding: 10px 14px;
+  min-height: 64px;
+}
+html.readability-preview .calendar-period h2 {
+  font-size: 18px;
+}
+html.readability-preview .time-event small {
+  font-size: 11px;
+}
+html.readability-preview .calendar-period button {
+  padding: 10px;
+  min-width: 44px;
+}
+html.readability-preview .calendar-view-controls button {
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
 html.readability-preview :is(.section-header, .form-actions) {
   flex-wrap: wrap;
 }
@@ -272,6 +300,9 @@ html.readability-preview footer {
     font-size: 15px;
     padding: 12px 8px;
   }
+  html.readability-preview .sidebar .sidebar-new-registration {
+    font-size: 15px;
+  }
   html.readability-preview .main-wrap main {
     padding: 30px 20px;
   }
@@ -302,5 +333,11 @@ html.readability-preview footer {
   }
   html.readability-preview .schedule-registration-modes {
     grid-template-columns: minmax(0, 1fr);
+  }
+  html.readability-preview .calendar-card {
+    padding: 18px 10px;
+  }
+  html.readability-preview .calendar-period h2 {
+    font-size: 15px;
   }
 }
