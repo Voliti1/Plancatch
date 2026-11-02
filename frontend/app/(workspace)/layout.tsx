@@ -9,7 +9,7 @@ import { AccountControls } from "@/features/settings/account-controls";
 const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
-  ["/deadlines", "◷", "마감일"],
+  ["/deadlines", "◷", "일정"],
   ["/calendar", "▦", "캘린더"],
   ["/settings/google-calendar", "↗", "구글 캘린더 연결"],
 ];
@@ -54,7 +54,8 @@ export default function WorkspaceLayout({
               href={href}
               aria-current={
                 path.startsWith(href) ||
-                (href === "/sources" && path.startsWith("/analyses/"))
+                (href === "/sources" && path.startsWith("/analyses/")) ||
+                (href === "/deadlines" && path.startsWith("/tasks"))
                   ? "page"
                   : undefined
               }

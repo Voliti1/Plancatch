@@ -28,7 +28,12 @@ export function GoogleDayEvents({
                     ? `${formatSeoul(event.start_at)} → ${formatSeoul(event.end_at)}`
                     : "시간 확인 필요"}
               </p>
-              <span className="tag">Google Calendar</span>
+              <span
+                className={`tag schedule-kind-${event.local_kind === "deadline" ? "deadline" : "task"}`}
+              >
+                {event.local_kind === "deadline" ? "마감일" : "할 일"}
+              </span>
+              <span className="small muted"> Google Calendar · 조회 전용</span>
             </li>
           ))}
         </ul>

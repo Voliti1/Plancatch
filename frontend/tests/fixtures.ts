@@ -189,6 +189,45 @@ export async function mockApi(
       }
       return route.fulfill({ json: deadlines[index] });
     }
+    if (path === "/api/schedules" && method === "GET") {
+      const q = (url.searchParams.get("q") ?? "").trim().toLowerCase();
+      const offset = Number(url.searchParams.get("offset") ?? 0),
+        limit = Number(url.searchParams.get("limit") ?? 50);
+      const entries = [
+        ...(url.searchParams.get("include_deadlines") !== "false"
+          ? deadlines.map((item) => ({
+              kind: "deadline" as const,
+              item: withSafetyDate(item),
+              at: Date.parse(item.due_at),
+            }))
+          : []),
+        ...(url.searchParams.get("include_tasks") !== "false"
+          ? tasks.map((item) => ({
+              kind: "task" as const,
+              item,
+              at:
+                item.earliest_start || item.latest_end
+                  ? Date.parse((item.earliest_start ?? item.latest_end)!)
+                  : Infinity,
+            }))
+          : []),
+      ]
+        .filter((entry) => entry.item.title.toLowerCase().includes(q))
+        .sort(
+          (a, b) =>
+            a.at - b.at ||
+            a.kind.localeCompare(b.kind) ||
+            a.item.id.localeCompare(b.item.id),
+        );
+      return route.fulfill({
+        json: {
+          entries: entries
+            .slice(offset, offset + limit)
+            .map(({ kind, item }) => ({ kind, item })),
+          has_more: entries.length > offset + limit,
+        },
+      });
+    }
     if (path === "/api/tasks") {
       if (method === "POST") {
         const body = request.postDataJSON();

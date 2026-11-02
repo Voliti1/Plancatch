@@ -3,11 +3,13 @@ export function Pagination({
   count,
   onChange,
   disabled = false,
+  hasMore,
 }: {
   page: number;
   count: number;
   onChange: (page: number) => void;
   disabled?: boolean;
+  hasMore?: boolean;
 }) {
   return (
     <div className="pagination">
@@ -21,7 +23,7 @@ export function Pagination({
       <span>{page + 1} 페이지</span>
       <button
         className="secondary"
-        disabled={disabled || count < 50}
+        disabled={disabled || (hasMore === undefined ? count < 50 : !hasMore)}
         onClick={() => onChange(page + 1)}
       >
         다음

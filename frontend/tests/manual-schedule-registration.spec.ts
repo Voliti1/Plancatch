@@ -77,14 +77,11 @@ test("manual registration replaces the sidebar task entry and saves through the 
   await page
     .getByRole("link", { name: "등록한 일정 보기 →", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/deadlines$/);
   await page
-    .getByRole("link", { name: "＋ 수동 일정 등록", exact: true })
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/sources\/new\?mode=manual&new=.+$/);
-  await expect(
-    page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 직접 등록한 발표 준비");

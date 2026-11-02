@@ -60,6 +60,25 @@ async function seed(page: Page, kind: "sources" | "deadlines") {
     }
     return route.fallback();
   });
+  if (kind === "deadlines")
+    await page.route("**/test-api/api/schedules?**", async (route) => {
+      const url = new URL(route.request().url()),
+        query = url.searchParams.get("q") ?? "",
+        offset = Number(url.searchParams.get("offset") ?? 0);
+      state.requests.push({ query, offset });
+      if (query === "일반" && state.hold) await state.hold;
+      const items = state.items.filter((item) =>
+        item.title.toLowerCase().includes(query.toLowerCase()),
+      );
+      return route.fulfill({
+        json: {
+          entries: items
+            .slice(offset, offset + 50)
+            .map((item) => ({ kind: "deadline", item })),
+          has_more: items.length > offset + 50,
+        },
+      });
+    });
   await login(page);
   await page.goto("/" + kind);
   await expect(page.getByText("일반 공고 0", { exact: true })).toBeVisible();
@@ -125,7 +144,7 @@ for (const kind of ["sources", "deadlines"] as const) {
     await page.getByRole("searchbox").fill("마케팅");
     await expect(page.getByText("1 페이지", { exact: true })).toBeVisible();
     await expect(page.locator("mark")).toHaveCount(2);
-    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await expect(page.locator(".delete-selectable")).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: "삭제 확인", exact: true }),
     ).toHaveCount(0);

@@ -94,7 +94,7 @@ test("existing tasks can be placed, edited and deleted without changing task dat
   );
   await page.reload();
   await expect(page.locator(".calendar-agenda > li")).toHaveCount(1);
-  await page.getByRole("link", { name: "일정 상세 · 배치 관리 →" }).click();
+  await page.getByRole("link", { name: "상세, 수정 →" }).click();
   await placements
     .getByRole("button", { name: "배치 수정", exact: true })
     .click();

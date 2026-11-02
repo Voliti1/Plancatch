@@ -53,7 +53,7 @@ test("creating without safety sends null and a past deadline can be configured w
   page,
 }) => {
   await open(page, []);
-  await page.getByRole("button", { name: "＋ 마감일 등록" }).click();
+  await page.getByRole("button", { name: "＋ 일정 등록" }).click();
   await page.getByLabel("마감 제목").fill("[테스트] 지난 공식 마감");
   await page.getByLabel("마감 일시 (한국 시간)").fill("2020-01-01T09:00");
   const sent = page.waitForRequest(
@@ -80,7 +80,7 @@ test("creation requires explicit buffer, stores day/hour/minute total and displa
   page,
 }) => {
   await open(page, []);
-  await page.getByRole("button", { name: "＋ 마감일 등록" }).click();
+  await page.getByRole("button", { name: "＋ 일정 등록" }).click();
   await expect(
     page.getByLabel("안전 마감일 사용", { exact: true }),
   ).not.toBeChecked();
@@ -204,7 +204,7 @@ test("blank, zero, negative, fractional and excessive buffers are blocked withou
   page,
 }) => {
   await open(page, []);
-  await page.getByRole("button", { name: "＋ 마감일 등록" }).click();
+  await page.getByRole("button", { name: "＋ 일정 등록" }).click();
   await page.getByLabel("마감 제목").fill("[테스트] 여유시간 검증");
   await page.getByLabel("마감 일시 (한국 시간)").fill("2026-10-05T18:00");
   await page.getByLabel("안전 마감일 사용", { exact: true }).check();

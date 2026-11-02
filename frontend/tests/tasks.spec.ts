@@ -215,6 +215,8 @@ test("list filters, pagination and completion update refresh matching results", 
   await page
     .getByRole("link", { name: "등록한 일정 보기 →", exact: true })
     .click();
+  await expect(page).toHaveURL(/\/deadlines$/);
+  await page.goto("/tasks");
   await page.getByRole("button", { name: "다음", exact: true }).click();
   await expect(
     page.getByRole("link", { name: "페이지 작업 50", exact: true }),
@@ -356,7 +358,9 @@ test("task routes protect access and show missing record, API retry and expirati
     page.getByRole("alert").filter({ hasText: "작업을 찾을 수 없습니다." }),
   ).toBeVisible();
   await page.getByRole("link", { name: "전체 일정 보기 →" }).click();
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/deadlines$/);
+  await expect(page.locator(".schedule-rows")).toContainText("기존 작업");
+  await page.goto("/tasks");
   await expect(
     page.getByRole("link", { name: "기존 작업", exact: true }),
   ).toBeVisible();

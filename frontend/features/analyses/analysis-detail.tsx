@@ -211,7 +211,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
             ))}
           </ul>
           <Link className="button secondary" href="/deadlines">
-            마감일 목록 보기
+            일정 목록 보기
           </Link>
           <p className="small muted">
             Google 계정이 연결되어 있으면 등록한 마감일이 Google 캘린더에도 자동
