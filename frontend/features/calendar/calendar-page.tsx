@@ -363,7 +363,11 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
               ›
             </button>
           </div>
-          <div className="calendar-view-controls">
+          <div
+            className="calendar-view-controls"
+            role="group"
+            aria-label="캘린더 보기 방식"
+          >
             <button
               className={view === "day" ? "selected" : "secondary"}
               aria-pressed={view === "day"}
@@ -374,22 +378,20 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             >
               오늘
             </button>
-            <div role="group" aria-label="캘린더 보기 방식">
-              <button
-                className={view === "month" ? "selected" : "secondary"}
-                aria-pressed={view === "month"}
-                onClick={() => setView("month")}
-              >
-                월간
-              </button>
-              <button
-                className={view === "week" ? "selected" : "secondary"}
-                aria-pressed={view === "week"}
-                onClick={() => setView("week")}
-              >
-                주간
-              </button>
-            </div>
+            <button
+              className={view === "week" ? "selected" : "secondary"}
+              aria-pressed={view === "week"}
+              onClick={() => setView("week")}
+            >
+              주간
+            </button>
+            <button
+              className={view === "month" ? "selected" : "secondary"}
+              aria-pressed={view === "month"}
+              onClick={() => setView("month")}
+            >
+              월간
+            </button>
           </div>
         </div>
         <div className="calendar-options">

@@ -2,8 +2,8 @@
 export function TaskListIcon() {
   return (
     <svg
-      width="22"
-      height="22"
+      width="35"
+      height="35"
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

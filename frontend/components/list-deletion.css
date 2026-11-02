@@ -102,3 +102,7 @@
     gap: 10px;
   }
 }
+.list-actions .button[aria-disabled="true"] {
+  opacity: 0.55;
+  cursor: wait;
+}
