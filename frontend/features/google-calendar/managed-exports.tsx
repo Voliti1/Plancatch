@@ -52,9 +52,9 @@ export function ManagedExports() {
                   {entry.status === "deleted"
                     ? "삭제 완료"
                     : entry.status === "changing"
-                      ? "변경 확인 중"
+                      ? "자동 반영 중"
                       : entry.status === "pending"
-                        ? "전송 확인 중"
+                        ? "반영 대기 중"
                         : entry.status === "conflict"
                           ? "확인 필요"
                           : "전송 완료"}

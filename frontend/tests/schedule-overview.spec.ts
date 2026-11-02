@@ -168,15 +168,13 @@ test("manual registration, simple detail editing and completion are reflected on
   await expect(
     page.getByText("[테스트] 새 회의실", { exact: true }),
   ).toBeVisible();
-  await page.getByRole("button", { name: "완료 처리", exact: true }).click();
   await expect(
-    page.getByText("일정을 완료했습니다.", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "완료 처리", exact: true }),
+  ).toHaveCount(0);
   await page.getByRole("link", { name: "← 대시보드", exact: true }).click();
   await expect(overview.getByRole("listitem")).toContainText(
     "[테스트] 회의 시간 변경",
   );
-  await expect(overview.getByRole("listitem")).toContainText("완료");
   await expect(overview.locator("time").nth(0)).toHaveAttribute(
     "datetime",
     "2026-11-07T05:00:00.000Z",

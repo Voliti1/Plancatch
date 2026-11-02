@@ -58,6 +58,13 @@ def request(token, method, event_id, body=None, *, etag=None):
             return status, {}
         if status in {429, 503}:
             raise ExportError(503, "rate_limited")
+        if status == 403:
+            try:
+                reasons = {item.get("reason") for item in json.loads(raw).get("error", {}).get("errors", []) if isinstance(item, dict)}
+            except (ValueError, TypeError, AttributeError):
+                reasons = set()
+            if reasons & {"rateLimitExceeded", "userRateLimitExceeded"}:
+                raise ExportError(503, "rate_limited")
         if status in {401, 403}:
             raise ExportError(409, "access_denied")
         if status not in {200, 201}:

@@ -37,6 +37,7 @@ def test_export_migration_preserves_deadlines_and_unique_send_intents(pg):
     with Operations.context(MigrationContext.configure(pg)):
         migration.upgrade()
         import_module("migrations.versions.20261102_0009_google_changes").upgrade()
+        import_module("migrations.versions.20261102_0010_google_auto_sync").upgrade()
     assert pg.scalar(select(Deadline.due_at).where(Deadline.id == item)) == due
     values = {
         "id": identity,

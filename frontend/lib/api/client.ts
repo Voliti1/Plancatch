@@ -22,7 +22,13 @@ export async function api<T>(
   // Local development can still opt into a different API through .env.local.
   const base =
     process.env.NEXT_PUBLIC_API_BASE_URL?.trim().replace(/\/$/, "") ?? "";
-  const { timeoutMs = 15000, ...requestOptions } = options;
+  // A save can briefly wait for the same account's bounded calendar operation.
+  const {
+    timeoutMs = (options.method ?? "GET").toUpperCase() === "GET"
+      ? 15000
+      : 60000,
+    ...requestOptions
+  } = options;
   const headers = new Headers(requestOptions.headers);
   if (options.body && !(options.body instanceof FormData))
     headers.set("Content-Type", "application/json");

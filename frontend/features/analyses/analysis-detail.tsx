@@ -214,7 +214,8 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
             마감일 목록 보기
           </Link>
           <p className="small muted">
-            작업 생성·자동 배치·Google Calendar 동기화는 수행하지 않습니다.
+            Google 계정이 연결되어 있으면 등록한 마감일이 Google 캘린더에도 자동
+            반영됩니다.
           </p>
         </section>
       )}

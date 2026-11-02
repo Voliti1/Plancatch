@@ -19,6 +19,12 @@ from tests.test_sources import configure_test_jwt as configure_test_jwt  # noqa:
 BASE = google.PREFIX + "/exports"
 
 
+@pytest.fixture(autouse=True)
+def manual_protocol(monkeypatch):
+    """Keep coverage for old clients; automatic CRUD dispatch has separate tests."""
+    monkeypatch.setattr("app.services.google_sync.enqueue", lambda *args, **kwargs: None)
+
+
 def deadline(setup, auth):
     response = setup.client.post(
         "/api/deadlines",

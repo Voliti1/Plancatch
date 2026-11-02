@@ -103,16 +103,10 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   await expect(
     page.getByRole("heading", { name: "발표 초안 작성", exact: true }),
   ).toBeVisible();
-  const complete = page.waitForRequest(
-    (request) => request.method() === "PATCH",
-  );
-  await page.getByRole("button", { name: "완료 처리", exact: true }).click();
-  expect((await complete).postDataJSON()).toEqual({ is_completed: true });
   await expect(
-    page.getByText("일정을 완료했습니다.", { exact: true }),
-  ).toBeVisible();
+    page.getByRole("button", { name: "완료 처리", exact: true }),
+  ).toHaveCount(0);
   await page.getByText("상세 정보", { exact: true }).click();
-  await expect(page.getByText("완료 일시", { exact: true })).toBeVisible();
   await page.getByRole("link", { name: "연결된 마감일 보기" }).click();
   await expect(
     page.getByRole("link", { name: "발표 초안 작성", exact: true }),
@@ -120,6 +114,13 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   await expect(
     page.getByRole("link", { name: "다른 마감의 작업", exact: true }),
   ).toHaveCount(0);
+  const complete = page.waitForRequest(
+    (request) => request.method() === "PATCH",
+  );
+  await page
+    .getByRole("button", { name: "발표 초안 작성 완료 처리", exact: true })
+    .click();
+  expect((await complete).postDataJSON()).toEqual({ is_completed: true });
   const reopen = page.waitForRequest((request) => request.method() === "PATCH");
   await page
     .getByRole("button", { name: "발표 초안 작성 미완료로 변경", exact: true })
@@ -290,7 +291,7 @@ test("deadline choices load all pages and invalid task input keeps the form", as
   await expect(page.getByText("연결된 마감일 보기 →")).toBeVisible();
 });
 
-test("completion and save failures preserve values and deletion conflict is explained", async ({
+test("save failures preserve values, completion is absent, and deletion conflict is explained", async ({
   page,
 }) => {
   await seed(page, [seedTask]);
@@ -301,13 +302,9 @@ test("completion and save failures preserve values and deletion conflict is expl
       ? route.fulfill({ status: 500, json: { detail: "작업 저장 실패" } })
       : route.fallback(),
   );
-  await page.getByRole("button", { name: "완료 처리", exact: true }).click();
-  await expect(
-    page.getByRole("alert").filter({ hasText: "작업 저장 실패" }),
-  ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "완료 처리", exact: true }),
-  ).toBeEnabled();
+  ).toHaveCount(0);
   await page.getByRole("button", { name: "일정 수정", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("유지할 입력");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
