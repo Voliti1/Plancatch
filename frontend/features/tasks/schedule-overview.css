@@ -47,7 +47,7 @@
 }
 .task-detail.schedule-detail,
 .danger-zone.schedule-detail-danger {
-  max-width: 720px;
+  max-width: 810px;
 }
 .schedule-detail .task-description {
   padding-top: 0;

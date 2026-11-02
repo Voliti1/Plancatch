@@ -1,0 +1,343 @@
+/* Readability theme. Component-sized calendar and icon controls keep their geometry. */
+html.readability-preview {
+  --preview-detail-width: 920px;
+}
+html.readability-preview[data-theme="light"] {
+  --muted: #52637a;
+}
+html.readability-preview[data-theme="dark"] {
+  --muted: #b4c1d3;
+}
+html.readability-preview body {
+  font-size: 17px;
+  line-height: 1.75;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+html.readability-preview
+  :is(
+    .task-details-grid dd,
+    .task-description p,
+    .placement-summary p,
+    .deadline-times dd
+  ) {
+  font-size: 16px;
+}
+html.readability-preview .section-header > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+}
+html.readability-preview h1 {
+  font-size: 36px;
+  letter-spacing: -1px;
+}
+html.readability-preview h2 {
+  font-size: 23px;
+}
+html.readability-preview h3 {
+  font-size: 19px;
+}
+.readability-preview
+  :is(
+    .section-header h2,
+    .source-registration h2,
+    .analysis-grid h2,
+    .analysis-overview h2,
+    .analysis-launch h2,
+    .analysis-approved h2,
+    .source-period h2,
+    .empty h2
+  ) {
+  font-size: 23px;
+}
+.readability-preview
+  :is(
+    .source-registration h3,
+    .task-description h3,
+    .danger-zone h2,
+    .source-content h3,
+    .analysis-candidate h3
+  ) {
+  font-size: 18px;
+}
+.readability-preview
+  :is(
+    .small,
+    small,
+    .text-button,
+    .back-link,
+    .source-metadata,
+    .source-detail-link,
+    .source-card summary,
+    .tag,
+    .row-title span,
+    .task-details-grid dt,
+    .deadline-times dt,
+    .source-file-hint,
+    .source-file-help,
+    .source-file-picker,
+    .source-registration-steps,
+    .schedule-extra-details summary,
+    .schedule-detail-navigation > a:last-child,
+    .danger-zone p,
+    .empty p,
+    .section-header a,
+    .subtle,
+    .pagination,
+    .candidate-evidence h4,
+    .analysis-history-list a
+  ) {
+  font-size: 14px;
+}
+.readability-preview
+  :is(
+    .page-heading p,
+    .hero p,
+    .row-title strong,
+    .source-text,
+    .analysis-text,
+    .source-period dl,
+    .extracted-summary,
+    .notice,
+    .remaining-period,
+    .task-row,
+    .task-row-meta,
+    .stat > span:first-child
+  ) {
+  font-size: 16px;
+}
+.readability-preview
+  :is(.row-title strong, .task-title, .dashboard-schedule-summary strong) {
+  font-size: 18px;
+}
+html.readability-preview
+  :is(button, .button):not(
+    :where(
+      .calendar-day,
+      .time-day-heading,
+      .account-icon,
+      .source-dialog-close,
+      .natural-examples button
+    )
+  ) {
+  min-height: 48px;
+  padding: 12px 22px;
+  font-size: 16px;
+}
+html.readability-preview .text-button {
+  padding: 8px 0;
+  font-size: 14px;
+}
+html.readability-preview label {
+  font-size: 15px;
+  gap: 10px;
+}
+html.readability-preview :is(input, textarea, select) {
+  font: inherit;
+  font-size: 16px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.readability-preview
+  input:not([type="checkbox"]):not([type="radio"]):not([type="file"]),
+html.readability-preview select {
+  min-height: 54px;
+}
+html.readability-preview :is(input::placeholder, textarea::placeholder) {
+  font-size: 15px;
+  color: var(--muted);
+}
+html.readability-preview :is(input[type="checkbox"], input[type="radio"]) {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  flex-shrink: 0;
+}
+html.readability-preview .sidebar {
+  width: 264px;
+  padding: 32px 22px;
+}
+html.readability-preview .brand {
+  font-size: 26px;
+}
+html.readability-preview .logo {
+  width: 40px;
+  height: 40px;
+  font-size: 28px;
+}
+html.readability-preview :is(.sidebar nav a, .sidebar-new-registration) {
+  font-size: 16px;
+  min-height: 52px;
+  padding: 13px 16px;
+}
+html.readability-preview .nav-caption {
+  font-size: 12px;
+}
+html.readability-preview .account span {
+  font-size: 13px;
+}
+html.readability-preview .account :is(button, a) {
+  font-size: 14px;
+}
+html.readability-preview .topbar {
+  font-size: 14px;
+  min-height: 72px;
+}
+html.readability-preview .timezone {
+  font-size: 12px;
+}
+html.readability-preview .main-wrap main {
+  padding: 44px 48px 40px;
+}
+html.readability-preview .page-heading {
+  margin-bottom: 32px;
+}
+html.readability-preview .card {
+  padding: 30px;
+}
+.readability-preview
+  :is(
+    .form-card,
+    .task-detail.schedule-detail,
+    .task-placements,
+    .danger-zone.schedule-detail-danger,
+    .danger-zone
+  ) {
+  max-width: var(--preview-detail-width);
+}
+html.readability-preview .hero {
+  padding: 38px;
+}
+html.readability-preview .hero h2 {
+  font-size: 34px;
+}
+html.readability-preview .hero .button {
+  font-size: 16px;
+}
+html.readability-preview .stat strong {
+  font-size: 38px;
+}
+html.readability-preview .stat strong small {
+  font-size: 15px;
+}
+html.readability-preview :is(.deadline-row, .task-row) {
+  padding: 24px 0;
+}
+html.readability-preview .dashboard-schedule-link {
+  padding: 22px 0;
+}
+html.readability-preview .source-file-drop {
+  min-height: 350px;
+}
+html.readability-preview .source-file-drop strong {
+  font-size: 20px;
+}
+html.readability-preview .schedule-registration-modes button {
+  font-size: 16px;
+  min-height: 54px;
+}
+html.readability-preview .natural-examples button {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 14px;
+}
+html.readability-preview .natural-sentence-input textarea {
+  padding: 10px 14px;
+  min-height: 64px;
+}
+html.readability-preview .calendar-period h2 {
+  font-size: 18px;
+}
+html.readability-preview .time-event small {
+  font-size: 11px;
+}
+html.readability-preview .calendar-period button {
+  padding: 10px;
+  min-width: 44px;
+}
+html.readability-preview .calendar-view-controls button {
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+html.readability-preview :is(.section-header, .form-actions) {
+  flex-wrap: wrap;
+}
+html.readability-preview footer {
+  font-size: 12px;
+}
+@media (min-width: 761px) and (max-width: 1100px) {
+  html.readability-preview .sidebar {
+    width: 232px;
+    padding-inline: 16px;
+  }
+  html.readability-preview .main-wrap main {
+    padding-inline: 28px;
+  }
+  html.readability-preview .source-registration-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+@media (max-width: 760px) {
+  html.readability-preview body {
+    font-size: 16px;
+  }
+  html.readability-preview h1 {
+    font-size: 30px;
+  }
+  html.readability-preview .sidebar {
+    width: 100%;
+    padding: 18px 20px;
+  }
+  html.readability-preview .brand {
+    font-size: 23px;
+  }
+  html.readability-preview .account strong {
+    font-size: 14px;
+  }
+  html.readability-preview .sidebar nav a {
+    font-size: 15px;
+    padding: 12px 8px;
+  }
+  html.readability-preview .sidebar .sidebar-new-registration {
+    font-size: 15px;
+  }
+  html.readability-preview .main-wrap main {
+    padding: 30px 20px;
+  }
+  html.readability-preview .topbar {
+    padding-inline: 20px;
+    min-height: 60px;
+    font-size: 12px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  html.readability-preview .card {
+    padding: 24px 20px;
+  }
+  html.readability-preview .hero {
+    padding: 28px 24px;
+  }
+  html.readability-preview .hero > div:first-child {
+    max-width: 100%;
+  }
+  html.readability-preview .hero-art {
+    display: none;
+  }
+  html.readability-preview .hero h2 {
+    font-size: 28px;
+  }
+  html.readability-preview .source-registration-steps {
+    gap: 10px;
+  }
+  html.readability-preview .schedule-registration-modes {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html.readability-preview .calendar-card {
+    padding: 18px 10px;
+  }
+  html.readability-preview .calendar-period h2 {
+    font-size: 15px;
+  }
+}
