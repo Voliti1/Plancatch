@@ -5,7 +5,6 @@ import { useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
 import { PageHeading } from "@/components/page-heading";
 import { SourceForm } from "@/features/sources/source-form";
-import { TaskForm } from "@/features/tasks/task-form";
 import { tasksApi } from "@/features/tasks/api";
 import { deadlinesApi } from "@/features/deadlines/api";
 import { NaturalSchedule } from "./natural-schedule";
@@ -14,26 +13,26 @@ import type { DeadlineInput } from "@/types/api";
 import type { NaturalScheduleDraft } from "@/types/natural-schedule";
 import "./manual-registration.css";
 
-type RegistrationMode = "source" | "natural" | "manual";
+type RegistrationMode = "source" | "manual";
 
 export function ScheduleRegistration({
   initialMode = "source",
   deadlineId,
   manualDraft,
 }: {
-  initialMode?: RegistrationMode;
+  initialMode?: RegistrationMode | "natural";
   deadlineId?: string;
   manualDraft?: NaturalScheduleDraft;
 }) {
   const router = useRouter();
   const id = useId();
-  const [mode, setMode] = useState<RegistrationMode>(initialMode);
-  const [manualOpened, setManualOpened] = useState(initialMode === "manual");
-  const [naturalOpened, setNaturalOpened] = useState(initialMode === "natural");
+  const [mode, setMode] = useState<RegistrationMode>(
+    initialMode === "natural" ? "manual" : initialMode,
+  );
+  const [manualOpened, setManualOpened] = useState(initialMode !== "source");
   const [saving, setSaving] = useState(false);
   const sourceTab = useRef<HTMLButtonElement>(null);
   const manualTab = useRef<HTMLButtonElement>(null);
-  const naturalTab = useRef<HTMLButtonElement>(null);
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
@@ -45,7 +44,6 @@ export function ScheduleRegistration({
   function selectMode(next: RegistrationMode) {
     if (saving) return;
     if (next === "manual") setManualOpened(true);
-    if (next === "natural") setNaturalOpened(true);
     setMode(next);
   }
 
@@ -56,19 +54,15 @@ export function ScheduleRegistration({
     )
       return;
     event.preventDefault();
-    const modes: RegistrationMode[] = ["source", "natural", "manual"];
+    const modes: RegistrationMode[] = ["source", "manual"];
     const next =
       event.key === "Home"
         ? "source"
         : event.key === "End"
           ? "manual"
-          : modes[
-              (modes.indexOf(mode) + (event.key === "ArrowRight" ? 1 : 2)) % 3
-            ];
+          : modes[(modes.indexOf(mode) + 1) % modes.length];
     selectMode(next);
-    ({ source: sourceTab, natural: naturalTab, manual: manualTab })[
-      next
-    ].current?.focus();
+    ({ source: sourceTab, manual: manualTab })[next].current?.focus();
   }
 
   async function saveTask(payload: TaskInput) {
@@ -134,20 +128,6 @@ export function ScheduleRegistration({
           자료로 등록
         </button>
         <button
-          ref={naturalTab}
-          id={`${id}-natural-tab`}
-          type="button"
-          role="tab"
-          aria-selected={mode === "natural"}
-          aria-controls={`${id}-natural-panel`}
-          tabIndex={mode === "natural" ? 0 : -1}
-          disabled={saving}
-          className={mode === "natural" ? "selected" : "secondary"}
-          onClick={() => selectMode("natural")}
-        >
-          문장으로 등록
-        </button>
-        <button
           ref={manualTab}
           id={`${id}-manual-tab`}
           type="button"
@@ -177,45 +157,11 @@ export function ScheduleRegistration({
         hidden={mode !== "manual"}
       >
         {manualOpened && (
-          <section className="card source-registration manual-registration-card">
-            <div className="manual-registration-heading">
-              <h2>수동 일정 등록</h2>
-              <Link
-                className="text-button"
-                href="/deadlines"
-                aria-disabled={saving || undefined}
-                onClick={(event) => {
-                  if (saving) event.preventDefault();
-                }}
-              >
-                등록한 일정 보기 →
-              </Link>
-            </div>
-            <p className="small muted">
-              일정명과 시간을 입력하세요. 필요한 내용은 나중에 수정할 수
-              있습니다.
-            </p>
-            <TaskForm
-              deadlineId={deadlineId}
-              draft={manualDraft}
-              variant="calendar"
-              submitLabel="일정 등록"
-              disabled={saving}
-              onSaveDeadline={saveDeadline}
-              onCancel={() => selectMode("source")}
-              onSave={saveTask}
-            />
-          </section>
-        )}
-      </div>
-      <div
-        id={`${id}-natural-panel`}
-        role="tabpanel"
-        aria-labelledby={`${id}-natural-tab`}
-        hidden={mode !== "natural"}
-      >
-        {naturalOpened && (
           <NaturalSchedule
+            enabled={mode === "manual"}
+            initialDraft={manualDraft}
+            deadlineId={deadlineId}
+            onCancel={() => selectMode("source")}
             onBusyChange={setSaving}
             onSave={saveTask}
             onSaveDeadline={saveDeadline}

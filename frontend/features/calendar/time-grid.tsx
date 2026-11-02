@@ -58,9 +58,7 @@ export function TimeGrid({
               aria-current={day === todaySeoul() ? "date" : undefined}
               onClick={() => onSelect(day)}
             >
-              {week
-                ? `${Number(day.slice(5, 7))}/${Number(day.slice(8))} (${["일", "월", "화", "수", "목", "금", "토"][new Date(day + "T00:00:00Z").getUTCDay()]})`
-                : dayLabel(day)}
+              {`${Number(day.slice(5, 7))}/${Number(day.slice(8))} (${["일", "월", "화", "수", "목", "금", "토"][new Date(day + "T00:00:00Z").getUTCDay()]})`}
             </button>
           ))}
         </div>

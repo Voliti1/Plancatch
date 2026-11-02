@@ -44,6 +44,7 @@ test("Google calendars are fetched only after opt-in and appear in the calendar 
   });
   await login(page);
   await page.goto("/calendar?date=2026-11-01");
+  await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(
     page.getByText("[테스트] 캘린더 회의", { exact: true }),
   ).toBeVisible();
@@ -97,6 +98,7 @@ test("Google failures are not an empty calendar and do not hide local events", a
   );
   await login(page);
   await page.goto("/calendar?date=2026-11-01");
+  await page.getByRole("button", { name: "월간", exact: true }).click();
   await page.getByLabel("구글 일정 함께 보기").check();
   await expect(
     page.getByRole("alert").filter({ hasText: "구글 계정을 다시 연결" }),
@@ -133,6 +135,7 @@ test("late responses stay hidden after opt-out; partial results are labelled", a
   });
   await login(page);
   await page.goto("/calendar?date=2026-11-01");
+  await page.getByRole("button", { name: "월간", exact: true }).click();
   await page.getByLabel("구글 일정 함께 보기").check();
   await started;
   await page.getByLabel("구글 일정 함께 보기").uncheck();

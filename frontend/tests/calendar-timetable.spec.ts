@@ -111,6 +111,7 @@ test("today and week are 24h timetables, consistent colors and editable hour pre
   );
   await login(page);
   await page.goto("/calendar?date=2026-11-02");
+  await page.getByRole("button", { name: "월간", exact: true }).click();
   const bars = page.locator(".calendar-event-bar");
   await expect(bars).toHaveCount(3);
   const color = async (selector: string) =>

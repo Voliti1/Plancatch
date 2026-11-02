@@ -24,6 +24,7 @@ test("selecting days reuses all three calendar reads; refresh still fetches curr
   );
   await login(page);
   await page.goto("/calendar?date=2026-11-01");
+  await page.getByRole("button", { name: "월간", exact: true }).click();
   const refresh = page.getByRole("button", { name: "새로고침", exact: true });
   await expect(page.locator(".calendar-agenda")).toContainText(
     calendarTask.title,
@@ -31,7 +32,7 @@ test("selecting days reuses all three calendar reads; refresh still fetches curr
   await page.getByLabel("구글 일정 함께 보기").check();
   await expect(refresh).toBeEnabled();
   const initial = { ...reads };
-  expect(initial).toEqual({ placements: 1, registrations: 1, google: 1 });
+  expect(initial).toEqual({ placements: 2, registrations: 2, google: 1 });
   const grid = page.getByRole("group", { name: "월간 날짜" });
   await grid
     .getByRole("button", { name: "2026년 11월 2일 월요일", exact: true })
@@ -48,12 +49,12 @@ test("selecting days reuses all three calendar reads; refresh still fetches curr
   await expect(refresh).toBeEnabled();
   await expect
     .poll(() => reads)
-    .toEqual({ placements: 2, registrations: 2, google: 2 });
+    .toEqual({ placements: 3, registrations: 3, google: 2 });
   await page.getByRole("button", { name: "다음 기간", exact: true }).click();
   await expect(refresh).toBeEnabled();
   await expect
     .poll(() => reads)
-    .toEqual({ placements: 3, registrations: 3, google: 3 });
+    .toEqual({ placements: 4, registrations: 4, google: 3 });
 });
 
 test("leaving a calendar range cancels its pending read and never requests its later pages", async ({
@@ -76,7 +77,10 @@ test("leaving a calendar range cancels its pending read and never requests its l
   });
   await page.route("**/test-api/api/scheduled-events?**", async (route) => {
     const query = new URL(route.request().url()).searchParams;
-    if (query.get("start_from") !== "2026-10-31T15:00:00.000Z")
+    if (
+      query.get("start_from") !== "2026-10-31T15:00:00.000Z" ||
+      query.get("end_before") !== "2026-12-12T15:00:00.000Z"
+    )
       return route.fulfill({ json: [] });
     oldPages.push(query.get("offset")!);
     await gate;
@@ -92,6 +96,7 @@ test("leaving a calendar range cancels its pending read and never requests its l
   try {
     await login(page);
     await page.goto("/calendar?date=2026-11-01");
+    await page.getByRole("button", { name: "월간", exact: true }).click();
     await expect.poll(() => oldPages.length).toBe(1);
     await page.getByRole("button", { name: "다음 기간", exact: true }).click();
     await expect(
@@ -129,6 +134,7 @@ test("a read with a navigation cancellation signal still has a network timeout",
   });
   try {
     await page.goto("/calendar?date=2026-11-01");
+    await page.getByRole("button", { name: "월간", exact: true }).click();
     await expect(
       page.getByRole("alert").filter({ hasText: "서버에 연결하지 못했습니다" }),
     ).toBeVisible({ timeout: 5000 });
