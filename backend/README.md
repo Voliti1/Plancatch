@@ -1,5 +1,11 @@
 # PlanCatch backend
 
+현재 기능·지원 제한은 [저장소 개요](../README.md)와 [main 통합 범위](docs/main-integration-20261102.md)를 참고하세요.
+Google 연결/조회 외에 [명시적 일정 전송·중복 방지](docs/google-calendar-export.md)도 구현되어 있습니다.
+전체 DB 구조 기준은 migration20261026_0008이며 기존 운영 DB를 자동 downgrade하지 않습니다.
+POST /api/auth/password는 현재 비밀번호를 확인하고 새 해시를 저장한 뒤 현재 브라우저용 토큰을 반환합니다.
+신규 로그인은 비밀번호 변경 후 이전 세션을 차단하며, 도입 전 토큰은 원래 만료까지 호환됩니다.
+
 ## Google Calendar connection
 
 Account connection/status/disconnection is separate from event synchronization.

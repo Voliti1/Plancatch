@@ -8,7 +8,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.security import decode_access_token
+from app.core.security import decode_access_claims, verify_access_password
 from app.db.session import get_db
 from app.models.user import User
 
@@ -38,7 +38,8 @@ def get_authenticated_user(
         raise unauthorized()
 
     try:
-        user_id = uuid.UUID(decode_access_token(credentials.credentials))
+        claims = decode_access_claims(credentials.credentials)
+        user_id = uuid.UUID(claims["sub"])
     except (jwt.InvalidTokenError, ValueError):
         raise unauthorized() from None
 
@@ -46,7 +47,7 @@ def get_authenticated_user(
     if user is None or not user.is_active:
         raise unauthorized()
     try:
-        decode_access_token(credentials.credentials, user.password_hash)
+        verify_access_password(claims, user.password_hash)
     except jwt.InvalidTokenError:
         raise unauthorized() from None
     return user

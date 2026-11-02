@@ -15,6 +15,20 @@ def account():
     return user, {'Authorization': 'Bearer ' + token}
 
 
+def test_authenticated_request_checks_the_signed_token_once(monkeypatch):
+    from app.core import security
+    user, headers = account()
+    original = security.jwt.decode
+    checks = []
+    def decode(*args, **kwargs):
+        checks.append(True)
+        return original(*args, **kwargs)
+    monkeypatch.setattr(security.jwt, 'decode', decode)
+    response = client.get('/api/auth/me', headers=headers)
+    assert response.status_code == 200 and response.json()['id'] == user['id']
+    assert checks == [True]
+
+
 def test_change_password_renews_current_session_and_revokes_bound_old_sessions():
     user, headers = account()
     other, other_headers = account()

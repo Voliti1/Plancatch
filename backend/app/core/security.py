@@ -57,8 +57,8 @@ def create_access_token(subject: str, hashed_password: str | None = None) -> str
     )
 
 
-def decode_access_token(token: str, hashed_password: str | None = None) -> str:
-    """Validate an access token and return its subject."""
+def decode_access_claims(token: str) -> dict:
+    """Verify the signature/expiry once and return the validated claims."""
     settings = get_settings()
 
     payload = jwt.decode(
@@ -70,10 +70,22 @@ def decode_access_token(token: str, hashed_password: str | None = None) -> str:
     subject = payload.get("sub")
     if not isinstance(subject, str) or not subject:
         raise jwt.InvalidTokenError("Token subject is missing")
+    return payload
+
+
+def verify_access_password(payload: dict, hashed_password: str) -> None:
+    """Check password binding on claims whose signature was already verified."""
     # Existing sessions created before password binding retain their original expiry.
     # New logins and password changes are bound and revoke on the next password change.
-    if hashed_password is not None and "pwd" in payload:
+    if "pwd" in payload:
         stamp = payload["pwd"]
         if not isinstance(stamp, str) or not hmac.compare_digest(stamp, password_stamp(hashed_password)):
             raise jwt.InvalidTokenError("Password changed")
-    return subject
+
+
+def decode_access_token(token: str, hashed_password: str | None = None) -> str:
+    """Keep the subject-only helper compatible with existing callers."""
+    payload = decode_access_claims(token)
+    if hashed_password is not None:
+        verify_access_password(payload, hashed_password)
+    return payload["sub"]
