@@ -7,6 +7,7 @@ import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
 import type { ScheduleType, Task, TaskInput } from "@/types/task";
 import type { DeadlineInput } from "@/types/api";
+import type { NaturalScheduleDraft } from "@/types/natural-schedule";
 import { loadDeadlineOptions } from "./deadline-options";
 import "./calendar-task-form.css";
 
@@ -20,6 +21,7 @@ function optionalUtc(value: string, original: string | null): string | null {
 
 export function TaskForm({
   initial,
+  draft,
   deadlineId,
   onSave,
   onSaveDeadline,
@@ -29,6 +31,7 @@ export function TaskForm({
   variant = "task",
 }: {
   initial?: Task;
+  draft?: NaturalScheduleDraft;
   deadlineId?: string;
   onSave: (payload: TaskInput) => Promise<void>;
   onSaveDeadline?: (payload: DeadlineInput) => Promise<void>;
@@ -39,7 +42,7 @@ export function TaskForm({
 }) {
   const simple = variant === "calendar";
   const [registrationKind, setRegistrationKind] = useState<"task" | "deadline">(
-    "task",
+    draft?.kind ?? "task",
   );
   const canChooseKind = simple && !initial && Boolean(onSaveDeadline);
   const isDeadline = canChooseKind && registrationKind === "deadline";
@@ -50,7 +53,7 @@ export function TaskForm({
   const priorityLabelId = useId();
   const typeLabelId = useId();
   const options = useResource(loadDeadlineOptions);
-  const [title, setTitle] = useState(initial?.title ?? "");
+  const [title, setTitle] = useState(initial?.title ?? draft?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [deadline, setDeadline] = useState(
     initial?.deadline_id ?? deadlineId ?? "",
@@ -63,10 +66,14 @@ export function TaskForm({
     initial?.schedule_type ?? (simple ? "fixed" : "flexible"),
   );
   const [start, setStart] = useState(
-    initial?.earliest_start ? toSeoulInput(initial.earliest_start) : "",
+    initial?.earliest_start || draft?.start_at
+      ? toSeoulInput((initial?.earliest_start ?? draft?.start_at)!)
+      : "",
   );
   const [end, setEnd] = useState(
-    initial?.latest_end ? toSeoulInput(initial.latest_end) : "",
+    initial?.latest_end || draft?.end_at
+      ? toSeoulInput((initial?.latest_end ?? draft?.end_at)!)
+      : "",
   );
   const [completed, setCompleted] = useState(initial?.is_completed ?? false);
   const [busy, setBusy] = useState(false);
@@ -111,8 +118,14 @@ export function TaskForm({
         throw new Error(
           "연결할 마감일을 다시 선택하거나 연결 안 함을 선택해 주세요.",
         );
-      const earliest = optionalUtc(start, initial?.earliest_start ?? null);
-      const latest = optionalUtc(end, initial?.latest_end ?? null);
+      const earliest = optionalUtc(
+        start,
+        initial?.earliest_start ?? draft?.start_at ?? null,
+      );
+      const latest = optionalUtc(
+        end,
+        initial?.latest_end ?? draft?.end_at ?? null,
+      );
       if (earliest && latest && new Date(earliest) >= new Date(latest))
         throw new Error(
           simple

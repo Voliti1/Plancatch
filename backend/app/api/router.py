@@ -12,6 +12,7 @@ from app.api.routes.google_calendar import router as google_calendar_router
 from app.api.routes.google_exports import router as google_exports_router
 from app.api.routes.health import router as health_router
 from app.api.routes.images import router as images_router
+from app.api.routes.natural_schedules import router as natural_schedules_router
 from app.api.routes.scheduled_events import router as scheduled_events_router
 from app.api.routes.sources import router as sources_router
 from app.api.routes.tasks import router as tasks_router
@@ -26,5 +27,6 @@ api_router.include_router(deadlines_router)
 api_router.include_router(tasks_router)
 api_router.include_router(scheduled_events_router)
 api_router.include_router(calendar_registrations_router)
+api_router.include_router(natural_schedules_router)
 api_router.include_router(google_calendar_router)
 api_router.include_router(google_exports_router)

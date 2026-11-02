@@ -10,7 +10,12 @@ export default async function NewSourcePage({
 }) {
   const params = await searchParams;
   const entry = typeof params.new === "string" ? params.new : "default";
-  const mode = params.mode === "manual" ? "manual" : "source";
+  const mode =
+    params.mode === "manual"
+      ? "manual"
+      : params.mode === "natural"
+        ? "natural"
+        : "source";
   const deadlineId =
     typeof params.deadline_id === "string" ? params.deadline_id : undefined;
   return (

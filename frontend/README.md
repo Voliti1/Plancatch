@@ -17,6 +17,7 @@ Node.js20.9 이상과 npm, 테스트용 Google Chrome이 필요합니다. `front
 | /signup, /login | 회원가입·로그인·인증 초기화 |
 | /dashboard | 사용자 요약·등록한 일정·마감일 |
 | /sources/new | 일정 입력, URL/이미지/원본 텍스트 중 하나 저장, 수동 할 일/마감일 |
+| /sources/new?mode=natural | 문장 해석 미리보기·종류/제목/시간 확인 후 할 일/마감일 등록 |
 | /sources, /sources/[id] | 제목 검색·선택 삭제·원본 요약/팝업·수정·검토 이력 |
 | /analyses/[id] | HTML 또는 AI 후보 검토·제목/일시 수정·선택·저장·승인/거부 |
 | /deadlines, /deadlines/[id] | 공식/안전 마감·검색·선택 삭제·연결 작업·Google 전송 미리보기 |

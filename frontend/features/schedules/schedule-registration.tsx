@@ -8,9 +8,12 @@ import { SourceForm } from "@/features/sources/source-form";
 import { TaskForm } from "@/features/tasks/task-form";
 import { tasksApi } from "@/features/tasks/api";
 import { deadlinesApi } from "@/features/deadlines/api";
+import { NaturalSchedule } from "./natural-schedule";
+import type { TaskInput } from "@/types/task";
+import type { DeadlineInput } from "@/types/api";
 import "./manual-registration.css";
 
-type RegistrationMode = "source" | "manual";
+type RegistrationMode = "source" | "natural" | "manual";
 
 export function ScheduleRegistration({
   initialMode = "source",
@@ -23,9 +26,11 @@ export function ScheduleRegistration({
   const id = useId();
   const [mode, setMode] = useState<RegistrationMode>(initialMode);
   const [manualOpened, setManualOpened] = useState(initialMode === "manual");
+  const [naturalOpened, setNaturalOpened] = useState(initialMode === "natural");
   const [saving, setSaving] = useState(false);
   const sourceTab = useRef<HTMLButtonElement>(null);
   const manualTab = useRef<HTMLButtonElement>(null);
+  const naturalTab = useRef<HTMLButtonElement>(null);
   const active = useRef(true);
   useEffect(() => {
     active.current = true;
@@ -37,6 +42,7 @@ export function ScheduleRegistration({
   function selectMode(next: RegistrationMode) {
     if (saving) return;
     if (next === "manual") setManualOpened(true);
+    if (next === "natural") setNaturalOpened(true);
     setMode(next);
   }
 
@@ -47,16 +53,44 @@ export function ScheduleRegistration({
     )
       return;
     event.preventDefault();
+    const modes: RegistrationMode[] = ["source", "natural", "manual"];
     const next =
       event.key === "Home"
         ? "source"
         : event.key === "End"
           ? "manual"
-          : mode === "source"
-            ? "manual"
-            : "source";
+          : modes[
+              (modes.indexOf(mode) + (event.key === "ArrowRight" ? 1 : 2)) % 3
+            ];
     selectMode(next);
-    (next === "source" ? sourceTab : manualTab).current?.focus();
+    ({ source: sourceTab, natural: naturalTab, manual: manualTab })[
+      next
+    ].current?.focus();
+  }
+
+  async function saveTask(payload: TaskInput) {
+    setSaving(true);
+    try {
+      const task = await tasksApi.create(payload);
+      if (active.current) router.push(`/tasks/${encodeURIComponent(task.id)}`);
+    } catch (error) {
+      if (!active.current) return;
+      setSaving(false);
+      throw error;
+    }
+  }
+
+  async function saveDeadline(payload: DeadlineInput) {
+    setSaving(true);
+    try {
+      const deadline = await deadlinesApi.create(payload);
+      if (active.current)
+        router.push(`/deadlines/${encodeURIComponent(deadline.id)}`);
+    } catch (error) {
+      if (!active.current) return;
+      setSaving(false);
+      throw error;
+    }
   }
 
   return (
@@ -95,6 +129,20 @@ export function ScheduleRegistration({
           onClick={() => selectMode("source")}
         >
           자료로 등록
+        </button>
+        <button
+          ref={naturalTab}
+          id={`${id}-natural-tab`}
+          type="button"
+          role="tab"
+          aria-selected={mode === "natural"}
+          aria-controls={`${id}-natural-panel`}
+          tabIndex={mode === "natural" ? 0 : -1}
+          disabled={saving}
+          className={mode === "natural" ? "selected" : "secondary"}
+          onClick={() => selectMode("natural")}
+        >
+          문장으로 등록
         </button>
         <button
           ref={manualTab}
@@ -149,36 +197,25 @@ export function ScheduleRegistration({
               variant="calendar"
               submitLabel="일정 등록"
               disabled={saving}
-              onSaveDeadline={async (payload) => {
-                setSaving(true);
-                try {
-                  const deadline = await deadlinesApi.create(payload);
-                  if (active.current)
-                    router.push(
-                      `/deadlines/${encodeURIComponent(deadline.id)}`,
-                    );
-                } catch (error) {
-                  if (!active.current) return;
-                  setSaving(false);
-                  throw error;
-                }
-              }}
+              onSaveDeadline={saveDeadline}
               onCancel={() => selectMode("source")}
-              onSave={async (payload) => {
-                setSaving(true);
-                try {
-                  const task = await tasksApi.create(payload);
-                  // The sidebar can mount a fresh registration during this save.
-                  if (active.current)
-                    router.push(`/tasks/${encodeURIComponent(task.id)}`);
-                } catch (error) {
-                  if (!active.current) return;
-                  setSaving(false);
-                  throw error;
-                }
-              }}
+              onSave={saveTask}
             />
           </section>
+        )}
+      </div>
+      <div
+        id={`${id}-natural-panel`}
+        role="tabpanel"
+        aria-labelledby={`${id}-natural-tab`}
+        hidden={mode !== "natural"}
+      >
+        {naturalOpened && (
+          <NaturalSchedule
+            onBusyChange={setSaving}
+            onSave={saveTask}
+            onSaveDeadline={saveDeadline}
+          />
         )}
       </div>
     </>

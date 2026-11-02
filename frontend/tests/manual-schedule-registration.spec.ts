@@ -147,7 +147,7 @@ test("registration modes preserve both drafts and new registration clears them",
   });
   await page
     .getByRole("tab", { name: "자료로 등록", exact: true })
-    .press("ArrowRight");
+    .press("End");
   await expect(
     page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
   ).toBeFocused();
@@ -156,7 +156,7 @@ test("registration modes preserve both drafts and new registration clears them",
     .fill("[테스트] 수동 입력 초안");
   await page
     .getByRole("tab", { name: "수동 일정 등록", exact: true })
-    .press("ArrowLeft");
+    .press("Home");
   await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
     "[테스트] 자료 입력 초안",
   );
