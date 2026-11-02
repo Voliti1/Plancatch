@@ -61,10 +61,6 @@ export function SourceList() {
           }
         }}
       />
-      <div className="notice subtle">
-        URL·텍스트·이미지를 저장하면 마감일 검토로 이어집니다. 기존 자료는 상세
-        화면에서도 검토할 수 있습니다. PDF 업로드는 준비 중입니다.
-      </div>
       <ListDeleteNotice
         deletion={deletion}
         consequence="마감일이 등록된 자료는 삭제할 수 없습니다. 삭제 가능한 자료의 분석 기록은 함께 삭제되며 Google 일정은 유지됩니다."

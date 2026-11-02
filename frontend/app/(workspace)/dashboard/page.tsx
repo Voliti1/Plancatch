@@ -64,7 +64,7 @@ export default function DashboardPage() {
       ) : (
         data && (
           <>
-            <div className="stats">
+            <div className="stats dashboard-stats">
               <Link className="card stat" href="/sources">
                 <span>모아 둔 자료</span>
                 <strong>
@@ -83,14 +83,6 @@ export default function DashboardPage() {
                 </strong>
                 <span className="small muted">마감일 관리 ↗</span>
               </Link>
-              <div className="card stat next-step">
-                <span className="tag">NEXT STEP</span>
-                <h3>다가올 기능</h3>
-                <p className="muted small">
-                  AI 작업 계획과 자동 일정 배치, Google Calendar 연결을 준비하고
-                  있어요.
-                </p>
-              </div>
             </div>
             <section className="card">
               <div className="section-header">
