@@ -1,7 +1,6 @@
 "use client";
 import Link from "next/link";
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import { PageHeading } from "@/components/page-heading";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { Pagination } from "@/components/pagination";
@@ -21,15 +20,12 @@ import {
 import { useResource } from "@/lib/api/use-resource";
 import { formatSeoul } from "@/lib/date/seoul";
 import { DeadlineTimes } from "@/features/deadlines/deadline-times";
-import { DeadlineForm } from "@/features/deadlines/deadline-form";
-import { deadlinesApi } from "@/features/deadlines/api";
-import { TaskForm } from "@/features/tasks/task-form";
-import { tasksApi } from "@/features/tasks/api";
 import {
   listSchedules,
   removeSchedule,
   type ScheduleEntry,
 } from "./schedule-list-api";
+import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import "./schedule-list.css";
 
 function ScheduleRows({
@@ -124,10 +120,7 @@ function ScheduleRows({
   );
 }
 export function ScheduleList() {
-  const search = useTitleSearch(),
-    router = useRouter();
-  const [creating, setCreating] = useState(false),
-    [creatingKind, setCreatingKind] = useState<"deadline" | "task">("deadline");
+  const search = useTitleSearch();
   const [kinds, setKinds] = useState({ deadline: true, task: true }),
     [version, setVersion] = useState(0);
   const deletion = useListDeletion(removeSchedule, () =>
@@ -146,20 +139,10 @@ export function ScheduleList() {
         title="일정"
         description="마감일과 할 일을 한곳에서 확인하고 관리하세요."
         action={
-          <ListDeleteActions
-            deletion={deletion}
-            onToggle={() => setCreating(false)}
-          >
-            <button
-              disabled={deletion.busy}
-              aria-expanded={creating}
-              onClick={() => {
-                deletion.exit();
-                setCreating(!creating);
-              }}
-            >
-              {creating ? "등록 닫기" : "＋ 일정 등록"}
-            </button>
+          <ListDeleteActions deletion={deletion}>
+            <NewRegistrationLink className="button" disabled={deletion.busy}>
+              ＋ 일정 등록
+            </NewRegistrationLink>
           </ListDeleteActions>
         }
       />
@@ -175,46 +158,6 @@ export function ScheduleList() {
           }
         }}
       />
-      {creating && (
-        <section className="card form-card" aria-label="새 일정 등록">
-          <h2>새 일정</h2>
-          <div
-            className="schedule-create-kinds"
-            role="group"
-            aria-label="등록할 일정 종류"
-          >
-            {(["deadline", "task"] as const).map((kind) => (
-              <button
-                key={kind}
-                type="button"
-                className={creatingKind === kind ? "" : "secondary"}
-                aria-pressed={creatingKind === kind}
-                onClick={() => setCreatingKind(kind)}
-              >
-                {kind === "deadline" ? "마감일로 등록" : "할 일로 등록"}
-              </button>
-            ))}
-          </div>
-          {creatingKind === "deadline" ? (
-            <DeadlineForm
-              onSave={async (payload) => {
-                const item = await deadlinesApi.create(payload);
-                router.push(`/deadlines/${item.id}`);
-              }}
-            />
-          ) : (
-            <TaskForm
-              variant="calendar"
-              submitLabel="할 일 등록"
-              onCancel={() => setCreating(false)}
-              onSave={async (payload) => {
-                const item = await tasksApi.create(payload);
-                router.push(`/tasks/${item.id}`);
-              }}
-            />
-          )}
-        </section>
-      )}
       <ListDeleteNotice
         deletion={deletion}
         consequence="마지막 연결 마감일을 삭제하면 원본 자료와 검토 기록도 함께 삭제됩니다. 연결된 Google 사본도 자동 삭제하며 다른 할 일은 유지합니다."

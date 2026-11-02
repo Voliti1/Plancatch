@@ -21,9 +21,10 @@
 .calendar-period button {
   min-width: 44px;
 }
-.calendar-view-controls > div {
+.calendar-view-controls {
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 .calendar-options {
   justify-content: space-between;

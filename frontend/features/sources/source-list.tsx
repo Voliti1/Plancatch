@@ -33,21 +33,8 @@ export function SourceList() {
       <PageHeading
         eyebrow="SOURCE LIBRARY"
         title="원본 자료"
-        description="흩어져 있던 링크와 메모를 한곳에 모아 보세요."
-        action={
-          <ListDeleteActions deletion={deletion}>
-            <Link
-              className="button"
-              href="/sources/new"
-              aria-disabled={deletion.busy || undefined}
-              onClick={(event) => {
-                if (deletion.busy) event.preventDefault();
-              }}
-            >
-              ＋ 자료 등록
-            </Link>
-          </ListDeleteActions>
-        }
+        description="일정 등록에 사용한 자료를 확인하고 관리하세요."
+        action={<ListDeleteActions deletion={deletion} />}
       />
       <TitleSearch
         label="원본 자료 제목 검색"
@@ -62,8 +49,8 @@ export function SourceList() {
         }}
       />
       <div className="notice subtle">
-        URL·텍스트·이미지를 저장하면 마감일 검토로 이어집니다. 기존 자료는 상세
-        화면에서도 검토할 수 있습니다. PDF 업로드는 준비 중입니다.
+        새 일정 등록하기에서 저장한 자료를 모아 보여줍니다. 상세 화면에서 원문과
+        마감일 검토 결과를 확인할 수 있습니다.
       </div>
       <ListDeleteNotice
         deletion={deletion}
@@ -109,7 +96,7 @@ function SourcePage({
         >
           {query
             ? "다른 제목으로 검색해 보세요."
-            : "자료를 등록하면 이곳에서 다시 확인할 수 있어요."}
+            : "새 일정 등록하기에서 자료를 저장하면 이곳에서 다시 확인할 수 있어요."}
         </Empty>
       ) : (
         <div className="source-grid">

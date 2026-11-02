@@ -141,11 +141,15 @@ for (const kind of ["sources", "deadlines"] as const) {
       "rgb(255, 255, 255)",
       "rgb(185, 56, 49)",
     ]);
-    const register = page.getByRole(kind === "sources" ? "link" : "button", {
-      name: kind === "sources" ? "＋ 자료 등록" : "＋ 일정 등록",
+    const register = page.getByRole("link", {
+      name: "＋ 일정 등록",
       exact: true,
     });
-    if (page.viewportSize()!.width > 1000)
+    if (kind === "sources")
+      await expect(
+        page.getByRole("link", { name: "＋ 자료 등록", exact: true }),
+      ).toHaveCount(0);
+    else if (page.viewportSize()!.width > 1000)
       expect((await mode(page).boundingBox())!.x).toBeLessThan(
         (await register.boundingBox())!.x,
       );
@@ -285,6 +289,15 @@ for (const kind of ["sources", "deadlines"] as const) {
     await expect(
       page.getByRole("button", { name: "삭제 모드 해제" }),
     ).toBeDisabled();
+    if (kind === "deadlines") {
+      const register = page.getByRole("link", {
+        name: "＋ 일정 등록",
+        exact: true,
+      });
+      await expect(register).toHaveAttribute("aria-disabled", "true");
+      await register.evaluate((link: HTMLAnchorElement) => link.click());
+      await expect(page).toHaveURL(/\/deadlines$/);
+    }
     await page.getByRole("link", { name: "대시보드", exact: true }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     release();

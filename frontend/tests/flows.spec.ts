@@ -38,14 +38,18 @@ test("URL and text source registration and empty list", async ({ page }) => {
   await login(page);
   await page.getByRole("link", { name: "원본 자료", exact: true }).click();
   await expect(page.getByText("등록된 자료가 없습니다")).toBeVisible();
-  await page.getByRole("link", { name: "＋ 자료 등록" }).click();
+  await page
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .click();
   await page.getByLabel("일정 제목 (선택)").fill("수업 공지");
   await page.getByLabel("원본 URL").fill("https://example.com/notice");
   await page.getByRole("button", { name: "자료 저장" }).click();
   await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
   await page.goto("/sources");
   await expect(page.getByRole("heading", { name: "수업 공지" })).toBeVisible();
-  await page.getByRole("link", { name: "＋ 자료 등록" }).click();
+  await page
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .click();
   await page.getByLabel("원본 텍스트").fill("다음 주 발표 자료 제출");
   await page.getByRole("button", { name: "자료 저장" }).click();
   await expect(page).toHaveURL(/\/sources\/source-2\/review$/);
@@ -64,9 +68,14 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   await login(page);
   await page.getByRole("link", { name: "일정", exact: true }).click();
   await expect(page.getByText("아직 일정이 없습니다")).toBeVisible();
-  await page.getByRole("button", { name: "＋ 일정 등록" }).click();
-  await page.getByLabel("마감 제목").fill("최종 발표");
-  await page.getByLabel("마감 일시 (한국 시간)").fill("2026-10-01T09:30");
+  await page.getByRole("link", { name: "＋ 일정 등록" }).click();
+  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("group", { name: "등록 종류" })
+    .getByRole("button", { name: "마감일", exact: true })
+    .click();
+  await page.getByLabel("일정명", { exact: true }).fill("최종 발표");
+  await page.getByLabel("종료 일시", { exact: true }).fill("2026-10-01T09:30");
   const sent = page.waitForRequest(
     (r) => r.method() === "POST" && r.url().endsWith("/api/deadlines"),
   );

@@ -122,7 +122,7 @@ export function ListDeleteActions({
   onToggle,
 }: {
   deletion: ListDeletion;
-  children: ReactNode;
+  children?: ReactNode;
   onToggle?: () => void;
 }) {
   return (

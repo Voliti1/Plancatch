@@ -1,5 +1,4 @@
-.schedule-type-filters,
-.schedule-create-kinds {
+.schedule-type-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -44,8 +43,11 @@
   outline: 2px solid var(--blue);
   outline-offset: 3px;
 }
-.schedule-create-kinds {
-  margin-bottom: 20px;
+.schedule-rows .date-icon {
+  width: 40px;
+  height: 43px;
+  font-size: 35px;
+  line-height: 1;
 }
 .schedule-row-kind {
   display: flex;
