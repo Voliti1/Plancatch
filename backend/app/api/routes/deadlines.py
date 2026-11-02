@@ -162,6 +162,8 @@ def delete_deadline(
     db: DatabaseSession,
 ) -> Response:
     """Delete the owned deadline and its now-unreferenced owned source atomically."""
+    from app.services.google_changes import prevent_local_delete
+    prevent_local_delete(db, current_user.id, "deadline", deadline_id)
     deadline, source = lock_deadline_and_sources(deadline_id, current_user.id, db)
     remove_source = source is not None and db.scalar(select(Deadline.id).where(
         Deadline.source_id == source.id, Deadline.id != deadline.id,

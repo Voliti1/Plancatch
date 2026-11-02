@@ -18,14 +18,17 @@ class ExportError(Exception):
         )
 
 
-def request(token, method, event_id, body=None):
-    if method not in {"GET", "POST"} or not re.fullmatch(r"[0-9a-v]{5,64}", event_id):
+def request(token, method, event_id, body=None, *, etag=None):
+    if method not in {"GET", "POST", "PATCH", "DELETE"} or not re.fullmatch(r"[0-9a-v]{5,64}", event_id):
         raise ExportError()
-    fields = "fields=id,summary,status,start,end,extendedProperties(private)"
+    if method in {"PATCH", "DELETE"} and (
+        not isinstance(etag, str) or not 1 <= len(etag) <= 512 or "\r" in etag or "\n" in etag
+    ):
+        raise ExportError(409, "conflict")
+    fields = "fields=id,etag,summary,status,start,end,extendedProperties(private),attendees(self),recurrence,recurringEventId,eventType,organizer(self)"
     url = (
-        EVENTS_URL + "/" + event_id + "?" + fields
-        if method == "GET"
-        else EVENTS_URL + "?sendUpdates=none&" + fields
+        EVENTS_URL + ("" if method == "POST" else "/" + event_id)
+        + "?" + ("sendUpdates=none" if method == "DELETE" else ("" if method == "GET" else "sendUpdates=none&") + fields)
     )
     req = Request(
         url,
@@ -34,6 +37,7 @@ def request(token, method, event_id, body=None):
         headers={
             "Authorization": "Bearer " + token,
             "Content-Type": "application/json",
+            **({"If-Match": etag} if etag else {}),
         },
     )
     try:
@@ -45,6 +49,10 @@ def request(token, method, event_id, body=None):
         if len(raw) > 65536:
             raise ExportError()
         if method == "GET" and status in {404, 410}:
+            return status, {}
+        if status == 412:
+            raise ExportError(409, "conflict")
+        if method == "DELETE" and status in {204, 404, 410}:
             return status, {}
         if method == "POST" and status == 409:
             return status, {}

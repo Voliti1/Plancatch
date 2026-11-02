@@ -1,4 +1,4 @@
-"""Durable immutable send intents; survive deletion of the local source item."""
+"""Stable export identities, acknowledged snapshots and recoverable change intents."""
 
 import uuid
 from datetime import datetime
@@ -8,6 +8,7 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    Integer,
     String,
     UniqueConstraint,
     func,
@@ -43,6 +44,9 @@ class GoogleExport(Base):
         String(16), default="pending", server_default="pending"
     )
     error_code: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    revision: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    mutation: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

@@ -2,6 +2,20 @@
   color-scheme: light;
   --action-blue: #305ee8;
 }
+.google-delete-confirm {
+  background: #d32f2f;
+  color: #fff;
+}
+.managed-google-exports {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.managed-google-exports button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #111827;

@@ -29,13 +29,44 @@ class ExportPreview(BaseModel):
     title: str
     start_at: datetime
     end_at: datetime
-    status: Literal["new", "pending", "sent", "conflict", "blocked"]
+    status: Literal["new", "pending", "sent", "conflict", "blocked", "changing", "deleted"]
     changed: bool
     preview_token: str | None
     note: str
+    local_available: bool = True
+    pending_action: Literal["update", "delete"] | None = None
 
 
 class ExportResult(BaseModel):
     status: Literal["sent"]
     google_event_id: str
     already_sent: bool
+
+
+class ChangeTarget(ExportTarget):
+    action: Literal["update", "delete"]
+
+
+class ChangeConfirmation(ExportConfirmation):
+    action: Literal["update", "delete"]
+
+
+class ChangeSnapshot(BaseModel):
+    title: str
+    start_at: datetime
+    end_at: datetime
+
+
+class ChangePreview(BaseModel):
+    action: Literal["update", "delete"]
+    before: ChangeSnapshot
+    after: ChangeSnapshot | None
+    state: Literal["ready", "pending", "unchanged", "deleted"]
+    preview_token: str | None
+    note: str
+
+
+class ChangeResult(BaseModel):
+    action: Literal["update", "delete"]
+    state: Literal["applied"] = "applied"
+    already_applied: bool
