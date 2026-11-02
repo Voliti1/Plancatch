@@ -319,11 +319,6 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         title="캘린더"
         description="등록한 마감일과 할 일을 월간·하루·주간 시간표로 확인하세요."
       />
-      <p className="notice small">
-        자료에서 등록한 마감일과 시작·종료 시간을 지정한 고정 일정이 표시됩니다.
-        별도로 캘린더에 배치할 필요가 없습니다. Google 연결 시 변경 사항이 자동
-        반영되며, 구글의 다른 일정은 함께 볼 수 있습니다.
-      </p>
       <section className="card calendar-card" aria-label="일정 캘린더">
         <div className="calendar-toolbar">
           <div className="calendar-period">
