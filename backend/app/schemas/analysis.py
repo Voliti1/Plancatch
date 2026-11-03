@@ -154,6 +154,7 @@ class AnalysisResponse(BaseModel):
             UNRESOLVED_FILE_CANDIDATE,
             UNRESOLVED_FILE_TIME,
             closing_choice,
+            pdf_closing_choice,
             pdf_document_year,
             resolved_warnings,
         )
@@ -169,8 +170,14 @@ class AnalysisResponse(BaseModel):
         for item in self.candidates:
             position = self.input_text.find(item.evidence_text)
             context = self.input_text[max(0, position - 100):position + len(item.evidence_text) + 100]
-            choice = (data["choices"][0] if safe_url else None) if self.model.startswith("html:") else (
-                closing_choice(item.evidence_text, context, document_year=document_year) if position >= 0 else None)
+            if self.model.startswith("html:"):
+                choice = data["choices"][0] if safe_url else None
+            elif position < 0:
+                continue
+            elif is_pdf:
+                choice = pdf_closing_choice(item.evidence_text, context, self.input_text, document_year)
+            else:
+                choice = closing_choice(item.evidence_text, context)
             if not choice or not choice["due_at"]:
                 continue
             expected = datetime.fromisoformat(choice["due_at"])

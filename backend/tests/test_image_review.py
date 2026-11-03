@@ -221,7 +221,17 @@ def test_limits_and_integrity_are_enforced(monkeypatch):
     with pytest.raises(ValueError): source_images.file_path("../../.env")
 
 
-def test_pdf_heading_year_recovers_saved_review_without_reanalysis(monkeypatch):
+@pytest.mark.parametrize("transcript_template,evidence,expected", [
+    ("2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수\n{evidence}",
+     "9.22(월) ~ 10.1(수) 17:00", "2025-10-01T17:00:00+09:00"),
+    ("지원서 접수\n{evidence}\n지원 기간 : 2025.{evidence}",
+     "9.22(월) ~ 10.1(수) 17:00", "2025-10-01T17:00:00+09:00"),
+    ("2025년 하반기 신입사원 채용 공고\n케이워터기술은 한국수자원공사 자회사로서\n{evidence}",
+     "2025. 11. 21.(금) ~ 12. 5.(금) 16:00까지", "2025-12-05T16:00:00+09:00"),
+    ("{evidence}", "1. 채용공고 및 원서접수 ’25. 11. 21.(금) ~ 12. 05.(금) 16:00",
+     "2025-12-05T16:00:00+09:00"),
+])
+def test_pdf_year_recovers_saved_review_without_reanalysis(monkeypatch, transcript_template, evidence, expected):
     from app.models import Analysis, Source
     from app.services.deadline_dates import (
         UNRESOLVED_FILE_CANDIDATE,
@@ -232,8 +242,7 @@ def test_pdf_heading_year_recovers_saved_review_without_reanalysis(monkeypatch):
     headers = auth()
     source = client.post("/api/sources/pdfs", headers=headers,
                          files={"file": ("notice.pdf", picture("PDF"))}).json()
-    evidence = "9.22(월) ~ 10.1(수) 17:00"
-    transcript = "2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수\n" + evidence
+    transcript = transcript_template.format(evidence=evidence)
     with TestingSession() as db:
         owner = db.get(Source, uuid.UUID(source["id"])).user_id
         saved = Analysis(user_id=owner, source_id=uuid.UUID(source["id"]), input_text=transcript,
@@ -250,7 +259,7 @@ def test_pdf_heading_year_recovers_saved_review_without_reanalysis(monkeypatch):
 
     monkeypatch.setattr(image_analysis, "provider_request", unexpected_request)
     response = client.get(f"/api/ai-analyses/{identity}", headers=headers).json()
-    assert response["candidates"][0]["suggested_due_at"] == "2025-10-01T17:00:00+09:00"
+    assert response["candidates"][0]["suggested_due_at"] == expected
     assert response["warnings"] == []
     with TestingSession() as db:
         assert db.get(Analysis, identity).candidates[0]["due_at"] is None
@@ -266,6 +275,14 @@ def test_pdf_year_fallback_rejects_ambiguous_or_conflicting_dates(heading, evide
     from app.services.deadline_dates import closing_choice, pdf_document_year
 
     assert closing_choice(evidence, document_year=pdf_document_year(heading))["due_at"] is None
+
+
+def test_pdf_repeat_with_conflicting_years_is_unresolved():
+    from app.services.deadline_dates import pdf_closing_choice
+
+    evidence = "9.22(월) ~ 10.1(수) 17:00"
+    transcript = f"{evidence}\n2025.{evidence}\n2026.{evidence}"
+    assert pdf_closing_choice(evidence, evidence, transcript, None)["due_at"] is None
 
 
 def test_bad_evidence_fails_safely_and_explicit_time_is_grounded(monkeypatch):

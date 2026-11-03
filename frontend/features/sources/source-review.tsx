@@ -25,7 +25,13 @@ function pause(signal: AbortSignal) {
   });
 }
 
-export function SourceReview({ id }: { id: string }) {
+export function SourceReview({
+  id,
+  reanalyzePdf = false,
+}: {
+  id: string;
+  reanalyzePdf?: boolean;
+}) {
   const router = useRouter();
   const [source, setSource] = useState<Source | null>(null);
   const [attempt, setAttempt] = useState(0);
@@ -59,15 +65,21 @@ export function SourceReview({ id }: { id: string }) {
               entry.model.startsWith(`${item.source_type}:`) &&
               entry.input_hash === digest,
           );
-          if (existing && existing.status !== "failed") {
+          const redo =
+            reanalyzePdf &&
+            item.source_type === "pdf" &&
+            existing?.status === "ready";
+          if (existing && existing.status !== "failed" && !redo) {
             router.replace(`/analyses/${encodeURIComponent(existing.id)}`);
             return;
           }
           if (consent.current !== digest) {
             setProgress(
-              existing
-                ? "이전 분석에 실패했습니다. 파일 전송에 동의한 뒤 다시 시도할 수 있습니다."
-                : "AI 전송에 동의하면 저장한 파일을 분석합니다.",
+              redo
+                ? "기존 검토는 그대로 보관합니다. PDF 전송에 동의하면 새 검토를 만듭니다."
+                : existing
+                  ? "이전 분석에 실패했습니다. 파일 전송에 동의한 뒤 다시 시도할 수 있습니다."
+                  : "AI 전송에 동의하면 저장한 파일을 분석합니다.",
             );
             return;
           }
@@ -149,7 +161,7 @@ export function SourceReview({ id }: { id: string }) {
     }
     void run();
     return () => controller.abort();
-  }, [id, attempt, router]);
+  }, [id, attempt, reanalyzePdf, router]);
   const image = source?.source_type === "image";
   const pdf = source?.source_type === "pdf";
   const consentVersion = image

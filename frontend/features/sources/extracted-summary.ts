@@ -1,5 +1,18 @@
-// Display source facts from labelled values or an explicit PDF recruitment heading.
-export function extractedSummary(text: string, isPdf = false) {
+function recruitmentHeadingCompany(line: string) {
+  const heading = line.replace(
+    /^(?:20\d{2}(?:\s*년(?:도)?)?\s*)?(?:[상하]반기\s*)?/,
+    "",
+  );
+  return heading.match(
+    /^((?:[A-Z]{2,8}\s*)?[\p{L}][\p{L}\p{N}&.-]{1,29})\s+(?:신입(?:사원)?|경력(?:사원)?|인턴)\s+(?:공개\s*)?(?:채용|공채)(?:\s|$)/u,
+  )?.[1];
+}
+
+export function extractedSummary(
+  text: string,
+  isPdf = false,
+  candidateTitle?: string,
+) {
   // Prefer the same-job HTML slot captured at extraction time. Body text can
   // contain unrelated company names from recommendations or advertising.
   const begin = "[URL 마감일 HTML 검토 데이터]";
@@ -39,19 +52,32 @@ export function extractedSummary(text: string, isPdf = false) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+  const openingLines = isPdf ? lines.slice(0, 8) : [];
+  const titleIndex = openingLines.findIndex((line) =>
+    /^(?:\[[^\]]{1,20}\]\s*)?20\d{2}(?:\s*년(?:도)?)?\s+.{0,150}(?:채용|모집|공모|공채)(?:\s|$)/.test(
+      line,
+    ),
+  );
+  const subtitle = openingLines[titleIndex + 1];
+  const title =
+    titleIndex < 0
+      ? undefined
+      : openingLines[titleIndex] +
+        (subtitle && /^\([^)]{1,100}\)\s*공고$/.test(subtitle)
+          ? ` ${subtitle}`
+          : "");
   // PDFs often print the employer inside the recruitment heading.
-  const pdfHeadingCompanies = isPdf
-    ? lines.slice(0, 8).flatMap((line) => {
-        const heading = line.replace(
-          /^(?:20\d{2}(?:\s*년(?:도)?)?\s*)?(?:[상하]반기\s*)?/,
-          "",
-        );
-        const employer = heading.match(
-          /^((?:[A-Z]{2,8}\s*)?[\p{L}\p{N}][\p{L}\p{N}&.-]{1,29})\s+(?:신입(?:사원)?|경력(?:사원)?|인턴)\s+(?:공개\s*)?(?:채용|공채)(?:\s|$)/u,
-        );
-        return employer ? [employer[1]] : [];
-      })
-    : [];
+  const pdfHeadingCompanies = openingLines.flatMap((line) => {
+    const employer =
+      line.match(
+        /^([\p{L}][\p{L}\p{N}&.-]{1,39})\s+공고\s*제\s*20\d{2}\s*[-–—]/u,
+      )?.[1] ||
+      recruitmentHeadingCompany(line) ||
+      line.match(
+        /^([\p{L}][\p{L}\p{N}&.-]{1,29})(?:은|는)\s+[^.!?]{2,80}\s+자회사로서(?:\s|$)/u,
+      )?.[1];
+    return employer ? [employer] : [];
+  });
   const companies: string[] = [];
   const deadlines: string[] = [];
   const corporateNames: string[] = [];
@@ -114,7 +140,15 @@ export function extractedSummary(text: string, isPdf = false) {
       ]),
     ).values(),
   ];
+  const candidateCompany =
+    isPdf &&
+    candidateTitle &&
+    verifiedCompany === undefined &&
+    !uniqueCompanies.length
+      ? recruitmentHeadingCompany(candidateTitle)
+      : undefined;
   return {
+    title,
     company:
       verifiedCompany !== undefined
         ? verifiedCompany || "원문에서 회사명을 확인하지 못했습니다."
@@ -122,7 +156,8 @@ export function extractedSummary(text: string, isPdf = false) {
           ? uniqueCompanies[0]
           : uniqueCompanies.length
             ? "여러 회사명이 있어 원문 확인이 필요합니다."
-            : "원문에서 회사명을 확인하지 못했습니다.",
+            : candidateCompany || "원문에서 회사명을 확인하지 못했습니다.",
+    companyFromCandidate: Boolean(candidateCompany),
     deadline:
       uniqueDeadlines.length === 1
         ? uniqueDeadlines[0]
