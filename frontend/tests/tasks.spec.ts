@@ -176,6 +176,22 @@ test("task editing preserves time precision and supports clearing optional field
     ),
   ).toBeTruthy();
   await page.getByRole("button", { name: "일정 수정", exact: true }).click();
+  await page.getByLabel("시작 일시", { exact: true }).fill("2026-11-07T23:30");
+  const end = page.getByLabel("종료 일시", { exact: true });
+  await expect(end).toHaveValue("2026-11-08T00:30");
+  await page.getByLabel("예상 소요시간 (분, 선택)").fill("45");
+  await expect(end).toHaveValue("2026-11-08T00:15");
+  await end.fill("2026-11-08T00:45");
+  const reschedule = page.waitForRequest(
+    (request) => request.method() === "PATCH",
+  );
+  await page.getByRole("button", { name: "변경 사항 저장" }).click();
+  expect((await reschedule).postDataJSON()).toMatchObject({
+    estimated_minutes: 45,
+    earliest_start: "2026-11-07T14:30:00.000Z",
+    latest_end: "2026-11-07T15:45:00.000Z",
+  });
+  await page.getByRole("button", { name: "일정 수정", exact: true }).click();
   await page.getByText("상세 설정", { exact: true }).click();
   await page.getByLabel("연결할 마감일", { exact: true }).selectOption("");
   await page.getByLabel("예상 소요시간 (분, 선택)").fill("");

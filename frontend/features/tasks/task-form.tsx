@@ -20,6 +20,9 @@ import {
   type GoogleReminderSettings,
 } from "@/types/google-reminders";
 
+const DEFAULT_TASK_MINUTES = 60;
+const MAX_ESTIMATED_MINUTES = 2147483647;
+
 function optionalUtc(value: string, original: string | null): string | null {
   if (!value) return null;
   // Preserve server seconds/milliseconds when only another field is edited.
@@ -116,6 +119,22 @@ export function TaskForm({
     if (cancelPreservesInput || confirmDiscard()) onCancel();
   }
 
+  function updateTaskEnd(startValue: string, minutesValue: string) {
+    if (!simple || isDeadline || !startValue) return;
+    const duration =
+      minutesValue === "" ? DEFAULT_TASK_MINUTES : Number(minutesValue);
+    if (
+      !Number.isInteger(duration) ||
+      duration < 1 ||
+      duration > MAX_ESTIMATED_MINUTES
+    )
+      return;
+    // Calculate on the displayed Seoul clock, regardless of the browser's zone.
+    const endTime = new Date(Date.parse(`${startValue}Z`) + duration * 60_000);
+    if (endTime.getUTCFullYear() >= 1 && endTime.getUTCFullYear() <= 9999)
+      setEnd(endTime.toISOString().slice(0, 16));
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current || submitDisabled) return;
@@ -150,7 +169,7 @@ export function TaskForm({
         estimated !== null &&
         (!Number.isInteger(estimated) ||
           estimated <= 0 ||
-          estimated > 2147483647)
+          estimated > MAX_ESTIMATED_MINUTES)
       )
         throw new Error("예상 소요시간은 1분 이상의 정수로 입력해 주세요.");
       if (deadline && !options.data?.some((item) => item.id === deadline))
@@ -192,6 +211,42 @@ export function TaskForm({
     }
   }
 
+  const durationAndPriority = (
+    <div className="form-grid">
+      <label>
+        예상 소요시간 (분, 선택)
+        <input
+          name="estimated_minutes"
+          type="number"
+          min={1}
+          max={MAX_ESTIMATED_MINUTES}
+          step={1}
+          value={minutes}
+          onChange={(event) => {
+            const value = event.target.value;
+            setMinutes(value);
+            if (!event.target.validity.badInput) updateTaskEnd(start, value);
+          }}
+          placeholder="예: 60"
+        />
+      </label>
+      <label>
+        <span id={priorityLabelId}>우선순위</span>
+        <select
+          name="priority"
+          aria-labelledby={priorityLabelId}
+          value={priority}
+          onChange={(event) => setPriority(Number(event.target.value))}
+        >
+          {[1, 2, 3, 4, 5].map((value) => (
+            <option key={value} value={value}>
+              {value}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
   const settings = (
     <>
       <label>
@@ -215,36 +270,7 @@ export function TaskForm({
           ))}
         </select>
       </label>
-      <div className="form-grid">
-        <label>
-          예상 소요시간 (분, 선택)
-          <input
-            name="estimated_minutes"
-            type="number"
-            min={1}
-            max={2147483647}
-            step={1}
-            value={minutes}
-            onChange={(event) => setMinutes(event.target.value)}
-            placeholder="예: 60"
-          />
-        </label>
-        <label>
-          <span id={priorityLabelId}>우선순위</span>
-          <select
-            name="priority"
-            aria-labelledby={priorityLabelId}
-            value={priority}
-            onChange={(event) => setPriority(Number(event.target.value))}
-          >
-            {[1, 2, 3, 4, 5].map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {!simple && durationAndPriority}
       <label>
         <span id={typeLabelId}>작업 유형</span>
         <select
@@ -270,7 +296,11 @@ export function TaskForm({
             name="earliest_start"
             type="datetime-local"
             value={start}
-            onChange={(event) => setStart(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setStart(value);
+              updateTaskEnd(value, minutes);
+            }}
             required={requireTimes}
           />
         </label>
@@ -391,6 +421,7 @@ export function TaskForm({
             <p className="muted small calendar-task-timezone">
               한국 시간 기준{initial ? " · 시간은 비워 둘 수 있습니다." : ""}
             </p>
+            {!isDeadline && durationAndPriority}
             {descriptionField}
             {!isDeadline && (
               <details className="calendar-task-settings">

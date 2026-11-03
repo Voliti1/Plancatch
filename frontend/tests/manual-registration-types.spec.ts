@@ -32,11 +32,20 @@ test("manual card matches source width and type buttons sit above the shared tit
   expect(menu!.y).toBeGreaterThan(intro!.y + intro!.height);
   expect(menu!.y + menu!.height).toBeLessThan(title!.y);
   await page.getByLabel("일정명", { exact: true }).fill("[테스트] 종류 전환");
-  await page.getByLabel("시작 일시", { exact: true }).fill("2026-11-06T09:00");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
+  const start = page.getByLabel("시작 일시", { exact: true });
+  const end = page.getByLabel("종료 일시", { exact: true });
+  const minutes = page.getByLabel("예상 소요시간 (분, 선택)", { exact: true });
+  await start.fill("2026-11-06T09:00");
+  await expect(end).toHaveValue("2026-11-06T10:00");
+  await minutes.fill("90");
+  await expect(end).toHaveValue("2026-11-06T10:30");
+  await start.fill("2026-11-06T23:30");
+  await expect(end).toHaveValue("2026-11-07T01:00");
+  await minutes.fill("");
+  await expect(end).toHaveValue("2026-11-07T00:30");
+  await start.fill("2026-11-06T09:00");
+  await minutes.fill("60");
   await page.getByLabel("메모 (선택)", { exact: true }).fill("유지할 메모");
-  await page.getByText("상세 설정", { exact: true }).click();
-  await page.getByLabel("예상 소요시간 (분, 선택)", { exact: true }).fill("60");
   await page.screenshot({
     path: test.info().outputPath("manual-task-wide.png"),
     fullPage: true,
@@ -110,7 +119,6 @@ test("deadline requires an end time but ignores hidden task fields and failed de
 }) => {
   await page.goto("/sources/new?mode=manual");
   await page.getByLabel("일정명", { exact: true }).fill("[테스트] 종료만 필요");
-  await page.getByText("상세 설정", { exact: true }).click();
   await page.getByLabel("예상 소요시간 (분, 선택)", { exact: true }).fill("-1");
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
