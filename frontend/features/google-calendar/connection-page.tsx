@@ -92,7 +92,7 @@ export function GoogleCalendarConnectionPage() {
       <PageHeading
         eyebrow="GOOGLE CALENDAR"
         title="구글 캘린더 연결"
-        description="본인의 Google 계정을 플랜캐치에 연결하고 상태를 확인하세요."
+        description="Google 계정을 연결하면 이후 플랜캐치에서 등록·수정·삭제하는 일정이 Google 캘린더에 자동으로 반영됩니다."
       />
       <section className="card form-card" aria-label="구글 계정 연결 설정">
         <h2>Google Calendar 계정</h2>
