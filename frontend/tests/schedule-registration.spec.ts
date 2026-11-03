@@ -314,6 +314,7 @@ test("a late save response cannot navigate away from a fresh registration", asyn
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
   await sent;
   try {
+    page.once("dialog", (dialog) => dialog.accept());
     await page
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();

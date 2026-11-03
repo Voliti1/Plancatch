@@ -200,6 +200,7 @@ test("a late deadline save does not navigate away from a newly opened registrati
   await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
   await sent;
   try {
+    page.once("dialog", (dialog) => dialog.accept());
     await page
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();

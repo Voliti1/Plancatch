@@ -137,7 +137,7 @@ def test_invalid_uploads_do_not_create_source_or_send_ai(data):
 def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monkeypatch):
     headers = auth()
     pdf = picture("PDF")
-    first = "서류 접수 마감 2026.11.09 18:00"
+    first = "서류 접수 마감 11.09 18:00"
     second = "추가 서류 제출 마감 2026.11.12 17:00"
     proposals = [
         {"title": title, "due_at": None, "description": None,
@@ -151,7 +151,7 @@ def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monk
         assert inline["mimeType"] == "application/pdf"
         assert base64.b64decode(inline["data"]) == pdf
         calls.append(model)
-        value = {"transcript": first + "\n" + second.replace("마감 2026", "마감\n2026"),
+        value = {"transcript": "2026년 채용 공고\n" + first + "\n" + second.replace("마감 2026", "마감\n2026"),
                  "deadlines": [*proposals, dict(proposals[0], evidence_text="문서에 없는 근거 2026.11.30")],
                  "warnings": []}
         return {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(value)}]}}]}
@@ -219,6 +219,70 @@ def test_limits_and_integrity_are_enforced(monkeypatch):
     path.write_bytes(b"changed")
     assert client.get('/api/sources/'+source['id']+'/image',headers=headers).status_code == 404
     with pytest.raises(ValueError): source_images.file_path("../../.env")
+
+
+@pytest.mark.parametrize("transcript_template,evidence,expected", [
+    ("2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수\n{evidence}",
+     "9.22(월) ~ 10.1(수) 17:00", "2025-10-01T17:00:00+09:00"),
+    ("지원서 접수\n{evidence}\n지원 기간 : 2025.{evidence}",
+     "9.22(월) ~ 10.1(수) 17:00", "2025-10-01T17:00:00+09:00"),
+    ("2025년 하반기 신입사원 채용 공고\n케이워터기술은 한국수자원공사 자회사로서\n{evidence}",
+     "2025. 11. 21.(금) ~ 12. 5.(금) 16:00까지", "2025-12-05T16:00:00+09:00"),
+    ("{evidence}", "1. 채용공고 및 원서접수 ’25. 11. 21.(금) ~ 12. 05.(금) 16:00",
+     "2025-12-05T16:00:00+09:00"),
+])
+def test_pdf_year_recovers_saved_review_without_reanalysis(monkeypatch, transcript_template, evidence, expected):
+    from app.models import Analysis, Source
+    from app.services.deadline_dates import (
+        UNRESOLVED_FILE_CANDIDATE,
+        UNRESOLVED_FILE_TIME,
+    )
+    from tests.test_auth import TestingSession
+
+    headers = auth()
+    source = client.post("/api/sources/pdfs", headers=headers,
+                         files={"file": ("notice.pdf", picture("PDF"))}).json()
+    transcript = transcript_template.format(evidence=evidence)
+    with TestingSession() as db:
+        owner = db.get(Source, uuid.UUID(source["id"])).user_id
+        saved = Analysis(user_id=owner, source_id=uuid.UUID(source["id"]), input_text=transcript,
+                         input_hash=source["pdf_sha256"], model="pdf:test-model", status="ready",
+                         candidates=[{"id": str(uuid.uuid4()), "title": "SK하이닉스 지원서 접수", "selected": False,
+                                      "due_at": None, "evidence_text": evidence, "confidence": 0.9}],
+                         warnings=[UNRESOLVED_FILE_TIME, UNRESOLVED_FILE_CANDIDATE])
+        db.add(saved)
+        db.commit()
+        identity = saved.id
+
+    def unexpected_request(*args):
+        pytest.fail("Opening an existing review must not call Gemini")
+
+    monkeypatch.setattr(image_analysis, "provider_request", unexpected_request)
+    response = client.get(f"/api/ai-analyses/{identity}", headers=headers).json()
+    assert response["candidates"][0]["suggested_due_at"] == expected
+    assert response["warnings"] == []
+    with TestingSession() as db:
+        assert db.get(Analysis, identity).candidates[0]["due_at"] is None
+
+
+@pytest.mark.parametrize("heading,evidence", [
+    ("SK하이닉스 신입사원 채용", "9.22(월) ~ 10.1(수) 17:00"),
+    ("2025년 채용 공고\n2026년 채용 공고", "9.22(월) ~ 10.1(수) 17:00"),
+    ("2025년 채용 공고", "9.22(화) ~ 10.1(수) 17:00"),
+    ("2025년 채용 공고", "12.29(월) ~ 1.1(목) 17:00"),
+])
+def test_pdf_year_fallback_rejects_ambiguous_or_conflicting_dates(heading, evidence):
+    from app.services.deadline_dates import closing_choice, pdf_document_year
+
+    assert closing_choice(evidence, document_year=pdf_document_year(heading))["due_at"] is None
+
+
+def test_pdf_repeat_with_conflicting_years_is_unresolved():
+    from app.services.deadline_dates import pdf_closing_choice
+
+    evidence = "9.22(월) ~ 10.1(수) 17:00"
+    transcript = f"{evidence}\n2025.{evidence}\n2026.{evidence}"
+    assert pdf_closing_choice(evidence, evidence, transcript, None)["due_at"] is None
 
 
 def test_bad_evidence_fails_safely_and_explicit_time_is_grounded(monkeypatch):

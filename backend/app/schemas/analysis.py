@@ -151,11 +151,17 @@ class AnalysisResponse(BaseModel):
         from app.services.deadline_dates import (
             DEFAULT_TIME_NOTICE,
             SEOUL,
+            UNRESOLVED_FILE_CANDIDATE,
+            UNRESOLVED_FILE_TIME,
             closing_choice,
+            pdf_closing_choice,
+            pdf_document_year,
             resolved_warnings,
         )
         from app.services.url_deadlines import review_data
         data = review_data(self.input_text) if self.model.startswith("html:") else None
+        is_pdf = self.model.startswith("pdf:")
+        document_year = pdf_document_year(self.input_text) if is_pdf else None
         safe_url = bool(data and data.get("scope_confirmed") and not data.get("has_conflict")
                         and not data.get("open_ended") and len(data["choices"]) == 1)
         defaulted = False
@@ -164,8 +170,14 @@ class AnalysisResponse(BaseModel):
         for item in self.candidates:
             position = self.input_text.find(item.evidence_text)
             context = self.input_text[max(0, position - 100):position + len(item.evidence_text) + 100]
-            choice = (data["choices"][0] if safe_url else None) if self.model.startswith("html:") else (
-                closing_choice(item.evidence_text, context) if item.evidence_text in self.input_text else None)
+            if self.model.startswith("html:"):
+                choice = data["choices"][0] if safe_url else None
+            elif position < 0:
+                continue
+            elif is_pdf:
+                choice = pdf_closing_choice(item.evidence_text, context, self.input_text, document_year)
+            else:
+                choice = closing_choice(item.evidence_text, context)
             if not choice or not choice["due_at"]:
                 continue
             expected = datetime.fromisoformat(choice["due_at"])
@@ -185,6 +197,9 @@ class AnalysisResponse(BaseModel):
                 corrected_default |= item.due_at is not None
             defaulted |= item.time_defaulted
         resolved = bool(self.candidates) and all(item.due_at or item.suggested_due_at for item in self.candidates)
+        if is_pdf and resolved:
+            self.warnings = [warning for warning in self.warnings
+                             if warning not in {UNRESOLVED_FILE_TIME, UNRESOLVED_FILE_CANDIDATE}]
         self.warnings = resolved_warnings(self.warnings, defaulted, resolved)
         if corrected_default:
             self.warnings = ["사진에 적힌 마감 시간으로 수정할 수 있습니다. 입력된 시간을 확인한 뒤 검토 내용을 저장해 주세요.", *self.warnings][:30]
