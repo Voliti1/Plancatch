@@ -26,6 +26,7 @@ test("schedule registration uses the shared fresh page and source library has no
     ],
   });
   await login(page);
+  const menu = page.getByRole("navigation", { name: "주 메뉴" });
   await page.goto("/deadlines");
   const icons = page.locator(".schedule-rows .date-icon");
   await expect(icons).toHaveCount(2);
@@ -34,13 +35,11 @@ test("schedule registration uses the shared fresh page and source library has no
       items.map((el) => getComputedStyle(el).fontSize),
     ),
   ).toEqual(["35px", "35px"]);
-  const size = await page
-    .locator(".task-list-icon")
-    .evaluate((el) => ({
-      width: el.getBoundingClientRect().width,
-      height: el.getBoundingClientRect().height,
-      box: el.parentElement!.getBoundingClientRect().width,
-    }));
+  const size = await page.locator(".task-list-icon").evaluate((el) => ({
+    width: el.getBoundingClientRect().width,
+    height: el.getBoundingClientRect().height,
+    box: el.parentElement!.getBoundingClientRect().width,
+  }));
   expect(size).toEqual({ width: 35, height: 35, box: 40 });
   await expect(
     page.getByRole("group", { name: "등록할 일정 종류" }),
@@ -56,7 +55,9 @@ test("schedule registration uses the shared fresh page and source library has no
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
+  await expect(menu.locator("[aria-current]")).toHaveCount(0);
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await expect(menu.locator("[aria-current]")).toHaveCount(0);
   await page.getByLabel("일정명", { exact: true }).fill("남기지 않을 입력");
   await page
     .getByRole("navigation")
@@ -67,6 +68,9 @@ test("schedule registration uses the shared fresh page and source library has no
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("");
   expect(writes).toEqual([]);
   await page.goto("/sources");
+  await expect(
+    menu.getByRole("link", { name: "원본 자료", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("link", { name: "＋ 자료 등록", exact: true }),
   ).toHaveCount(0);
@@ -84,6 +88,17 @@ test("schedule registration uses the shared fresh page and source library has no
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+  await page
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/sources\/new\?new=.+/);
+  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await page.goto("/sources/new?mode=manual");
+  await expect(page.getByLabel("일정명", { exact: true })).toBeVisible();
+  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await page.reload();
+  await expect(page.getByLabel("일정명", { exact: true })).toBeVisible();
+  await expect(menu.locator("[aria-current]")).toHaveCount(0);
 });
 test("calendar view controls are today week month with the same gap", async ({
   page,
@@ -100,15 +115,13 @@ test("calendar view controls are today week month with the same gap", async ({
     "주간",
     "월간",
   ]);
-  const boxes = await controls
-    .getByRole("button")
-    .evaluateAll((items) =>
-      items.map((el) => ({
-        x: el.getBoundingClientRect().x,
-        right: el.getBoundingClientRect().right,
-        y: el.getBoundingClientRect().y,
-      })),
-    );
+  const boxes = await controls.getByRole("button").evaluateAll((items) =>
+    items.map((el) => ({
+      x: el.getBoundingClientRect().x,
+      right: el.getBoundingClientRect().right,
+      y: el.getBoundingClientRect().y,
+    })),
+  );
   expect(boxes[0].y).toBe(boxes[1].y);
   expect(boxes[1].y).toBe(boxes[2].y);
   expect(boxes[1].x - boxes[0].right).toBe(8);
