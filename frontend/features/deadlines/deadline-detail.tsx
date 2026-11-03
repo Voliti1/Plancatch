@@ -26,11 +26,11 @@ export function DeadlineDetail({ id }: { id: string }) {
   return (
     <>
       <Link className="back-link" href="/deadlines">
-        ← 마감일 목록
+        ← 일정 목록
       </Link>
       <PageHeading
         eyebrow="DEADLINE DETAILS"
-        title="마감일 상세"
+        title="일정 상세"
         description={`등록 ${formatSeoul(data.created_at)} · 모든 시간은 한국 시간입니다.`}
       />
       <section className="card form-card">
@@ -68,8 +68,8 @@ export function DeadlineDetail({ id }: { id: string }) {
           <h2>마감일 삭제</h2>
           <p className="muted">
             다른 마감일이 연결되어 있지 않으면 원본 자료와 검토 기록도 함께
-            삭제됩니다. 연결된 할 일과 Google 일정은 유지됩니다. 삭제한 내용은
-            복구할 수 없습니다.
+            삭제됩니다. 연결된 할 일은 유지되며 관리 중인 Google 사본은 자동
+            삭제됩니다. 삭제한 내용은 복구할 수 없습니다.
           </p>
         </div>
         {!confirm ? (

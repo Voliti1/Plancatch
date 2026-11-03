@@ -16,6 +16,7 @@ import { processingError } from "@/features/analyses/errors";
 import { SourceAnalyses } from "@/features/analyses/source-analyses";
 import { SourceExtractedContent } from "./source-extracted-content";
 import { SourceImage } from "./source-image";
+import { extractedSummary } from "./extracted-summary";
 
 export function SourceDetail({ id }: { id: string }) {
   const loader = useCallback(async () => {
@@ -33,6 +34,11 @@ export function SourceDetail({ id }: { id: string }) {
   const [sourceUpdate, setSourceUpdate] = useState<Source>();
   const [workflowBusy, setWorkflowBusy] = useState(false);
   const data = sourceUpdate ?? loaded;
+  const pdf = data?.source_type === "pdf";
+  const extractedTitle =
+    pdf && data?.extracted_text
+      ? extractedSummary(data.extracted_text, true).title
+      : null;
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -78,15 +84,23 @@ export function SourceDetail({ id }: { id: string }) {
                 변경 사항을 저장했습니다.
               </p>
             )}
-            <section className="card form-card source-detail">
+            <section
+              className={`card form-card source-detail${pdf ? " pdf-source-detail" : ""}`}
+            >
               <div className="section-header">
                 <span className="tag">{sourceTypeLabel(data.source_type)}</span>
                 <span className="tag">
                   {processingStatusLabel(data.processing_status)}
                 </span>
               </div>
-              <h2>{data.title || "제목 없는 자료"}</h2>
+              <h2>{data.title || extractedTitle || "제목 없는 자료"}</h2>
               <dl className="source-metadata">
+                {data.original_filename && (
+                  <div>
+                    <dt>원본 파일명</dt>
+                    <dd>{data.original_filename}</dd>
+                  </div>
+                )}
                 <div>
                   <dt>등록 일시</dt>
                   <dd>{formatSeoul(data.created_at)}</dd>
@@ -139,7 +153,11 @@ export function SourceDetail({ id }: { id: string }) {
                     </section>
                   )}
                   {data.extracted_text !== null && (
-                    <SourceExtractedContent text={data.extracted_text} />
+                    <SourceExtractedContent
+                      text={data.extracted_text}
+                      pdf={pdf}
+                      fileMetadata={data.file_metadata}
+                    />
                   )}
                   {data.source_type === "url" || data.source_type === "text" ? (
                     <button
@@ -165,15 +183,17 @@ export function SourceDetail({ id }: { id: string }) {
                 </>
               )}
             </section>
-            {data.source_type === "image" ? (
+            {data.source_type === "image" || data.source_type === "pdf" ? (
               <>
-                <SourceImage id={id} />
-                <Link
-                  className="button"
-                  href={`/sources/${encodeURIComponent(id)}/review`}
-                >
-                  이미지 마감일 검토 →
-                </Link>
+                {data.source_type === "image" && <SourceImage id={id} />}
+                <div className={pdf ? "pdf-source-review-actions" : undefined}>
+                  <Link
+                    className="button"
+                    href={`/sources/${encodeURIComponent(id)}/review`}
+                  >
+                    {pdf ? "PDF" : "이미지"} 마감일 검토 →
+                  </Link>
+                </div>
               </>
             ) : (
               <>

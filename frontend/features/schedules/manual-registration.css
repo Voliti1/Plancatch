@@ -26,5 +26,51 @@
   margin-bottom: 8px;
 }
 .manual-registration-card > p {
-  margin: 0 0 26px;
+  margin: 0 0 12px;
+}
+.natural-registration > h2 {
+  margin-bottom: 8px;
+}
+.natural-sentence-input {
+  margin-top: 16px;
+}
+.natural-sentence-input h3 {
+  font-size: 15px;
+  margin: 0 0 10px;
+}
+.natural-sentence-input label {
+  margin-bottom: 10px;
+}
+.natural-sentence-input textarea {
+  min-height: 64px;
+}
+.natural-sentence-input > p {
+  margin: 8px 0 0;
+}
+.natural-examples {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.natural-examples button {
+  min-height: 32px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 400;
+}
+.natural-preview {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+.natural-notices {
+  padding: 16px 20px 16px 36px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+@media (max-width: 520px) {
+  .schedule-registration-modes button {
+    font-size: 12px;
+    padding: 8px 5px;
+  }
 }

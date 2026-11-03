@@ -66,6 +66,20 @@ async function seed(page: Page, kind: Kind, count = 3) {
     if (item && req.method() === "GET") return route.fulfill({ json: item });
     return route.fallback();
   });
+  if (kind === "deadlines")
+    await page.route("**/test-api/api/schedules?**", (route) => {
+      const offset = Number(
+        new URL(route.request().url()).searchParams.get("offset") ?? 0,
+      );
+      return route.fulfill({
+        json: {
+          entries: state.items
+            .slice(offset, offset + 50)
+            .map((item) => ({ kind: "deadline", item })),
+          has_more: state.items.length > offset + 50,
+        },
+      });
+    });
   await login(page);
   await page.goto(`/${kind}`);
   await expect(page.getByText("테스트 항목 1", { exact: true })).toBeVisible();
@@ -99,7 +113,7 @@ test("마감일 삭제 확인에 원본 정리를 안내하고 분석 중이면 
   await remove(page).click();
   await expect(
     page.getByText(
-      "다른 마감일이 연결되어 있지 않으면 원본 자료와 검토 기록도 함께 삭제됩니다. 연결된 할 일과 Google 일정은 유지됩니다.",
+      "마지막 연결 마감일을 삭제하면 원본 자료와 검토 기록도 함께 삭제됩니다. 연결된 Google 사본도 자동 삭제하며 다른 할 일은 유지합니다.",
       { exact: false },
     ),
   ).toBeVisible();
@@ -117,7 +131,7 @@ for (const kind of ["sources", "deadlines"] as const) {
     page,
   }) => {
     const state = await seed(page, kind);
-    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await expect(page.locator(".delete-selectable")).toHaveCount(0);
     const color = await mode(page).evaluate((element) => {
       const style = getComputedStyle(element);
       return [style.color, style.backgroundColor, style.borderTopColor];
@@ -127,11 +141,15 @@ for (const kind of ["sources", "deadlines"] as const) {
       "rgb(255, 255, 255)",
       "rgb(185, 56, 49)",
     ]);
-    const register = page.getByRole(kind === "sources" ? "link" : "button", {
-      name: kind === "sources" ? "＋ 자료 등록" : "＋ 마감일 등록",
+    const register = page.getByRole("link", {
+      name: "＋ 일정 등록",
       exact: true,
     });
-    if (page.viewportSize()!.width > 1000)
+    if (kind === "sources")
+      await expect(
+        page.getByRole("link", { name: "＋ 자료 등록", exact: true }),
+      ).toHaveCount(0);
+    else if (page.viewportSize()!.width > 1000)
       expect((await mode(page).boundingBox())!.x).toBeLessThan(
         (await register.boundingBox())!.x,
       );
@@ -157,7 +175,7 @@ for (const kind of ["sources", "deadlines"] as const) {
     await page
       .getByRole("button", { name: "삭제 모드 해제", exact: true })
       .click();
-    await expect(page.getByRole("checkbox")).toHaveCount(0);
+    await expect(page.locator(".delete-selectable")).toHaveCount(0);
     expect(state.items).toHaveLength(3);
     expect(state.attempts).toEqual([]);
   });
@@ -271,6 +289,15 @@ for (const kind of ["sources", "deadlines"] as const) {
     await expect(
       page.getByRole("button", { name: "삭제 모드 해제" }),
     ).toBeDisabled();
+    if (kind === "deadlines") {
+      const register = page.getByRole("link", {
+        name: "＋ 일정 등록",
+        exact: true,
+      });
+      await expect(register).toHaveAttribute("aria-disabled", "true");
+      await register.evaluate((link: HTMLAnchorElement) => link.click());
+      await expect(page).toHaveURL(/\/deadlines$/);
+    }
     await page.getByRole("link", { name: "대시보드", exact: true }).click();
     await expect(page).toHaveURL(/\/dashboard$/);
     release();

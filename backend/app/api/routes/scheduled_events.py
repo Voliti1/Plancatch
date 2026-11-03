@@ -17,6 +17,7 @@ from app.schemas.scheduled_event import (
     ScheduledEventResponse,
     ScheduledEventUpdate,
 )
+from app.services import google_sync as sync
 
 router = APIRouter(prefix="/api/scheduled-events", tags=["scheduled-events"])
 
@@ -57,6 +58,7 @@ def create_event(
     current_user: CurrentUser,
     db: DatabaseSession,
 ) -> ScheduledEvent:
+    sync.lock_owner(db, current_user.id)
     get_owned_task(payload.task_id, current_user.id, db)
     values = payload.model_dump()
     values["start_at"] = utc(payload.start_at)
@@ -67,6 +69,8 @@ def create_event(
         **values,
     )
     db.add(event)
+    db.flush()
+    sync.enqueue_task(db, current_user.id, event.task_id)
     db.commit()
     db.refresh(event)
     return event
@@ -133,6 +137,7 @@ def update_event(
     current_user: CurrentUser,
     db: DatabaseSession,
 ) -> ScheduledEvent:
+    sync.lock_owner(db, current_user.id)
     event = owned_event(event_id, current_user.id, db)
     require_local_event(event)
     changes = payload.model_dump(exclude_unset=True)
@@ -146,6 +151,7 @@ def update_event(
     for field, value in changes.items():
         setattr(event, field, value)
     event.is_user_approved = event.status == "approved"
+    sync.enqueue_task(db, current_user.id, event.task_id)
     db.commit()
     db.refresh(event)
     return event
@@ -155,8 +161,10 @@ def update_event(
 def delete_event(
     event_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession
 ) -> Response:
+    sync.lock_owner(db, current_user.id)
     event = owned_event(event_id, current_user.id, db)
     require_local_event(event)
     db.delete(event)
+    sync.enqueue_task(db, current_user.id, event.task_id)
     db.commit()
     return Response(status_code=204)

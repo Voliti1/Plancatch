@@ -3,7 +3,16 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, String, Text, func
+from sqlalchemy import (
+    JSON,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Text,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -14,6 +23,7 @@ class Source(Base):
 
     __tablename__ = "sources"
     __table_args__ = (
+        Index("ix_sources_owner_filename", "user_id", "original_filename"),
         CheckConstraint(
             "source_type IN ('url', 'pdf', 'image', 'text')",
             name="ck_sources_source_type",
@@ -31,6 +41,8 @@ class Source(Base):
     )
     source_type: Mapped[str] = mapped_column(String(20))
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    file_metadata: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     original_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     storage_key: Mapped[str | None] = mapped_column(String(1024), nullable=True)
     original_text: Mapped[str | None] = mapped_column(Text, nullable=True)

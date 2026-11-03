@@ -71,14 +71,14 @@ test("JobPlanet date-only HTML requires a user time before saving and approving"
   });
   await expect(dateInput).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   await page
     .getByRole("button", { name: "2026.11.25 · 일시 입력 필요", exact: true })
     .click();
   await expect(dateInput).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 1개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
   ).toBeDisabled();
   expect(state.deadlines).toHaveLength(0);
   expect(state.starts).toBe(0);
@@ -87,7 +87,7 @@ test("JobPlanet date-only HTML requires a user time before saving and approving"
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();
@@ -141,7 +141,7 @@ test("JobPlanet conflicting date remains empty and cannot be approved", async ({
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByText("원문 마감 날짜는 2026-11-25입니다.", { exact: false }),

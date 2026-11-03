@@ -11,6 +11,7 @@ from app.models.analysis import Analysis
 from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.deadline import DeadlineCreate, DeadlineResponse, DeadlineUpdate
+from app.services import google_sync as sync
 from app.services.deadline_safety import calculate_safe_due_at
 
 router = APIRouter(prefix="/api/deadlines", tags=["deadlines"])
@@ -86,9 +87,12 @@ def create_deadline(
     db: DatabaseSession,
 ) -> Deadline:
     """Create a deadline, optionally linked to an owned source."""
+    sync.lock_owner(db, current_user.id)
     validate_owned_source(payload.source_id, current_user.id, db)
     deadline = Deadline(user_id=current_user.id, **payload.model_dump())
     db.add(deadline)
+    db.flush()
+    sync.enqueue_deadline(db, current_user.id, deadline.id)
     db.commit()
     db.refresh(deadline)
     return deadline
@@ -135,6 +139,7 @@ def update_deadline(
     db: DatabaseSession,
 ) -> Deadline:
     """Update an owned deadline."""
+    sync.lock_owner(db, current_user.id)
     changes = payload.model_dump(exclude_unset=True)
     deadline, _ = lock_deadline_and_sources(deadline_id, current_user.id, db, changes.get("source_id"))
 
@@ -150,6 +155,7 @@ def update_deadline(
     for field, value in changes.items():
         setattr(deadline, field, value)
 
+    sync.enqueue_deadline(db, current_user.id, deadline.id)
     db.commit()
     db.refresh(deadline)
     return deadline
@@ -162,6 +168,7 @@ def delete_deadline(
     db: DatabaseSession,
 ) -> Response:
     """Delete the owned deadline and its now-unreferenced owned source atomically."""
+    sync.lock_owner(db, current_user.id)
     deadline, source = lock_deadline_and_sources(deadline_id, current_user.id, db)
     remove_source = source is not None and db.scalar(select(Deadline.id).where(
         Deadline.source_id == source.id, Deadline.id != deadline.id,
@@ -170,13 +177,14 @@ def delete_deadline(
             Analysis.source_id == source.id, Analysis.status == "processing",
     ).limit(1)) is not None):
         raise HTTPException(status_code=409, detail="deadline_source_busy")
-    image_key = source.storage_key if remove_source and source.source_type == "image" else None
+    file_key = source.storage_key if remove_source and source.source_type in {"image", "pdf"} else None
     db.delete(deadline)
+    sync.enqueue_deadline(db, current_user.id, deadline_id)
     db.flush()
     if remove_source:
         db.delete(source)
     db.commit()
-    if image_key:
-        from app.services.source_images import remove_image
-        remove_image(image_key)
+    if file_key:
+        from app.services.source_images import remove_file
+        remove_file(file_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

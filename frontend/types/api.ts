@@ -1,3 +1,4 @@
+import type { GoogleReminderSettings } from "./google-reminders";
 export interface User {
   id: string;
   email: string;
@@ -14,11 +15,18 @@ export interface Source {
   id: string;
   source_type: string;
   title: string | null;
+  original_filename?: string | null;
+  file_metadata?: {
+    document_title: string | null;
+    company_name: string | null;
+    deadlines: string[];
+  } | null;
   original_url: string | null;
   original_text: string | null;
   extracted_text: string | null;
   extracted_text_hash?: string | null;
   image_sha256?: string | null;
+  pdf_sha256?: string | null;
   storage_key: string | null;
   processing_status: string;
   error_message: string | null;
@@ -32,6 +40,7 @@ export type SourceUpdateInput =
   | { title: string | null; original_url: string; original_text?: never }
   | { title: string | null; original_text: string; original_url?: never };
 export interface Deadline {
+  google_reminders?: GoogleReminderSettings | null;
   id: string;
   source_id: string | null;
   title: string;
@@ -47,6 +56,7 @@ export interface Deadline {
   updated_at: string;
 }
 export interface DeadlineInput {
+  google_reminders?: GoogleReminderSettings;
   title: string;
   due_at: string;
   safety_buffer_minutes: number | null;

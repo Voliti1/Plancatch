@@ -1,5 +1,7 @@
+import type { GoogleReminderSettings } from "./google-reminders";
 export type ScheduleType = "fixed" | "flexible";
 export interface TaskInput {
+  google_reminders?: GoogleReminderSettings | null;
   deadline_id: string | null;
   title: string;
   description: string | null;

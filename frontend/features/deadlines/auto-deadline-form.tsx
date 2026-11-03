@@ -7,6 +7,7 @@ import { PageHeading } from "@/components/page-heading";
 import { useAuth } from "@/features/auth/provider";
 import { analysisError } from "@/features/analyses/errors";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import {
   registerAutomatically,
   type RegistrationDraft,
@@ -59,6 +60,10 @@ function RegistrationSession({ userId }: { userId: string }) {
   const pending = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const router = useRouter();
+  const { markSaved, confirmDiscard } = useUnsavedChanges(
+    JSON.stringify([draft.title, draft.url]),
+    !draft.sourceId,
+  );
   useEffect(() => () => controller.current?.abort(), []);
   function save(next: RegistrationDraft) {
     // A late response from a hidden/unmounted route must not overwrite a new run.
@@ -72,6 +77,8 @@ function RegistrationSession({ userId }: { userId: string }) {
     }
   }
   function reset() {
+    if (!confirmDiscard()) return;
+    markSaved(JSON.stringify(["", ""]));
     try {
       sessionStorage.removeItem(storageKey);
     } catch {
@@ -230,7 +237,8 @@ function RegistrationSession({ userId }: { userId: string }) {
           <p className="notice">
             날짜가 하나여도 검토 후 승인해야 등록됩니다. 여러 날짜는 선택지로
             제공하고, 채용 시 마감이나 날짜 누락은 직접 일시를 입력해야 합니다.
-            작업 생성·자동 배치·Google Calendar 동기화는 하지 않습니다.
+            Google 계정이 연결되어 있으면 등록한 마감일이 Google 캘린더에도 자동
+            반영됩니다.
           </p>
           <label className="checkbox analysis-consent">
             <input

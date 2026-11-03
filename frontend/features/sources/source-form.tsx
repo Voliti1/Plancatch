@@ -9,6 +9,7 @@ import { ErrorNotice } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useHydrated } from "@/lib/use-hydrated";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import "./source-registration.css";
 export function SourceForm({
   embedded = false,
@@ -33,6 +34,14 @@ export function SourceForm({
     };
   }, []);
   const router = useRouter();
+  const { markSaved } = useUnsavedChanges(
+    JSON.stringify([
+      title,
+      url,
+      text,
+      files.map((file) => [file.name, file.size, file.lastModified]),
+    ]),
+  );
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current || !hydrated) return;
@@ -40,11 +49,11 @@ export function SourceForm({
     const originalUrl = url.trim();
     const hasText = Boolean(text.trim());
     if (files.length > 1 || (files.length && (originalUrl || hasText))) {
-      setError("한 번에 이미지 한 장, URL, 텍스트 중 하나만 등록해 주세요.");
+      setError("한 번에 파일 한 개, URL, 텍스트 중 하나만 등록해 주세요.");
       return;
     }
     if (!originalUrl && !hasText && !files.length) {
-      setError("이미지, URL 또는 텍스트를 입력해 주세요.");
+      setError("파일, URL 또는 텍스트를 입력해 주세요.");
       return;
     }
     if (originalUrl && hasText) {
@@ -70,7 +79,7 @@ export function SourceForm({
     try {
       const sourceTitle = title.trim() || undefined;
       const source = files.length
-        ? await sourcesApi.uploadImage(files[0], sourceTitle)
+        ? await sourcesApi.uploadFile(files[0], sourceTitle)
         : await sourcesApi.create(
             originalUrl
               ? {
@@ -86,8 +95,10 @@ export function SourceForm({
           );
       // A new keyed registration can replace this form while a save is in flight.
       // Keep the saved source, but never redirect or update its replacement.
-      if (active.current)
+      if (active.current) {
+        markSaved();
         router.push(`/sources/${encodeURIComponent(source.id)}/review`);
+      }
     } catch (err) {
       if (!active.current) return;
       setError(errorMessage(err));
@@ -186,11 +197,6 @@ export function SourceForm({
               </section>
             </div>
           </div>
-          <p className="small muted source-registration-help">
-            저장 후 바로 원문 추출과 마감일 검토로 이어집니다. URL은 HTML에서
-            날짜를 읽고, 텍스트와 이미지는 AI 전송에 동의한 뒤 분석합니다. 검토
-            후 승인해야 마감일이 등록됩니다.
-          </p>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions source-registration-actions">
             <Link

@@ -55,7 +55,10 @@ async function open(page: Page) {
   await login(page);
   await page.goto("/sources/new");
   await expect(
-    page.getByRole("button", { name: "이미지 파일 선택", exact: true }),
+    page.getByRole("button", {
+      name: "PDF 또는 이미지 파일 선택",
+      exact: true,
+    }),
   ).toBeEnabled();
 }
 
@@ -77,7 +80,10 @@ test("붙여넣은 캡처는 저장 전 전송하지 않고 저장 후 AI 동의
   await login(page);
   await page.goto("/sources/new");
   await expect(
-    page.getByRole("button", { name: "이미지 파일 선택", exact: true }),
+    page.getByRole("button", {
+      name: "PDF 또는 이미지 파일 선택",
+      exact: true,
+    }),
   ).toBeEnabled();
   await page
     .getByLabel("일정 제목 (선택)", { exact: true })
@@ -159,7 +165,7 @@ for (const invalid of [
     name: "notice.svg",
     type: "image/svg+xml",
     size: 10,
-    error: "HEIC·SVG·PDF는 아직 지원하지 않습니다",
+    error: "HEIC·SVG는 지원하지 않습니다",
   },
 ])
   test(`잘못된 클립보드 이미지 ${invalid.name}는 기존 선택을 덮지 않는다`, async ({
@@ -185,7 +191,7 @@ test("여러 사진은 거부하며 수동 등록·다른 페이지에서는 붙
     { name: "2.png", type: "image/png" },
   ]);
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "한 장씩",
+    "한 개씩",
   );
   await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(0);
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();

@@ -9,7 +9,7 @@ import pytest
 from PIL import Image
 from pydantic import SecretStr
 
-from app.services import ai_analysis, image_analysis, source_images
+from app.services import ai_analysis, image_analysis, pdf_analysis, source_images
 from tests.test_sources import auth_headers, client, configure_test_jwt  # noqa: F401
 
 TEXT = "공통지원자격\n2027년 2월 졸업예정자 및 기졸업자\n접수기간 2026년 10월 21일(수) ~ 11월 01일(일) 까지\n면접일정 별도 통지"
@@ -65,6 +65,8 @@ def test_image_schedule_title_reaches_candidates_and_can_be_edited(monkeypatch, 
     source = client.post("/api/sources/images", headers=headers,
                         files={"file": ("notice.png", picture(), "image/png")},
                         data={"title": title}).json()
+    assert source["original_filename"] == "notice.png"
+    assert source["title"] == (title or "notice.png")
     started = client.post("/api/sources/" + source["id"] + "/ai-analyses", headers=headers,
                           json={"allow_external_ai": True, "input_hash": source["image_sha256"]})
     path = "/api/ai-analyses/" + started.json()["id"]
@@ -124,7 +126,7 @@ def test_date_only_crop_defaults_time_but_still_requires_selection_and_review(mo
     assert client.delete("/api/deadlines/"+identity,headers=headers).status_code == 204
     key = source["storage_key"]
     assert client.get(path,headers=headers).status_code == 404
-    assert not source_images.image_path(key).exists()
+    assert not source_images.file_path(key).exists()
 
 
 @pytest.mark.parametrize("data", [b"not an image",b"<svg onload='alert(1)'/>", b"%PDF-1.4"])
@@ -134,6 +136,164 @@ def test_invalid_uploads_do_not_create_source_or_send_ai(data):
     assert client.get("/api/sources",headers=headers).json() == []
 
 
+def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monkeypatch):
+    headers = auth()
+    pdf = picture("PDF")
+    first = "서류 접수 마감 11.09 18:00"
+    second = "추가 서류 제출 마감 2026.11.12 17:00"
+    calls = []
+
+    def respond(payload, model):
+        inline = payload["contents"][0]["parts"][1]["inlineData"]
+        assert inline["mimeType"] == "application/pdf"
+        assert base64.b64decode(inline["data"]) == pdf
+        calls.append(model)
+        value = {"transcript": "2026년 신입 채용 공고\n" + first + "\n" + second.replace("마감 2026", "마감\n2026")}
+        return {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(value)}]}}]}
+
+    monkeypatch.setattr(pdf_analysis, "provider_request", respond)
+    upload_path = "/api/sources/pdfs"
+    assert client.post(upload_path, files={"file": ("notice.pdf", pdf)}).status_code == 401
+    bad = client.post(upload_path, headers=headers, files={"file": ("fake.pdf", b"%PDF-1.4\nno trailer")})
+    assert bad.status_code == 422
+    oversized = client.post(upload_path, headers=headers,
+        files={"file": ("large.pdf", b"x" * (source_images.MAX_BYTES + 1))})
+    assert oversized.status_code == 422
+    saved = client.post(upload_path, headers=headers, files={"file": ("notice.pdf", pdf)})
+    assert saved.status_code == 201
+    source = saved.json()
+    assert source["source_type"] == "pdf" and len(source["pdf_sha256"]) == 64
+    source_path = "/api/sources/" + source["id"]
+    assert client.get(source_path, headers=auth()).status_code == 404
+    assert client.get(source_path + "/image", headers=headers).status_code == 404
+    assert client.post(source_path + "/analyze", headers=headers).status_code == 422
+    analysis_route = source_path + "/ai-analyses"
+    payload = {"input_hash": source["pdf_sha256"], "reuse_existing": True}
+    local = client.post(analysis_route, headers=headers, json=payload)
+    assert local.status_code == 202
+    waiting = client.get("/api/ai-analyses/" + local.json()["id"], headers=headers).json()
+    assert waiting["error_message"] == pdf_analysis.SCAN_CONSENT_REQUIRED
+    assert client.get(source_path, headers=headers).json()["processing_status"] == "pending"
+    assert client.post(analysis_route, headers=headers, json={**payload, "allow_external_ai": True,
+                       "input_hash": "0" * 64}).status_code == 409
+    assert calls == []
+    payload["allow_external_ai"] = True
+    started = client.post(analysis_route, headers=headers, json={**payload, "reuse_existing": False})
+    assert started.status_code == 202
+    analysis_path = "/api/ai-analyses/" + started.json()["id"]
+    assert started.json()["id"] != waiting["id"]
+    analysis = client.get(analysis_path, headers=headers).json()
+    assert analysis["status"] == "ready" and analysis["model"].startswith("pdf:")
+    assert [(c["title"], c["due_at"], c["selected"]) for c in analysis["candidates"]] == [
+        ("2026년 신입 채용 공고", "2026-11-09T18:00:00+09:00", False),
+        ("추가 서류 제출", "2026-11-12T17:00:00+09:00", False),
+    ]
+    assert analysis["warnings"] == []
+    assert client.post(analysis_route, headers=headers, json=payload).json()["id"] == analysis["id"]
+    assert calls == ["test-model"]
+    assert client.get("/api/deadlines", headers=headers).json() == []
+    auto = client.post(analysis_path + "/auto-register", headers=headers,
+                       json={"revision": 1, "title": "PDF", "confirm_auto_registration": True})
+    assert auto.status_code == 422 and auto.json()["detail"] == "pdf_registration_requires_review"
+    candidates = [{key: c[key] for key in ("id", "title", "due_at", "description", "selected")}
+                  for c in analysis["candidates"]]
+    candidates[1]["selected"] = True
+    assert client.patch(analysis_path, headers=headers, json={"revision": 1, "candidates": candidates}).status_code == 200
+    approved = client.post(analysis_path + "/approve", headers=headers, json={"revision": 2})
+    assert approved.status_code == 200
+    deadlines = client.get("/api/deadlines", headers=headers).json()
+    assert [d["title"] for d in deadlines] == ["추가 서류 제출"]
+    assert client.delete(source_path, headers=headers).status_code == 409
+    assert client.delete("/api/deadlines/" + deadlines[0]["id"], headers=headers).status_code == 204
+    assert not source_images.file_path(source["storage_key"]).exists()
+
+
+def test_pdf_native_text_keeps_heading_and_later_deadline_without_external_ai(monkeypatch):
+    headers = auth()
+    pdf = picture("PDF")
+    pages = [
+        "2025 하반기\nSK하이닉스\n신입사원 채용\n2027년 2월 졸업예정자",
+        "지원서 접수\n9.22(월) ~ 10.1(수) 17:00\n추가 서류 제출 기한: 2025.10.10.",
+    ]
+    monkeypatch.setattr(pdf_analysis, "read_pdf_pages", lambda data: pages)
+
+    def unexpected_request(*args):
+        pytest.fail("A readable PDF must not request external OCR")
+
+    monkeypatch.setattr(pdf_analysis, "provider_request", unexpected_request)
+    monkeypatch.setattr(pdf_analysis, "configured_model", unexpected_request)
+    source = client.post("/api/sources/pdfs", headers=headers, files={"file": ("notice.pdf", pdf)}).json()
+    route = "/api/sources/" + source["id"] + "/ai-analyses"
+    started = client.post(route, headers=headers,
+                          json={"input_hash": source["pdf_sha256"]})
+    assert started.status_code == 202
+    analysis = client.get("/api/ai-analyses/" + started.json()["id"], headers=headers).json()
+    assert analysis["status"] == "ready" and analysis["model"] == "pdf:local-v1"
+    assert analysis["input_text"].startswith("2025 하반기 SK하이닉스 신입사원 채용\n")
+    assert [(item["title"], item["due_at"], item["selected"]) for item in analysis["candidates"]] == [
+        ("2025 하반기 SK하이닉스 신입사원 채용", "2025-10-01T17:00:00+09:00", False),
+        ("추가 서류 제출", "2025-10-10T23:59:00+09:00", False),
+    ]
+    assert client.get("/api/deadlines", headers=headers).json() == []
+
+
+def test_file_upload_reuses_only_same_owner_filename_and_complete_metadata(monkeypatch):
+    headers = auth()
+    pdf = picture("PDF")
+    name = "채용공고.pdf"
+
+    def pages(data):
+        end = "11.13 16:00" if data.endswith(b"\t") else "11.12 16:00"
+        return [f"2026년 하반기 신입사원 채용 공고\n회사명: 테스트기술\n접수기간 2026.11.09 ~ {end}"]
+
+    monkeypatch.setattr(pdf_analysis, "read_pdf_pages", pages)
+
+    def save(data, *, account=headers, filename=name, title=""):
+        reply = client.post("/api/sources/pdfs", headers=account,
+                            files={"file": (filename, data, "application/pdf")}, data={"title": title})
+        assert reply.status_code == 201
+        return reply.json()
+
+    def analyze(source):
+        started = client.post(f"/api/sources/{source['id']}/ai-analyses", headers=headers,
+                              json={"input_hash": source["pdf_sha256"]})
+        assert started.status_code == 202
+        return started.json()["id"], client.get(f"/api/ai-analyses/{started.json()['id']}", headers=headers).json()
+
+    original = save(pdf)
+    assert original["title"] == original["original_filename"] == name
+    _, review = analyze(original)
+    persisted = client.get(f"/api/sources/{original['id']}", headers=headers).json()
+    assert persisted["title"] == "2026년 하반기 신입사원 채용 공고"
+    assert persisted["file_metadata"]["company_name"] == "테스트기술"
+    assert save(pdf)["id"] == original["id"]
+    assert save(pdf, filename="다른파일.pdf")["id"] != original["id"]
+    assert save(pdf, account=auth())["id"] != original["id"]
+
+    duplicate = save(pdf + b"\n")
+    assert duplicate["id"] != original["id"]
+    alias, canonical = analyze(duplicate)
+    assert alias != review["id"] == canonical["id"]
+    assert canonical["source_id"] == original["id"]
+    assert not source_images.file_path(duplicate["storage_key"]).exists()
+    assert client.get(f"/api/sources/{duplicate['id']}", headers=headers).status_code == 404
+    assert client.get(f"/api/ai-analyses/{alias}", headers=auth()).status_code == 404
+    assert client.post(f"/api/ai-analyses/{alias}/approve", headers=headers, json={"revision": 1}).status_code == 409
+    assert [item["id"] for item in client.get(f"/api/sources/{original['id']}/ai-analyses", headers=headers).json()] == [
+        review["id"],
+    ]
+
+    different = save(pdf + b"\t")
+    _, distinct_review = analyze(different)
+    assert distinct_review["source_id"] == different["id"]
+
+    custom = save(pdf, title="내가 정한 제목")
+    _, custom_review = analyze(custom)
+    assert custom_review["source_id"] == custom["id"]
+    assert custom_review["candidates"][0]["title"] == "내가 정한 제목"
+    assert client.get(f"/api/sources/{custom['id']}", headers=headers).json()["title"] == "내가 정한 제목"
+
+
 def test_limits_and_integrity_are_enforced(monkeypatch):
     with pytest.raises(ValueError): source_images.normalize_image(b"x"*(source_images.MAX_BYTES+1))
     monkeypatch.setattr(source_images,"MAX_PIXELS",10)
@@ -141,10 +301,74 @@ def test_limits_and_integrity_are_enforced(monkeypatch):
     monkeypatch.setattr(source_images,"MAX_PIXELS",12_000_000)
     headers = auth()
     source = upload(headers,picture("JPEG"))
-    path = source_images.image_path(source["storage_key"])
+    path = source_images.file_path(source["storage_key"])
     path.write_bytes(b"changed")
     assert client.get('/api/sources/'+source['id']+'/image',headers=headers).status_code == 404
-    with pytest.raises(ValueError): source_images.image_path("../../.env")
+    with pytest.raises(ValueError): source_images.file_path("../../.env")
+
+
+@pytest.mark.parametrize("transcript_template,evidence,expected", [
+    ("2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수\n{evidence}",
+     "9.22(월) ~ 10.1(수) 17:00", "2025-10-01T17:00:00+09:00"),
+    ("지원서 접수\n{evidence}\n지원 기간 : 2025.{evidence}",
+     "9.22(월) ~ 10.1(수) 17:00", "2025-10-01T17:00:00+09:00"),
+    ("2025년 하반기 신입사원 채용 공고\n케이워터기술은 한국수자원공사 자회사로서\n{evidence}",
+     "2025. 11. 21.(금) ~ 12. 5.(금) 16:00까지", "2025-12-05T16:00:00+09:00"),
+    ("{evidence}", "1. 채용공고 및 원서접수 ’25. 11. 21.(금) ~ 12. 05.(금) 16:00",
+     "2025-12-05T16:00:00+09:00"),
+])
+def test_pdf_year_recovers_saved_review_without_reanalysis(monkeypatch, transcript_template, evidence, expected):
+    from app.models import Analysis, Source
+    from app.services.deadline_dates import (
+        UNRESOLVED_FILE_CANDIDATE,
+        UNRESOLVED_FILE_TIME,
+    )
+    from tests.test_auth import TestingSession
+
+    headers = auth()
+    source = client.post("/api/sources/pdfs", headers=headers,
+                         files={"file": ("notice.pdf", picture("PDF"))}).json()
+    transcript = transcript_template.format(evidence=evidence)
+    with TestingSession() as db:
+        owner = db.get(Source, uuid.UUID(source["id"])).user_id
+        saved = Analysis(user_id=owner, source_id=uuid.UUID(source["id"]), input_text=transcript,
+                         input_hash=source["pdf_sha256"], model="pdf:test-model", status="ready",
+                         candidates=[{"id": str(uuid.uuid4()), "title": "SK하이닉스 지원서 접수", "selected": False,
+                                      "due_at": None, "evidence_text": evidence, "confidence": 0.9}],
+                         warnings=[UNRESOLVED_FILE_TIME, UNRESOLVED_FILE_CANDIDATE])
+        db.add(saved)
+        db.commit()
+        identity = saved.id
+
+    def unexpected_request(*args):
+        pytest.fail("Opening an existing review must not call Gemini")
+
+    monkeypatch.setattr(image_analysis, "provider_request", unexpected_request)
+    response = client.get(f"/api/ai-analyses/{identity}", headers=headers).json()
+    assert response["candidates"][0]["suggested_due_at"] == expected
+    assert response["warnings"] == []
+    with TestingSession() as db:
+        assert db.get(Analysis, identity).candidates[0]["due_at"] is None
+
+
+@pytest.mark.parametrize("heading,evidence", [
+    ("SK하이닉스 신입사원 채용", "9.22(월) ~ 10.1(수) 17:00"),
+    ("2025년 채용 공고\n2026년 채용 공고", "9.22(월) ~ 10.1(수) 17:00"),
+    ("2025년 채용 공고", "9.22(화) ~ 10.1(수) 17:00"),
+    ("2025년 채용 공고", "12.29(월) ~ 1.1(목) 17:00"),
+])
+def test_pdf_year_fallback_rejects_ambiguous_or_conflicting_dates(heading, evidence):
+    from app.services.deadline_dates import closing_choice, pdf_document_year
+
+    assert closing_choice(evidence, document_year=pdf_document_year(heading))["due_at"] is None
+
+
+def test_pdf_repeat_with_conflicting_years_is_unresolved():
+    from app.services.deadline_dates import pdf_closing_choice
+
+    evidence = "9.22(월) ~ 10.1(수) 17:00"
+    transcript = f"{evidence}\n2025.{evidence}\n2026.{evidence}"
+    assert pdf_closing_choice(evidence, evidence, transcript, None)["due_at"] is None
 
 
 def test_bad_evidence_fails_safely_and_explicit_time_is_grounded(monkeypatch):
@@ -152,11 +376,11 @@ def test_bad_evidence_fails_safely_and_explicit_time_is_grounded(monkeypatch):
     value["deadlines"][0]["evidence_text"] = "not in image transcript"
     mock_provider(monkeypatch,value)
     with pytest.raises(ai_analysis.AIError,match="ai_evidence_not_in_source"):
-        image_analysis.analyze_image(picture(),"test-model")
+        image_analysis.analyze_file(picture(),"test-model","image")
     value = result("2026-11-01T18:00:00+09:00")
     value["transcript"] = value["deadlines"][0]["evidence_text"] = "접수 마감 2026년 11월 1일 18:00"
     mock_provider(monkeypatch,value)
-    assert image_analysis.analyze_image(picture(),"test-model").deadlines[0].due_at.hour == 18
+    assert image_analysis.analyze_file(picture(),"test-model","image").deadlines[0].due_at.hour == 18
 
 
 @pytest.mark.parametrize("evidence", [
@@ -169,7 +393,7 @@ def test_screenshot_korean_pm_clock_is_not_discarded(monkeypatch, evidence, prov
     value["transcript"] = value["deadlines"][0]["evidence_text"] = evidence
     value["warnings"] = ["마감 시간(시, 분)이 명시되어 있지 않아 due_at을 null로 처리했습니다."]
     mock_provider(monkeypatch, value)
-    parsed = image_analysis.analyze_image(picture(), "test-model")
+    parsed = image_analysis.analyze_file(picture(), "test-model", "image")
     assert parsed.deadlines[0].due_at.isoformat() == "2026-10-27T17:00:00+09:00"
     assert not any("due_at" in item or "null" in item for item in parsed.warnings)
     assert not any("11시 59분" in item for item in parsed.warnings)
@@ -185,7 +409,7 @@ def test_linkareer_capture_clock_overrides_a_false_model_default(monkeypatch, cl
     value["deadlines"][0]["evidence_text"] = evidence
     value["warnings"] = [DEFAULT_TIME_NOTICE]
     mock_provider(monkeypatch, value)
-    parsed = image_analysis.analyze_image(picture(), "test-model")
+    parsed = image_analysis.analyze_file(picture(), "test-model", "image")
     assert parsed.deadlines[0].due_at.isoformat() == "2026-11-09T18:00:00+09:00"
     assert DEFAULT_TIME_NOTICE not in parsed.warnings
 
@@ -196,7 +420,7 @@ def test_image_date_only_quote_includes_its_adjacent_transcribed_clock(monkeypat
     value["transcript"] = evidence + " 18:00까지 제출하세요."
     value["deadlines"][0]["evidence_text"] = evidence
     mock_provider(monkeypatch, value)
-    parsed = image_analysis.analyze_image(picture(), "test-model")
+    parsed = image_analysis.analyze_file(picture(), "test-model", "image")
     assert parsed.deadlines[0].due_at.isoformat() == "2026-11-09T18:00:00+09:00"
     assert parsed.deadlines[0].evidence_text == evidence + " 18:00"
 

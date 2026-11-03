@@ -19,6 +19,12 @@ from tests.test_sources import configure_test_jwt as configure_test_jwt  # noqa:
 BASE = google.PREFIX + "/exports"
 
 
+@pytest.fixture(autouse=True)
+def manual_protocol(monkeypatch):
+    """Keep coverage for old clients; automatic CRUD dispatch has separate tests."""
+    monkeypatch.setattr("app.services.google_sync.enqueue", lambda *args, **kwargs: None)
+
+
 def deadline(setup, auth):
     response = setup.client.post(
         "/api/deadlines",
@@ -91,7 +97,7 @@ def test_preview_does_not_write_and_confirmation_is_durable_and_idempotent(
     assert [method for method, _ in calls] == ["GET", "POST"]
     event = next(iter(remote.values()))
     assert not ({"description", "attendees", "attachments"} & event.keys())
-    assert event["reminders"] == {"useDefault": False}
+    assert event["reminders"] == {"useDefault": False, "overrides": []}
     assert first.headers["cache-control"] == "no-store"
     assert preview(setup, auth, target)["preview_token"] is None
 

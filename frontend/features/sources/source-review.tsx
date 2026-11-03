@@ -6,6 +6,11 @@ import { PageHeading } from "@/components/page-heading";
 import { ErrorNotice } from "@/components/feedback";
 import { analysesApi } from "@/features/analyses/api";
 import { analysisError, processingError } from "@/features/analyses/errors";
+import { useAuth } from "@/features/auth/provider";
+import {
+  hasPdfScanConsent,
+  PDF_SCAN_CONSENT_REQUIRED,
+} from "@/features/settings/pdf-scan-consent";
 import type { Source } from "@/types/api";
 import { sourcesApi } from "./api";
 import { SourceImage } from "./source-image";
@@ -25,8 +30,15 @@ function pause(signal: AbortSignal) {
   });
 }
 
-export function SourceReview({ id }: { id: string }) {
+export function SourceReview({
+  id,
+  reanalyzePdf = false,
+}: {
+  id: string;
+  reanalyzePdf?: boolean;
+}) {
   const router = useRouter();
+  const userId = useAuth().user?.id;
   const [source, setSource] = useState<Source | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(true);
@@ -44,36 +56,52 @@ export function SourceReview({ id }: { id: string }) {
       try {
         let item = await sourcesApi.get(id, requestSignal());
         signal.throwIfAborted();
-        if (!["url", "text", "image"].includes(item.source_type))
+        if (!["url", "text", "image", "pdf"].includes(item.source_type))
           throw new Error("이 자료 유형은 아직 검토할 수 없습니다.");
         setSource(item);
-        if (item.source_type === "image") {
-          if (!item.image_sha256)
-            throw new Error("저장한 이미지 버전을 확인하지 못했습니다.");
+        if (item.source_type === "image" || item.source_type === "pdf") {
+          const digest =
+            item.source_type === "pdf" ? item.pdf_sha256 : item.image_sha256;
+          if (!digest)
+            throw new Error("저장한 파일 버전을 확인하지 못했습니다.");
           const history = await analysesApi.list(id, 0, requestSignal());
           signal.throwIfAborted();
           const existing = history.find(
             (entry) =>
-              entry.model.startsWith("image:") &&
-              entry.input_hash === item.image_sha256,
+              entry.model.startsWith(`${item.source_type}:`) &&
+              entry.input_hash === digest,
           );
-          if (existing && existing.status !== "failed") {
+          const redo =
+            reanalyzePdf &&
+            item.source_type === "pdf" &&
+            existing?.status === "ready";
+          const awaitingScan =
+            existing?.error_message === PDF_SCAN_CONSENT_REQUIRED;
+          const savedConsent =
+            item.source_type === "pdf" && hasPdfScanConsent(userId);
+          if (
+            existing &&
+            !redo &&
+            (existing.status !== "failed" || (awaitingScan && !savedConsent))
+          ) {
             router.replace(`/analyses/${encodeURIComponent(existing.id)}`);
             return;
           }
-          if (consent.current !== item.image_sha256) {
+          if (item.source_type === "image" && consent.current !== digest) {
             setProgress(
               existing
-                ? "이전 분석에 실패했습니다. 이미지 전송에 동의한 뒤 다시 시도할 수 있습니다."
-                : "이미지를 확인하고 AI 전송에 동의하면 분석을 시작합니다.",
+                ? "이전 분석에 실패했습니다. 파일 전송에 동의한 뒤 다시 시도할 수 있습니다."
+                : "AI 전송에 동의하면 저장한 파일을 분석합니다.",
             );
             return;
           }
+          if (item.source_type === "pdf")
+            setProgress("PDF에서 접수·제출 기간을 확인하고 있습니다.");
           const analysis = await analysesApi.start(
             id,
             requestSignal(),
-            true,
-            item.image_sha256,
+            item.source_type === "image" || savedConsent,
+            digest,
             !existing,
           );
           signal.throwIfAborted();
@@ -147,7 +175,7 @@ export function SourceReview({ id }: { id: string }) {
     }
     void run();
     return () => controller.abort();
-  }, [id, attempt, router]);
+  }, [id, attempt, reanalyzePdf, router, userId]);
   const image = source?.source_type === "image";
   const consentVersion = image ? source?.image_sha256 : source?.extracted_text;
   const needsConsent =
@@ -189,7 +217,7 @@ export function SourceReview({ id }: { id: string }) {
             ) : (
               <p>
                 입력한 원문{" "}
-                {Array.from(source.extracted_text ?? "").length.toLocaleString(
+                {Array.from(source?.extracted_text ?? "").length.toLocaleString(
                   "ko-KR",
                 )}
                 자를 분석합니다.

@@ -6,10 +6,11 @@ import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import { AccountControls } from "@/features/settings/account-controls";
+import { useUnsavedNavigation } from "@/lib/unsaved-changes";
 const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
-  ["/deadlines", "◷", "마감일"],
+  ["/deadlines", "◷", "일정"],
   ["/calendar", "▦", "캘린더"],
   ["/settings/google-calendar", "↗", "구글 캘린더 연결"],
 ];
@@ -21,6 +22,8 @@ export default function WorkspaceLayout({
   const { user, loading, error, logout, refresh } = useAuth();
   const router = useRouter();
   const path = usePathname();
+  const { confirmLeave } = useUnsavedNavigation();
+  const isNewRegistration = path === "/sources/new";
   useEffect(() => {
     if (!loading && !user && !error) router.replace("/login");
   }, [loading, user, error, router]);
@@ -53,8 +56,10 @@ export default function WorkspaceLayout({
               key={href}
               href={href}
               aria-current={
-                path.startsWith(href) ||
-                (href === "/sources" && path.startsWith("/analyses/"))
+                !isNewRegistration &&
+                (path.startsWith(href) ||
+                  (href === "/sources" && path.startsWith("/analyses/")) ||
+                  (href === "/deadlines" && path.startsWith("/tasks")))
                   ? "page"
                   : undefined
               }
@@ -73,6 +78,7 @@ export default function WorkspaceLayout({
           <button
             className="text-button"
             onClick={() => {
+              if (!confirmLeave()) return;
               logout();
               router.replace("/login");
             }}

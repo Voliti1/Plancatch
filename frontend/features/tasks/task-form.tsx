@@ -5,10 +5,20 @@ import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { ScheduleType, Task, TaskInput } from "@/types/task";
 import type { DeadlineInput } from "@/types/api";
+import type { NaturalScheduleDraft } from "@/types/natural-schedule";
 import { loadDeadlineOptions } from "./deadline-options";
 import "./calendar-task-form.css";
+import {
+  ReminderSettings,
+  validateReminders,
+} from "@/features/google-calendar/reminder-settings";
+import {
+  newReminderSettings,
+  type GoogleReminderSettings,
+} from "@/types/google-reminders";
 
 function optionalUtc(value: string, original: string | null): string | null {
   if (!value) return null;
@@ -20,26 +30,34 @@ function optionalUtc(value: string, original: string | null): string | null {
 
 export function TaskForm({
   initial,
+  draft,
   deadlineId,
   onSave,
   onSaveDeadline,
   onCancel,
   submitLabel = "작업 등록",
   disabled = false,
+  submitDisabled = false,
+  onUserEdit,
+  cancelPreservesInput = false,
   variant = "task",
 }: {
   initial?: Task;
+  draft?: NaturalScheduleDraft;
   deadlineId?: string;
   onSave: (payload: TaskInput) => Promise<void>;
   onSaveDeadline?: (payload: DeadlineInput) => Promise<void>;
   onCancel: () => void;
   submitLabel?: string;
   disabled?: boolean;
+  submitDisabled?: boolean;
+  onUserEdit?: () => void;
+  cancelPreservesInput?: boolean;
   variant?: "task" | "calendar";
 }) {
   const simple = variant === "calendar";
   const [registrationKind, setRegistrationKind] = useState<"task" | "deadline">(
-    "task",
+    draft?.kind ?? "task",
   );
   const canChooseKind = simple && !initial && Boolean(onSaveDeadline);
   const isDeadline = canChooseKind && registrationKind === "deadline";
@@ -50,7 +68,7 @@ export function TaskForm({
   const priorityLabelId = useId();
   const typeLabelId = useId();
   const options = useResource(loadDeadlineOptions);
-  const [title, setTitle] = useState(initial?.title ?? "");
+  const [title, setTitle] = useState(initial?.title ?? draft?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [deadline, setDeadline] = useState(
     initial?.deadline_id ?? deadlineId ?? "",
@@ -63,23 +81,49 @@ export function TaskForm({
     initial?.schedule_type ?? (simple ? "fixed" : "flexible"),
   );
   const [start, setStart] = useState(
-    initial?.earliest_start ? toSeoulInput(initial.earliest_start) : "",
+    initial?.earliest_start || draft?.start_at
+      ? toSeoulInput((initial?.earliest_start ?? draft?.start_at)!)
+      : "",
   );
   const [end, setEnd] = useState(
-    initial?.latest_end ? toSeoulInput(initial.latest_end) : "",
+    initial?.latest_end || draft?.end_at
+      ? toSeoulInput((initial?.latest_end ?? draft?.end_at)!)
+      : "",
   );
   const [completed, setCompleted] = useState(initial?.is_completed ?? false);
+  const [reminders, setReminders] = useState<GoogleReminderSettings | null>(
+    initial ? (initial.google_reminders ?? null) : newReminderSettings(),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
+  const { markSaved, confirmDiscard } = useUnsavedChanges(
+    JSON.stringify([
+      registrationKind,
+      title,
+      description,
+      deadline,
+      minutes,
+      priority,
+      scheduleType,
+      start,
+      end,
+      completed,
+      reminders,
+    ]),
+  );
+  function cancel() {
+    if (cancelPreservesInput || confirmDiscard()) onCancel();
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (submitting.current) return;
+    if (submitting.current || submitDisabled) return;
     submitting.current = true;
     setBusy(true);
     setError("");
     try {
+      validateReminders(reminders);
       if (!title.trim())
         throw new Error(
           simple ? "일정명을 입력해 주세요." : "작업명을 입력해 주세요.",
@@ -87,6 +131,7 @@ export function TaskForm({
       if (isDeadline && onSaveDeadline) {
         if (!end) throw new Error("종료 일시를 입력해 주세요.");
         await onSaveDeadline({
+          ...(reminders ? { google_reminders: reminders } : {}),
           title: title.trim(),
           due_at: seoulInputToUtc(end),
           description: description.trim() || null,
@@ -95,6 +140,7 @@ export function TaskForm({
           safety_buffer_minutes: null,
           is_confirmed: true,
         });
+        markSaved();
         return;
       }
       if (requireTimes && (!start || !end))
@@ -111,8 +157,14 @@ export function TaskForm({
         throw new Error(
           "연결할 마감일을 다시 선택하거나 연결 안 함을 선택해 주세요.",
         );
-      const earliest = optionalUtc(start, initial?.earliest_start ?? null);
-      const latest = optionalUtc(end, initial?.latest_end ?? null);
+      const earliest = optionalUtc(
+        start,
+        initial?.earliest_start ?? draft?.start_at ?? null,
+      );
+      const latest = optionalUtc(
+        end,
+        initial?.latest_end ?? draft?.end_at ?? null,
+      );
       if (earliest && latest && new Date(earliest) >= new Date(latest))
         throw new Error(
           simple
@@ -120,6 +172,7 @@ export function TaskForm({
             : "최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.",
         );
       await onSave({
+        ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
         deadline_id: deadline || null,
         description: description.trim() || null,
@@ -130,6 +183,7 @@ export function TaskForm({
         latest_end: latest,
         is_completed: completed,
       });
+      markSaved();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -264,6 +318,7 @@ export function TaskForm({
     <form
       className={simple ? "calendar-task-form" : undefined}
       onSubmit={submit}
+      onChangeCapture={onUserEdit}
       noValidate={simple}
     >
       {canChooseKind && (
@@ -278,6 +333,7 @@ export function TaskForm({
             aria-pressed={registrationKind === "task"}
             disabled={disabled || busy || !hydrated}
             onClick={() => {
+              onUserEdit?.();
               setRegistrationKind("task");
               setError("");
             }}
@@ -292,6 +348,7 @@ export function TaskForm({
             aria-pressed={registrationKind === "deadline"}
             disabled={disabled || busy || !hydrated}
             onClick={() => {
+              onUserEdit?.();
               setRegistrationKind("deadline");
               setError("");
             }}
@@ -350,32 +407,33 @@ export function TaskForm({
             {settings}
             {times}
             <p className="muted small">
-              가능 기간과 작업 유형을 저장합니다. 실제 시간은 저장 후 일정
-              상세에서 캘린더에 배치할 수 있습니다. 자동 배치는 준비 중입니다.
+              가능 기간과 작업 유형을 저장합니다. 고정 일정은 입력한 시작·종료
+              시간으로 캘린더에 표시됩니다.
             </p>
             {descriptionField}
             {completion}
           </>
         )}
-        {simple && (
+        <ReminderSettings
+          allowPreserve={Boolean(initial) && initial?.google_reminders == null}
+          value={reminders}
+          onChange={(value) => {
+            onUserEdit?.();
+            setReminders(value);
+          }}
+        />
+        {simple && isDeadline && (
           <p className="muted small calendar-task-help">
-            {isDeadline ? (
-              "입력한 종료 일시를 마감일로 저장하고 캘린더에 표시합니다. Google Calendar에는 전송하지 않습니다."
-            ) : (
-              <>
-                고정 일정은 입력한 시작·종료 시간에 캘린더에 표시됩니다. 유동
-                작업의 가능 기간은 일정으로 표시하지 않습니다. Google
-                Calendar에는 전송하지 않습니다.
-              </>
-            )}
+            입력한 종료 일시를 마감일로 저장하고 캘린더에 표시합니다. Google
+            계정이 연결되어 있으면 자동 반영됩니다.
           </p>
         )}
         {error && <ErrorNotice message={error} />}
         <div className="form-actions">
-          <button type="button" className="secondary" onClick={onCancel}>
+          <button type="button" className="secondary" onClick={cancel}>
             취소
           </button>
-          <button type="submit">
+          <button type="submit" disabled={submitDisabled}>
             {busy
               ? "저장 중…"
               : initial
@@ -387,7 +445,7 @@ export function TaskForm({
         </div>
       </fieldset>
       {!isDeadline && options.error && (
-        <button type="button" className="secondary" onClick={onCancel}>
+        <button type="button" className="secondary" onClick={cancel}>
           돌아가기
         </button>
       )}

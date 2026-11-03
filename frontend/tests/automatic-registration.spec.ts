@@ -246,6 +246,7 @@ test("new registration does not retain unsubmitted inputs after dashboard naviga
   await mockApi(page);
   await fill(page);
   await page.getByRole("checkbox").check();
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("link", { name: "← 대시보드" }).click();
   await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
@@ -464,7 +465,7 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
   expect(styles.white).toBe("rgb(255, 255, 255)");
   expect(styles.above).toBe(true);
   expect(styles.overflow).toBe(false);
-  for (const menu of ["원본 자료", "마감일"]) {
+  for (const menu of ["원본 자료", "일정"]) {
     await page.getByRole("link", { name: menu, exact: true }).click();
     await button.click();
     await expect(
@@ -472,15 +473,18 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
     ).toBeVisible();
     await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("");
     await page.getByLabel("일정 제목 (선택)").fill("[테스트] 이전 화면 입력");
-    await page.getByLabel("이미지 파일 입력", { exact: true }).setInputFiles({
-      name: "[테스트] 이전화면.png",
-      mimeType: "image/png",
-      buffer: Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
-        "base64",
-      ),
-    });
+    await page
+      .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
+      .setInputFiles({
+        name: "[테스트] 이전화면.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(
+          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+          "base64",
+        ),
+      });
     const before = page.url();
+    page.once("dialog", (dialog) => dialog.accept());
     await button.click();
     await expect(page).not.toHaveURL(before);
     await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("");
@@ -654,13 +658,16 @@ test("lost success response and refresh resume do not duplicate source, AI or de
   expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
 });
 
-test("source library still offers manual URL and text saving alongside automatic registration", async ({
+test("source library uses the shared sidebar registration entry for URL and text", async ({
   page,
 }) => {
   await mockApi(page);
   await login(page);
   await page.getByRole("link", { name: "원본 자료", exact: true }).click();
-  await page.getByRole("link", { name: "＋ 자료 등록" }).click();
+  await expect(page.getByRole("link", { name: "＋ 자료 등록" })).toHaveCount(0);
+  await page
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();

@@ -1,11 +1,12 @@
 import { api, ApiError } from "@/lib/api/client";
 import type { Source, SourceInput, SourceUpdateInput } from "@/types/api";
 export const sourcesApi = {
-  uploadImage: (file: File, title?: string) => {
+  uploadFile: (file: File, title?: string) => {
     const body = new FormData();
     body.append("file", file);
     if (title) body.append("title", title);
-    return api<Source>("/api/sources/images", { method: "POST", body });
+    const collection = /\.pdf$/i.test(file.name) ? "pdfs" : "images";
+    return api<Source>(`/api/sources/${collection}`, { method: "POST", body });
   },
   image: (id: string, signal?: AbortSignal) =>
     api<Blob>(

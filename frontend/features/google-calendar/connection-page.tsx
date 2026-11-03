@@ -6,6 +6,7 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { checkedGoogleAuthorizationUrl, googleCalendarApi } from "./api";
+import { ManagedExports } from "./managed-exports";
 
 export function GoogleCalendarConnectionPage() {
   const status = useResource(googleCalendarApi.status);
@@ -14,6 +15,7 @@ export function GoogleCalendarConnectionPage() {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [managing, setManaging] = useState(false);
   const active = useRef(false);
   const operating = useRef(false);
   const confirmButton = useRef<HTMLButtonElement>(null);
@@ -90,13 +92,12 @@ export function GoogleCalendarConnectionPage() {
       <PageHeading
         eyebrow="GOOGLE CALENDAR"
         title="구글 캘린더 연결"
-        description="본인의 Google 계정을 플랜캐치에 연결하고 상태를 확인하세요."
+        description="Google 계정을 연결하면 이후 플랜캐치에서 등록·수정·삭제하는 일정이 Google 캘린더에 자동으로 반영됩니다."
       />
       <section className="card form-card" aria-label="구글 계정 연결 설정">
         <h2>Google Calendar 계정</h2>
         <p className="muted">
-          연결 후 캘린더에서 구글 일정을 함께 볼 수 있습니다. 연결해도 일정이
-          자동 등록되거나 기존 Google 일정이 변경되지 않습니다.
+          다른 앱에서 만든 Google 일정은 변경하지 않습니다.
         </p>
         {status.loading && <Loading />}
         {status.error && (
@@ -135,10 +136,6 @@ export function GoogleCalendarConnectionPage() {
                   : "연결 버튼을 누른 뒤 Google에서 계정과 캘린더 권한을 직접 승인해 주세요."}
               </p>
             </div>
-            <p className="muted">
-              연결을 유지하는 인증 정보는 서버에 암호화하여 보관합니다. 구글
-              연결은 플랜캐치 로그인과 별개이며, 언제든 해제할 수 있습니다.
-            </p>
             <div className="actions">
               {status.data.configured && (
                 <button
@@ -173,6 +170,15 @@ export function GoogleCalendarConnectionPage() {
               >
                 상태 다시 확인
               </button>
+              {status.data.connected && (
+                <button
+                  className="secondary"
+                  disabled={busy || confirming}
+                  onClick={() => setManaging((value) => !value)}
+                >
+                  {managing ? "보낸 일정 관리 닫기" : "보낸 일정 관리"}
+                </button>
+              )}
             </div>
           </>
         )}
@@ -211,6 +217,9 @@ export function GoogleCalendarConnectionPage() {
           </section>
         )}
       </section>
+      {status.data?.connected && managing && (
+        <ManagedExports key={status.data.connected_at} />
+      )}
     </>
   );
 }

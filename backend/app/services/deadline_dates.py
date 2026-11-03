@@ -5,6 +5,11 @@ from datetime import datetime, timedelta, timezone
 
 SEOUL = timezone(timedelta(hours=9))
 DEFAULT_TIME_NOTICE = "마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면 변경해 주세요."
+UNRESOLVED_FILE_TIME = "원문 근거에서 마감 일시를 확정하지 못했습니다. 날짜와 시간을 직접 확인해 주세요."
+UNRESOLVED_FILE_CANDIDATE = "마감 날짜와 시간을 확인하지 못한 후보는 직접 입력하거나 제외해 주세요."
+DOCUMENT_HEADING_YEAR = re.compile(
+    r"^\s*(20\d{2})(?:\s*년(?:도)?)?(?:\s+|(?=[상하]반기)).{0,160}(?:채용|모집|공고|안내|접수|공모|일정)"
+)
 DATE = re.compile(
     r"(?<![\d.])(?:(?P<year>\d{4})\s*[.\-/년]\s*)?"
     r"(?P<month>\d{1,2})\s*[.\-/월]\s*(?P<day>\d{1,2})(?:\s*일|\.)?"
@@ -15,6 +20,7 @@ DATE = re.compile(
     r"|(?=AM|PM))(?P<offset>Z|[+-]\d{2}:\d{2})?(?:\s*(?P<suffix>AM|PM))?)?"
     r"(?![\d:：])", re.IGNORECASE
 )
+PDF_DATE = re.compile(DATE.pattern.replace(r"(?P<year>\d{4})", r"(?P<year>\d{4}|['’‘]\d{2})"), DATE.flags)
 RANGE = re.compile(r"[~～〜∼–—]")
 INCOMPLETE_CLOCK = re.compile(r"^[ T]*(?:오전|오후|\d{1,2}\s*[:시])")
 CLOCK_SIGNAL = re.compile(r"오전|오후|정오|자정|\b(?:AM|PM)\b|\d{1,2}\s*[:：시hH]", re.IGNORECASE)
@@ -22,15 +28,16 @@ FOREIGN_ZONE = re.compile(r"\b(?:UTC|GMT|JST|P[SD]T|E[SD]T|C[SD]T|M[SD]T|CET|CES
                           r"(?:America|Europe|Pacific|Australia)/|(?:미국|일본|현지|뉴욕|런던)\s*시간", re.IGNORECASE)
 
 
-def date_choice(raw: str, evidence: str) -> dict | None:
-    match = DATE.search(raw)
+def date_choice(raw: str, evidence: str, *, date_pattern: re.Pattern[str] = DATE) -> dict | None:
+    match = date_pattern.search(raw)
     if match is None:
         return None
     value = match.groupdict()
     day, due_at, defaulted = None, None, False
     try:
         if value["year"]:
-            parsed = datetime(int(value["year"]), int(value["month"]), int(value["day"]), tzinfo=SEOUL)
+            year = int(value["year"]) if value["year"].isdigit() else 2000 + int(value["year"][1:])
+            parsed = datetime(year, int(value["month"]), int(value["day"]), tzinfo=SEOUL)
             day = parsed.date().isoformat()
             if value["weekday"] and value["weekday"] != "월화수목금토일"[parsed.weekday()]:
                 raise ValueError("Conflicting weekday")
@@ -77,24 +84,32 @@ def date_choice(raw: str, evidence: str) -> dict | None:
             "time_defaulted": defaulted}
 
 
-def closing_choice(evidence: str, context: str | None = None) -> dict | None:
+def closing_choice(evidence: str, context: str | None = None, *, document_year: str | None = None,
+                   date_pattern: re.Pattern[str] = DATE) -> dict | None:
     # Only the written range's end is a deadline. Never infer a year from today's date.
     if re.search(r"채용\s*시|채용\s*완료\s*시|상시\s*모집", evidence):
         return None
     parts = RANGE.split(evidence)
     closing = parts[-1]
-    matches = list(DATE.finditer(closing))
+    matches = list(date_pattern.finditer(closing))
     if len(matches) != 1:
         return None
     match = matches[0]
     normalized = closing
-    if not match["year"] and len(parts) == 2:
-        preceding = list(DATE.finditer(parts[0]))
-        if (len(preceding) == 1 and preceding[0]["year"]
-                and (int(match["month"]), int(match["day"])) >=
-                (int(preceding[0]["month"]), int(preceding[0]["day"]))):
-            normalized = preceding[0]["year"] + "년 " + closing
-    choice = date_choice(normalized, evidence)
+    if not match["year"] and len(parts) == 1 and document_year:
+        normalized = closing[:match.start()] + f"{document_year}년 " + closing[match.start():]
+    elif not match["year"] and len(parts) == 2:
+        preceding = list(date_pattern.finditer(parts[0]))
+        if len(preceding) == 1:
+            opening = preceding[0]
+            year = opening["year"] or document_year
+            # A year from the heading must also fit the written opening weekday.
+            if year and (int(match["month"]), int(match["day"])) >= (int(opening["month"]), int(opening["day"])):
+                opening_text = opening.group() if opening["year"] else f"{year}년 {opening.group()}"
+                if ((opening["year"] and date_pattern is DATE)
+                        or date_choice(opening_text, opening.group(), date_pattern=date_pattern)["due_at"]):
+                    normalized = closing[:match.start()] + f"{year}년 " + closing[match.start():]
+    choice = date_choice(normalized, evidence, date_pattern=date_pattern)
     if choice:
         choice["raw_text"] = match.group(0).strip()[:100]
         # The model may quote only the date although its transcript continues
@@ -103,18 +118,41 @@ def closing_choice(evidence: str, context: str | None = None) -> dict | None:
         if context and context.count(evidence) == 1 and not match["hour"]:
             position = context.index(evidence) + len(evidence)
             tail = context[position:position + 100]
-            extended = DATE.search(normalized + tail)
+            extended = date_pattern.search(normalized + tail)
             if extended and extended["hour"] and extended.end() > len(normalized):
                 added = extended.end() - len(normalized)
                 quote = evidence + tail[:added]
                 if len(quote) <= 500:
-                    choice = date_choice(normalized + tail, quote)
+                    choice = date_choice(normalized + tail, quote, date_pattern=date_pattern)
                     choice["raw_text"] = (match.group(0).strip() + tail[:added])[:100]
             elif choice["time_defaulted"] and CLOCK_SIGNAL.match(tail.lstrip(" .\t\r\n")):
                 choice.update(due_at=None, time_defaulted=False)
         if context and FOREIGN_ZONE.search(context) and not match["offset"]:
             choice.update(due_at=None, time_defaulted=False)
     return choice
+
+
+def pdf_document_year(transcript: str) -> str | None:
+    """Use a single explicit notice-heading year, excluding dates in the body."""
+    years = {match[1] for line in transcript.splitlines()
+             if (match := DOCUMENT_HEADING_YEAR.match(line)) and DATE.search(line) is None}
+    return next(iter(years)) if len(years) == 1 else None
+
+
+def pdf_closing_choice(evidence: str, context: str, transcript: str, heading_year: str | None) -> dict | None:
+    parts = RANGE.split(evidence)
+    opening = PDF_DATE.search(parts[0]) if len(parts) == 2 else None
+    if opening and not opening["year"]:
+        # The transcript may repeat the same range with the opening year printed.
+        # Match the full quote so a different event on the same day cannot supply its year.
+        range_text = evidence[opening.start():].strip()
+        compact_range = re.sub(r"[^\S\n]+", "", range_text)
+        dated_quote = rf"(?<![\d.])(20\d{{2}})[.\-/년]{re.escape(compact_range)}(?![\d:：]|[+-]\d|Z\b|AM\b|PM\b)"
+        years = set(re.findall(dated_quote, re.sub(r"[^\S\n]+", "", transcript)))
+        if heading_year:
+            years.add(heading_year)
+        heading_year = next(iter(years)) if len(years) == 1 else None
+    return closing_choice(evidence, context, document_year=heading_year, date_pattern=PDF_DATE)
 
 
 def readable_warning(value: str) -> str:

@@ -10,7 +10,7 @@ test("dashboard opens the separate registration screen with responsive inputs", 
 }) => {
   await login(page);
   await expect(
-    page.getByRole("button", { name: "이미지 파일 선택" }),
+    page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
   ).toHaveCount(0);
   const main = page.getByRole("main");
   await expect(
@@ -28,13 +28,15 @@ test("dashboard opens the separate registration screen with responsive inputs", 
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "이미지 파일 선택" }),
+    page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
   ).toBeEnabled();
   await expect(page.getByLabel("원본 URL", { exact: true })).toBeVisible();
   await expect(page.getByLabel("원본 텍스트", { exact: true })).toBeVisible();
-  await expect(page.getByText("이미지 지원", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("PDF·이미지 지원", { exact: true }),
+  ).toBeVisible();
   const drop = await page
-    .getByRole("button", { name: "이미지 파일 선택" })
+    .getByRole("button", { name: "PDF 또는 이미지 파일 선택" })
     .boundingBox();
   const url = await page.getByLabel("원본 URL", { exact: true }).boundingBox();
   expect(drop).not.toBeNull();
@@ -64,7 +66,7 @@ test("image selection stays local until save; PDF and mixed inputs are rejected"
   page.on("request", (request) => {
     if (request.method() === "POST") posts.push(request.url());
   });
-  const picker = page.getByLabel("이미지 파일 입력", { exact: true });
+  const picker = page.getByLabel("PDF 또는 이미지 파일 입력", { exact: true });
   await picker.setInputFiles({
     name: "공지.png",
     mimeType: "image/png",
@@ -75,12 +77,12 @@ test("image selection stays local until save; PDF and mixed inputs are rejected"
   await expect(files).toContainText("KB");
   expect(posts).toHaveLength(0);
   await picker.setInputFiles({
-    name: "공지.pdf",
-    mimeType: "application/pdf",
-    buffer: Buffer.from("%PDF-1.4"),
+    name: "공지.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from("<svg/>"),
   });
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "HEIC·SVG·PDF는 아직 지원하지 않습니다",
+    "HEIC·SVG는 지원하지 않습니다",
   );
   await expect(files.getByRole("listitem")).toHaveCount(1);
   await page
@@ -109,7 +111,7 @@ test("file drop deduplicates files and reload does not persist local selections"
 }) => {
   await login(page);
   await page.goto("/sources/new");
-  const drop = page.getByRole("button", { name: "이미지 파일 선택" });
+  const drop = page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" });
   const dataTransfer = await page.evaluateHandle(() => {
     const data = new DataTransfer();
     data.items.add(
@@ -140,7 +142,7 @@ test("PNG aliases and convertible formats remain selectable until server validat
 }) => {
   await login(page);
   await page.goto("/sources/new");
-  const picker = page.getByLabel("이미지 파일 입력", { exact: true });
+  const picker = page.getByLabel("PDF 또는 이미지 파일 입력", { exact: true });
   const files = page.getByRole("list", { name: "선택한 파일" });
   const uploads: string[] = [];
   page.on("request", (request) => {
@@ -167,14 +169,14 @@ test("PNG aliases and convertible formats remain selectable until server validat
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
   }
   expect(uploads).toHaveLength(0);
-  for (const ext of ["heic", "svg", "pdf"]) {
+  for (const ext of ["heic", "svg"]) {
     await picker.setInputFiles({
       name: "미지원." + ext,
       mimeType: "",
       buffer: Buffer.from("unsupported"),
     });
     await expect(page.getByRole("main").getByRole("alert")).toContainText(
-      "HEIC·SVG·PDF는 아직 지원하지 않습니다",
+      "HEIC·SVG는 지원하지 않습니다",
     );
     await expect(files).toContainText("공지.avif");
   }
@@ -249,7 +251,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
   try {
     await expect(page.getByRole("button", { name: "저장 중…" })).toBeDisabled();
     await expect(
-      page.getByRole("button", { name: "이미지 파일 선택" }),
+      page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
     ).toBeDisabled();
     await expect(
       page.getByLabel("원본 텍스트", { exact: true }),
@@ -283,7 +285,7 @@ test("direct registration access still requires login", async ({ page }) => {
   await page.goto("/sources/new");
   await expect(page).toHaveURL(/\/login$/);
   await expect(
-    page.getByRole("button", { name: "이미지 파일 선택" }),
+    page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
   ).toHaveCount(0);
 });
 
@@ -312,6 +314,7 @@ test("a late save response cannot navigate away from a fresh registration", asyn
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
   await sent;
   try {
+    page.once("dialog", (dialog) => dialog.accept());
     await page
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();

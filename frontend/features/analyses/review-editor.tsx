@@ -1,5 +1,9 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import {
+  DISCARD_NAVIGATION_EVENT,
+  useUnsavedChanges,
+} from "@/lib/unsaved-changes";
+import { useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
 import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
@@ -11,7 +15,7 @@ import type {
 import { analysesApi } from "./api";
 import { analysisError } from "./errors";
 import { RemainingPeriod } from "./remaining-period";
-import { isHtmlAnalysis } from "./display";
+import { isExtractedPdf, isHtmlAnalysis } from "./display";
 import { briefEvidence } from "./brief-evidence";
 
 type Draft = {
@@ -57,25 +61,27 @@ function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
 }
 export function CandidateEvidence({
   candidate,
-  fromHtml = false,
+  model,
 }: {
   candidate: AnalysisCandidate;
-  fromHtml?: boolean;
+  model: string;
 }) {
   return (
     <div className="candidate-evidence">
       <h4>원문 근거</h4>
       <p className="analysis-text">{briefEvidence(candidate.evidence_text)}</p>
       <p className="small muted">
-        {fromHtml
+        {isHtmlAnalysis(model)
           ? "HTML에 명시된 접수기간을 직접 확인한 결과입니다. AI 추정값이 아닙니다."
-          : `AI 신뢰도 참고값 ${Math.round(candidate.confidence * 100)}% · 정확도를 보장하지 않습니다.`}
+          : isExtractedPdf(model)
+            ? "PDF에서 읽은 근거입니다."
+            : `AI 신뢰도 참고값 ${Math.round(candidate.confidence * 100)}% · 정확도를 보장하지 않습니다.`}
       </p>
     </div>
   );
 }
 export function ReviewEditor({
-  analysis,
+  analysis: initialAnalysis,
   now,
   onUpdated,
 }: {
@@ -83,9 +89,11 @@ export function ReviewEditor({
   now: number | null;
   onUpdated: (data: Analysis, message: string) => void;
 }) {
+  const [analysis, setAnalysis] = useState(initialAnalysis);
   const [drafts, setDrafts] = useState(() =>
     analysis.candidates.map(suggestedDraftOf),
   );
+  const { markSaved } = useUnsavedChanges(JSON.stringify(drafts));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -93,6 +101,21 @@ export function ReviewEditor({
   const [confirmReload, setConfirmReload] = useState(false);
   const [choiceNotice, setChoiceNotice] = useState("");
   const pending = useRef(false);
+  const active = useRef(true);
+  const request = useRef<AbortController | null>(null);
+  useEffect(() => {
+    active.current = true;
+    const stopFollowingApproval = () => request.current?.abort();
+    window.addEventListener(DISCARD_NAVIGATION_EVENT, stopFollowingApproval);
+    return () => {
+      window.removeEventListener(
+        DISCARD_NAVIGATION_EVENT,
+        stopFollowingApproval,
+      );
+      active.current = false;
+      request.current?.abort();
+    };
+  }, []);
   const formId = useId();
   const dirty =
     JSON.stringify(drafts) !== JSON.stringify(analysis.candidates.map(draftOf));
@@ -109,12 +132,32 @@ export function ReviewEditor({
   }
   async function mutate(action: "save" | "approve" | "reject" | "reload") {
     if (pending.current) return;
-    if (action === "approve" && (dirty || !canApprove)) return;
+    if (action === "approve" && !canApprove) return;
     pending.current = true;
+    const controller = new AbortController();
+    request.current = controller;
     setBusy(true);
     setError("");
     setConflict(false);
     try {
+      let current = analysis;
+      if (action === "approve" && dirty) {
+        current = await analysesApi.review(
+          analysis.id,
+          analysis.revision,
+          drafts.map((draft, index) =>
+            payloadOf(draft, analysis.candidates[index]),
+          ),
+          controller.signal,
+        );
+        if (!active.current || controller.signal.aborted) return;
+        // Keep the acknowledged revision locally so a failed approval can retry
+        // without re-saving an older revision or losing the user's edits.
+        setAnalysis(current);
+        setDrafts(current.candidates.map(suggestedDraftOf));
+        markSaved(JSON.stringify(current.candidates.map(suggestedDraftOf)));
+      }
+      if (!active.current || controller.signal.aborted) return;
       const result =
         action === "save"
           ? await analysesApi.review(
@@ -123,13 +166,20 @@ export function ReviewEditor({
               drafts.map((draft, index) =>
                 payloadOf(draft, analysis.candidates[index]),
               ),
+              controller.signal,
             )
           : action === "approve"
-            ? await analysesApi.approve(analysis.id, analysis.revision)
+            ? await analysesApi.approve(
+                current.id,
+                current.revision,
+                controller.signal,
+              )
             : action === "reject"
               ? await analysesApi.reject(analysis.id, analysis.revision)
               : await analysesApi.get(analysis.id);
+      if (!active.current || controller.signal.aborted) return;
       setDrafts(result.candidates.map(suggestedDraftOf));
+      markSaved(JSON.stringify(result.candidates.map(suggestedDraftOf)));
       setConfirmReject(false);
       setConfirmReload(false);
       onUpdated(
@@ -141,11 +191,13 @@ export function ReviewEditor({
             : "",
       );
     } catch (err) {
+      if (!active.current || controller.signal.aborted) return;
       setError(analysisError(err));
       setConflict(err instanceof ApiError && err.status === 409);
     } finally {
       pending.current = false;
-      setBusy(false);
+      request.current = null;
+      if (active.current) setBusy(false);
     }
   }
   return (
@@ -254,7 +306,7 @@ export function ReviewEditor({
                           });
                           setChoiceNotice(
                             choice.due_at && !analysis.is_open_ended
-                              ? `선택한 날짜: ${choice.raw_text}. 검토 내용을 저장한 후 승인하세요.`
+                              ? `선택한 날짜: ${choice.raw_text}. ‘일정 등록’을 누르면 수정 내용도 함께 저장됩니다.`
                               : `선택한 원문: ${choice.raw_text}. 빠진 연도나 시간을 추측하지 않습니다. 마감 일시를 직접 입력해 주세요.`,
                           );
                         }}
@@ -280,8 +332,8 @@ export function ReviewEditor({
               )}
               {original.suggested_due_at && draft.due && (
                 <p className="notice small">
-                  원문에서 확인한 마감일을 입력했습니다. 검토 내용을 저장한 후
-                  승인해 주세요.
+                  원문에서 확인한 마감일을 입력했습니다. 내용을 확인한 뒤 일정
+                  등록을 눌러 주세요.
                 </p>
               )}
               {!original.due_at && !original.suggested_due_at && !draft.due && (
@@ -308,10 +360,7 @@ export function ReviewEditor({
                   update(index, { description: event.target.value })
                 }
               />
-              <CandidateEvidence
-                candidate={original}
-                fromHtml={isHtmlAnalysis(analysis.model)}
-              />
+              <CandidateEvidence candidate={original} model={analysis.model} />
             </article>
           );
         })}
@@ -332,7 +381,7 @@ export function ReviewEditor({
           </p>
           {dirty && (
             <p className="notice small">
-              수정한 내용을 먼저 저장해야 승인할 수 있습니다.
+              일정 등록을 누르면 수정한 내용을 함께 저장합니다.
             </p>
           )}
           {selected.some((item) => !item.due) && (
@@ -350,15 +399,15 @@ export function ReviewEditor({
             </button>
             <button
               type="button"
-              disabled={dirty || !canApprove || confirmReject || confirmReload}
+              disabled={!canApprove || confirmReject || confirmReload}
               onClick={() => void mutate("approve")}
             >
-              선택한 {selected.length}개 승인
+              {busy ? "처리 중…" : `선택한 ${selected.length}개 일정 등록`}
             </button>
           </div>
           <p className="muted small">
-            승인은 마감일만 등록합니다. 작업·캘린더 일정은 자동으로 생성되지
-            않습니다.
+            선택한 후보를 마감일로 등록합니다. 캘린더에 바로 표시되며, Google
+            계정을 연결했다면 자동으로 반영됩니다.
           </p>
           <div className="review-secondary-actions">
             <button

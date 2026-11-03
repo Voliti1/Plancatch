@@ -13,6 +13,8 @@ from pydantic import (
     model_validator,
 )
 
+from app.schemas.google_reminders import GoogleReminders, default_reminders
+
 ScheduleType = Literal["fixed", "flexible"]
 
 
@@ -32,6 +34,7 @@ class TaskCreate(TaskTimes):
     deadline_id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    google_reminders: GoogleReminders = Field(default_factory=default_reminders)
     estimated_minutes: int | None = Field(default=None, gt=0, le=2147483647)
     priority: int = Field(default=3, ge=1, le=5)
     schedule_type: ScheduleType = "flexible"
@@ -56,6 +59,7 @@ class TaskUpdate(TaskTimes):
     deadline_id: uuid.UUID | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
+    google_reminders: GoogleReminders | None = None
     estimated_minutes: int | None = Field(default=None, gt=0, le=2147483647)
     priority: int | None = Field(default=None, ge=1, le=5)
     schedule_type: ScheduleType | None = None
@@ -65,7 +69,7 @@ class TaskUpdate(TaskTimes):
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "TaskUpdate":
-        for field in ("title", "priority", "schedule_type", "is_completed"):
+        for field in ("title", "priority", "schedule_type", "is_completed", "google_reminders"):
             if field in self.model_fields_set and getattr(self, field) is None:
                 raise ValueError(f"{field} cannot be null")
         return self
@@ -78,6 +82,7 @@ class TaskResponse(BaseModel):
     deadline_id: uuid.UUID | None
     title: str
     description: str | None
+    google_reminders: GoogleReminders | None = None
     estimated_minutes: int | None
     priority: int
     schedule_type: ScheduleType

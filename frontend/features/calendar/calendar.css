@@ -21,9 +21,10 @@
 .calendar-period button {
   min-width: 44px;
 }
-.calendar-view-controls > div {
+.calendar-view-controls {
   display: flex;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: nowrap;
 }
 .calendar-options {
   justify-content: space-between;
@@ -97,26 +98,26 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   color: #fff;
-  background: #305ee8;
+  background: var(--schedule-task);
   font-size: 11px;
   line-height: 1.4;
   font-weight: 600;
   text-align: left;
 }
 .calendar-event-bar.bar-deadline {
-  background: #be185d;
+  background: var(--schedule-deadline);
 }
 .calendar-event-bar.bar-fixed_task {
-  background: #305ee8;
+  background: var(--schedule-task);
 }
 .calendar-event-bar.bar-placement {
-  background: #6d28d9;
+  background: var(--schedule-task);
 }
 .calendar-event-bar.bar-google {
-  background: #137333;
+  background: var(--schedule-task);
 }
 .calendar-event-bar.bar-cancelled {
-  background: #64748b;
+  background: var(--schedule-task);
   text-decoration: line-through;
 }
 .calendar-more {
@@ -146,7 +147,7 @@
   margin-bottom: 24px;
 }
 .task-placements {
-  max-width: 720px;
+  max-width: 810px;
 }
 .calendar-agenda,
 .placement-list {

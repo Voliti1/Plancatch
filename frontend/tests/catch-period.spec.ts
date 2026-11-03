@@ -132,11 +132,11 @@ test("Catch 24시 stays confirmed, displays its fixed company and preserves the 
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await expect(
-    page.getByRole("button", { name: "선택한 1개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
   ).toBeEnabled();
   expect(state.analyses[0].candidates[0].due_at).toBe(closing);
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료", exact: true }),
@@ -183,7 +183,7 @@ test("Catch HTML period ticks, preserves deadline through edits and approval, an
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();
@@ -260,7 +260,7 @@ for (const conflict of [false, true]) {
       page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
     ).toHaveValue("");
     await expect(
-      page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+      page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
     ).toBeDisabled();
   });
 }

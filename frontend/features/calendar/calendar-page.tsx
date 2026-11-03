@@ -32,6 +32,8 @@ import {
   todaySeoul,
   utcMidnight,
 } from "./dates";
+import { TimeGrid } from "./time-grid";
+import { timetableDays, type TimetableEvent } from "./time-layout";
 import "./calendar.css";
 
 const emptyRegistrations: CalendarRegistration[] = [];
@@ -78,13 +80,10 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
               <time dateTime={event.end_at}>{formatSeoul(event.end_at)}</time>
             </p>
             <div className="calendar-agenda-actions">
-              <span className={`tag event-${event.status}`}>
-                {statusLabel[event.status]}
-              </span>
-              <Link
-                href={`/tasks/${encodeURIComponent(event.task_id)}#calendar-placements`}
-              >
-                일정 상세 · 배치 관리 →
+              <span className="tag schedule-kind-task">할 일</span>
+              <span className="small muted">{statusLabel[event.status]}</span>
+              <Link href={`/tasks/${encodeURIComponent(event.task_id)}`}>
+                상세, 수정 →
               </Link>
             </div>
             {event.sync_error && (
@@ -143,8 +142,10 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
               )}
             </p>
             <div className="calendar-agenda-actions">
-              <span className={`tag registration-${item.kind}`}>
-                {item.kind === "deadline" ? "마감일" : "수동 일정"}
+              <span
+                className={`tag schedule-kind-${item.kind === "deadline" ? "deadline" : "task"}`}
+              >
+                {item.kind === "deadline" ? "마감일" : "할 일"}
               </span>
               <span className="small muted">
                 {item.is_completed
@@ -153,7 +154,7 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
                     ? "확인 필요"
                     : ""}
               </span>
-              <Link href={registrationHref(item)}>상세 · 수정 →</Link>
+              <Link href={registrationHref(item)}>상세, 수정 →</Link>
             </div>
           </li>
         ))}
@@ -185,14 +186,17 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
 
 function CalendarBody({ initialDate }: { initialDate?: string }) {
   const [selected, setSelected] = useState(initialDate ?? todaySeoul);
-  const [view, setView] = useState<"month" | "week">("month");
+  const [view, setView] = useState<"month" | "week" | "day">("day");
   const [showCancelled, setShowCancelled] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
-  const anchor =
-    view === "month"
-      ? `${selected.slice(0, 7)}-01`
-      : addDays(selected, -new Date(`${selected}T00:00:00Z`).getUTCDay());
-  const days = useMemo(() => calendarDays(anchor, view), [anchor, view]);
+  const anchor = `${selected.slice(0, 7)}-01`;
+  const days = useMemo(
+    () =>
+      view === "month"
+        ? calendarDays(anchor, "month")
+        : timetableDays(selected, view),
+    [anchor, selected, view],
+  );
   const first = utcMidnight(days[0]);
   const last = utcMidnight(addDays(days[days.length - 1], 1));
   // Selecting another day in the visible range only changes the agenda, not its data.
@@ -264,12 +268,47 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             ...remote.map((item) => ({
               key: `google:${item.id}`,
               title: item.title,
-              kind: "google",
+              kind: item.local_kind === "deadline" ? "deadline" : "google",
             })),
           ],
         };
       }),
     [days, registered, events, googleRows],
+  );
+  const timelineEntries = useMemo<TimetableEvent[]>(
+    () => [
+      ...registered.map((item) => ({
+        id: `${item.kind}:${item.id}`,
+        title: item.title,
+        kind:
+          item.kind === "deadline" ? ("deadline" as const) : ("task" as const),
+        start: item.start_at,
+        end: item.end_at,
+        href: registrationHref(item),
+      })),
+      ...events.map((item) => ({
+        id: `placement:${item.id}`,
+        title: item.task_title || "할 일",
+        kind: "task" as const,
+        start: item.start_at,
+        end: item.end_at,
+        href: `/tasks/${encodeURIComponent(item.task_id)}`,
+        cancelled: item.status === "cancelled",
+      })),
+      ...googleRows.map((item) => ({
+        id: `google:${item.id}`,
+        title: item.title,
+        kind:
+          item.local_kind === "deadline"
+            ? ("deadline" as const)
+            : ("task" as const),
+        start: item.start_at,
+        end: item.end_at,
+        startDate: item.start_date,
+        endDate: item.end_date,
+      })),
+    ],
+    [registered, events, googleRows],
   );
   const hasLocalSelected = events.some((event) => onDay(event, selected));
   const today = todaySeoul();
@@ -278,13 +317,8 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
       <PageHeading
         eyebrow="MY CALENDAR"
         title="캘린더"
-        description="등록한 마감일과 수동 일정을 한국 시간으로 확인하세요."
+        description="등록한 마감일과 할 일을 월간·하루·주간 시간표로 확인하세요."
       />
-      <p className="notice small">
-        자료에서 등록한 마감일과 시작·종료 시간을 지정한 고정 일정이 표시됩니다.
-        별도로 캘린더에 배치할 필요가 없습니다. 구글 일정은 함께 보기만
-        지원합니다.
-      </p>
       <section className="card calendar-card" aria-label="일정 캘린더">
         <div className="calendar-toolbar">
           <div className="calendar-period">
@@ -295,7 +329,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
                 setSelected(
                   view === "month"
                     ? shiftMonth(selected, -1)
-                    : addDays(selected, -7),
+                    : addDays(selected, view === "day" ? -1 : -7),
                 )
               }
             >
@@ -304,7 +338,9 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             <h2>
               {view === "month"
                 ? `${selected.slice(0, 4)}년 ${Number(selected.slice(5, 7))}월`
-                : `${days[0]} ~ ${days[6]}`}
+                : view === "day"
+                  ? dayLabel(selected)
+                  : `${days[0]} ~ ${days[6]}`}
             </h2>
             <button
               className="secondary"
@@ -313,36 +349,42 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
                 setSelected(
                   view === "month"
                     ? shiftMonth(selected, 1)
-                    : addDays(selected, 7),
+                    : addDays(selected, view === "day" ? 1 : 7),
                 )
               }
             >
               ›
             </button>
           </div>
-          <div className="calendar-view-controls">
+          <div
+            className="calendar-view-controls"
+            role="group"
+            aria-label="캘린더 보기 방식"
+          >
             <button
-              className="secondary"
-              onClick={() => setSelected(todaySeoul())}
+              className={view === "day" ? "selected" : "secondary"}
+              aria-pressed={view === "day"}
+              onClick={() => {
+                setSelected(todaySeoul());
+                setView("day");
+              }}
             >
               오늘
             </button>
-            <div role="group" aria-label="캘린더 보기 방식">
-              <button
-                className={view === "month" ? "selected" : "secondary"}
-                aria-pressed={view === "month"}
-                onClick={() => setView("month")}
-              >
-                월간
-              </button>
-              <button
-                className={view === "week" ? "selected" : "secondary"}
-                aria-pressed={view === "week"}
-                onClick={() => setView("week")}
-              >
-                주간
-              </button>
-            </div>
+            <button
+              className={view === "week" ? "selected" : "secondary"}
+              aria-pressed={view === "week"}
+              onClick={() => setView("week")}
+            >
+              주간
+            </button>
+            <button
+              className={view === "month" ? "selected" : "secondary"}
+              aria-pressed={view === "month"}
+              onClick={() => setView("month")}
+            >
+              월간
+            </button>
           </div>
         </div>
         <div className="calendar-options">
@@ -393,7 +435,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         {error && <ErrorNotice message={error} retry={reload} />}
         {registrations.error && (
           <ErrorNotice
-            message={`등록한 마감일·수동 일정을 불러오지 못했습니다. ${registrations.error}`}
+            message={`등록한 마감일·할 일을 불러오지 못했습니다. ${registrations.error}`}
             retry={registrations.reload}
           />
         )}
@@ -404,8 +446,8 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         )}
         {registrations.data?.has_more && (
           <p role="status">
-            등록한 마감일·수동 일정은 종류별 첫 1,000건을 표시합니다. 주간
-            보기로 기간을 줄여 주세요.
+            등록한 마감일·할 일은 종류별 첫 1,000건을 표시합니다. 주간 보기로
+            기간을 줄여 주세요.
           </p>
         )}
         {loading && <Loading />}
@@ -440,57 +482,64 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             )}
           </div>
         )}
-        <div className="calendar-weekdays" aria-hidden>
-          {["일", "월", "화", "수", "목", "금", "토"].map((name) => (
-            <span key={name}>{name}</span>
-          ))}
-        </div>
-        <div
-          className="calendar-grid"
-          role="group"
-          aria-label={view === "month" ? "월간 날짜" : "주간 날짜"}
-        >
-          {dayBars.map(({ day, bars }) => {
-            const count = bars.length;
-            return (
-              <button
-                key={day}
-                type="button"
-                className={`calendar-day ${day.slice(0, 7) !== selected.slice(0, 7) ? "outside-month" : ""}`}
-                aria-label={dayLabel(day)}
-                aria-pressed={day === selected}
-                aria-current={day === today ? "date" : undefined}
-                onClick={() => setSelected(day)}
-              >
-                <span>{Number(day.slice(8))}</span>
-                {count > 0 && (
-                  <>
-                    <small className="calendar-event-count">
-                      {count}
-                      <span className="calendar-count-unit">개 일정</span>
-                    </small>
-                    <span className="calendar-day-bars">
-                      {bars.slice(0, 3).map((bar) => (
-                        <span
-                          key={bar.key}
-                          title={bar.title}
-                          className={`calendar-event-bar bar-${bar.kind}`}
-                        >
-                          {bar.title}
+        {view === "month" ? (
+          <>
+            <div className="calendar-weekdays" aria-hidden>
+              {["일", "월", "화", "수", "목", "금", "토"].map((name) => (
+                <span key={name}>{name}</span>
+              ))}
+            </div>
+            <div className="calendar-grid" role="group" aria-label="월간 날짜">
+              {dayBars.map(({ day, bars }) => {
+                const count = bars.length;
+                return (
+                  <button
+                    key={day}
+                    type="button"
+                    className={`calendar-day ${day.slice(0, 7) !== selected.slice(0, 7) ? "outside-month" : ""}`}
+                    aria-label={dayLabel(day)}
+                    aria-pressed={day === selected}
+                    aria-current={day === today ? "date" : undefined}
+                    onClick={() => setSelected(day)}
+                  >
+                    <span>{Number(day.slice(8))}</span>
+                    {count > 0 && (
+                      <>
+                        <small className="calendar-event-count">
+                          {count}
+                          <span className="calendar-count-unit">개 일정</span>
+                        </small>
+                        <span className="calendar-day-bars">
+                          {bars.slice(0, 3).map((bar) => (
+                            <span
+                              key={bar.key}
+                              title={bar.title}
+                              className={`calendar-event-bar bar-${bar.kind}`}
+                            >
+                              {bar.title}
+                            </span>
+                          ))}
+                          {count > 3 && (
+                            <span className="calendar-more">
+                              +{count - 3}개 더 보기
+                            </span>
+                          )}
                         </span>
-                      ))}
-                      {count > 3 && (
-                        <span className="calendar-more">
-                          +{count - 3}개 더 보기
-                        </span>
-                      )}
-                    </span>
-                  </>
-                )}
-              </button>
-            );
-          })}
-        </div>
+                      </>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        ) : (
+          <TimeGrid
+            days={days}
+            events={timelineEntries}
+            selected={selected}
+            onSelect={setSelected}
+          />
+        )}
       </section>
       <section
         className="card calendar-selected"
@@ -498,7 +547,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
       >
         <div className="section-header">
           <h2 id="selected-day-title">{dayLabel(selected)}</h2>
-          <Link href="/tasks">등록한 일정 보기 →</Link>
+          <Link href="/deadlines">등록한 일정 보기 →</Link>
         </div>
         <RegisteredDay
           key={`${selected}:${registeredDay.map((item) => item.id).join(",")}`}

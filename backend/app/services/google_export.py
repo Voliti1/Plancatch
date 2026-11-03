@@ -8,6 +8,7 @@ from urllib.request import Request, build_opener
 
 from app.services import google_calendar as google
 from app.services.google_events import EVENTS_URL
+from app.services.google_reminders import matches as reminders_match
 
 
 class ExportError(Exception):
@@ -18,14 +19,17 @@ class ExportError(Exception):
         )
 
 
-def request(token, method, event_id, body=None):
-    if method not in {"GET", "POST"} or not re.fullmatch(r"[0-9a-v]{5,64}", event_id):
+def request(token, method, event_id, body=None, *, etag=None):
+    if method not in {"GET", "POST", "PATCH", "DELETE"} or not re.fullmatch(r"[0-9a-v]{5,64}", event_id):
         raise ExportError()
-    fields = "fields=id,summary,status,start,end,extendedProperties(private)"
+    if method in {"PATCH", "DELETE"} and (
+        not isinstance(etag, str) or not 1 <= len(etag) <= 512 or "\r" in etag or "\n" in etag
+    ):
+        raise ExportError(409, "conflict")
+    fields = "fields=id,etag,summary,status,start,end,reminders,extendedProperties(private),attendees(self),recurrence,recurringEventId,eventType,organizer(self)"
     url = (
-        EVENTS_URL + "/" + event_id + "?" + fields
-        if method == "GET"
-        else EVENTS_URL + "?sendUpdates=none&" + fields
+        EVENTS_URL + ("" if method == "POST" else "/" + event_id)
+        + "?" + ("sendUpdates=none" if method == "DELETE" else ("" if method == "GET" else "sendUpdates=none&") + fields)
     )
     req = Request(
         url,
@@ -34,6 +38,7 @@ def request(token, method, event_id, body=None):
         headers={
             "Authorization": "Bearer " + token,
             "Content-Type": "application/json",
+            **({"If-Match": etag} if etag else {}),
         },
     )
     try:
@@ -46,10 +51,21 @@ def request(token, method, event_id, body=None):
             raise ExportError()
         if method == "GET" and status in {404, 410}:
             return status, {}
+        if status == 412:
+            raise ExportError(409, "conflict")
+        if method == "DELETE" and status in {204, 404, 410}:
+            return status, {}
         if method == "POST" and status == 409:
             return status, {}
         if status in {429, 503}:
             raise ExportError(503, "rate_limited")
+        if status == 403:
+            try:
+                reasons = {item.get("reason") for item in json.loads(raw).get("error", {}).get("errors", []) if isinstance(item, dict)}
+            except (ValueError, TypeError, AttributeError):
+                reasons = set()
+            if reasons & {"rateLimitExceeded", "userRateLimitExceeded"}:
+                raise ExportError(503, "rate_limited")
         if status in {401, 403}:
             raise ExportError(409, "access_denied")
         if status not in {200, 201}:
@@ -70,6 +86,7 @@ def matches(item, event_id, export_id, payload):
             and item["extendedProperties"]["private"]["plancatchExport"]
             == str(export_id)
             and item["summary"] == payload["summary"]
+            and reminders_match(item.get("reminders"), payload)
             and all(
                 datetime.fromisoformat(item[key]["dateTime"].replace("Z", "+00:00"))
                 == datetime.fromisoformat(payload[key]["dateTime"])
@@ -89,7 +106,7 @@ def send_once(token, row):
             **row.payload,
             "id": row.google_event_id,
             "extendedProperties": {"private": {"plancatchExport": str(row.id)}},
-            "reminders": {"useDefault": False},
+            "reminders": row.payload.get("reminders", {"useDefault": False}),
         }
         status, item = request(token, "POST", row.google_event_id, body)
         if status == 409:

@@ -10,9 +10,16 @@ import { formatSeoul } from "@/lib/date/seoul";
 import type { Analysis } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
-import { analysisStatusLabel, isHtmlAnalysis, warningLabel } from "./display";
+import {
+  analysisStatusLabel,
+  isExtractedPdf,
+  isHtmlAnalysis,
+  warningLabel,
+} from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
 import { ReviewSummary } from "./review-summary";
+import { PdfScanConsentPanel } from "./pdf-scan-consent-panel";
+import { PDF_SCAN_CONSENT_REQUIRED } from "@/features/settings/pdf-scan-consent";
 import { SourceImage } from "@/features/sources/source-image";
 import {
   RemainingPeriod,
@@ -21,6 +28,7 @@ import {
 } from "./remaining-period";
 
 export function AnalysisDetail({ id }: { id: string }) {
+  const router = useRouter();
   const loader = useCallback(async () => {
     try {
       return await analysesApi.get(id);
@@ -29,6 +37,10 @@ export function AnalysisDetail({ id }: { id: string }) {
     }
   }, [id]);
   const { data, loading, error, reload } = useResource(loader);
+  useEffect(() => {
+    if (data && data.id !== id)
+      router.replace(`/analyses/${encodeURIComponent(data.id)}`);
+  }, [data, id, router]);
   if (loading) return <Loading />;
   if (error)
     return (
@@ -47,6 +59,11 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
   const now = usePeriodClock();
   const [data, setData] = useState(initial);
   const fromHtml = isHtmlAnalysis(data.model);
+  const fromPdf = isExtractedPdf(data.model);
+  const needsScanConsent =
+    fromPdf &&
+    data.status === "failed" &&
+    data.error_message === PDF_SCAN_CONSENT_REQUIRED;
   const [notice, setNotice] = useState("");
   const [recovering, setRecovering] = useState(false);
   const [recoveryError, setRecoveryError] = useState("");
@@ -62,11 +79,19 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
     (signal: AbortSignal) => analysesApi.get(initial.id, signal),
     [initial.id],
   );
+  const onData = useCallback(
+    (next: Analysis) => {
+      if (next.id !== initial.id)
+        router.replace(`/analyses/${encodeURIComponent(next.id)}`);
+      setData(next);
+    },
+    [initial.id, router],
+  );
   const poll = useProcessingPoll({
     active: isProcessing(data),
     read,
     isProcessing,
-    onData: setData,
+    onData,
     formatError: analysisError,
   });
   return (
@@ -78,13 +103,21 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         ← 원본 자료 상세
       </Link>
       <PageHeading
-        eyebrow={fromHtml ? "HTML DEADLINE REVIEW" : "AI DEADLINE REVIEW"}
-        title={fromHtml ? "마감일 검토" : "AI 마감일 검토"}
+        eyebrow={
+          fromPdf
+            ? "PDF DEADLINE REVIEW"
+            : fromHtml
+              ? "HTML DEADLINE REVIEW"
+              : "AI DEADLINE REVIEW"
+        }
+        title={fromHtml || fromPdf ? "마감일 검토" : "AI 마감일 검토"}
         description="추출된 마감일과 짧은 근거를 확인하고 필요한 마감일만 승인하세요."
       />
       <p>
         <span className="tag">
-          {analysisStatusLabel(data.status, data.model)}
+          {needsScanConsent
+            ? "전송 동의 대기"
+            : analysisStatusLabel(data.status, data.model)}
         </span>{" "}
         <span className="small muted">
           분석 요청 {formatSeoul(data.created_at)}
@@ -105,7 +138,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         <p className="notice" role="status">
           {fromHtml
             ? "HTML 접수기간을 확인하고 있습니다."
-            : "AI가 마감일 후보를 분석하고 있습니다. 완료될 때까지 상태를 확인합니다."}
+            : fromPdf
+              ? "PDF에서 접수·제출 기간을 확인하고 있습니다."
+              : "AI가 마감일 후보를 분석하고 있습니다. 완료될 때까지 상태를 확인합니다."}
         </p>
       )}
       {poll.error && <ErrorNotice message={poll.error} retry={poll.resume} />}
@@ -115,14 +150,15 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           retry={poll.resume}
         />
       )}
-      {data.status === "failed" && (
+      {needsScanConsent && <PdfScanConsentPanel analysis={data} />}
+      {data.status === "failed" && !needsScanConsent && (
         <ErrorNotice
           message={processingError(
             data.error_message ?? "ai_processing_failed",
           )}
         />
       )}
-      {data.status === "failed" && (
+      {data.status === "failed" && !needsScanConsent && (
         <p>
           <Link
             className="source-detail-link"
@@ -211,10 +247,11 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
             ))}
           </ul>
           <Link className="button secondary" href="/deadlines">
-            마감일 목록 보기
+            일정 목록 보기
           </Link>
           <p className="small muted">
-            작업 생성·자동 배치·Google Calendar 동기화는 수행하지 않습니다.
+            Google 계정이 연결되어 있으면 등록한 마감일이 Google 캘린더에도 자동
+            반영됩니다.
           </p>
         </section>
       )}
@@ -229,7 +266,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           <p className="small muted">
             {fromHtml
               ? "HTML에 명시된 마감일을 사용합니다. 기업이 마감일을 변경할 수 있으므로 원문도 확인해 주세요."
-              : "AI 신뢰도는 모델의 참고값이며 사실의 정확도를 보장하지 않습니다. 원문을 직접 확인해 주세요."}
+              : fromPdf
+                ? "PDF에서 읽은 접수·제출 기한입니다. 원문과 날짜를 확인해 주세요."
+                : "AI 신뢰도는 모델의 참고값이며 사실의 정확도를 보장하지 않습니다. 원문을 직접 확인해 주세요."}
           </p>
           {data.status === "ready" ? (
             <ReviewEditor
@@ -258,10 +297,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
                   {candidate.description && (
                     <p className="analysis-text">{candidate.description}</p>
                   )}
-                  <CandidateEvidence
-                    candidate={candidate}
-                    fromHtml={fromHtml}
-                  />
+                  <CandidateEvidence candidate={candidate} model={data.model} />
                 </article>
               ))}
               {!isProcessing(data) && data.candidates.length === 0 && (

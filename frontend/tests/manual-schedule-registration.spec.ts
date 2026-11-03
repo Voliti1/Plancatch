@@ -32,6 +32,7 @@ test("a late manual save cannot navigate away from a fresh registration", async 
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await sent;
   try {
+    page.once("dialog", (dialog) => dialog.accept());
     await page
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();
@@ -77,14 +78,11 @@ test("manual registration replaces the sidebar task entry and saves through the 
   await page
     .getByRole("link", { name: "등록한 일정 보기 →", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/deadlines$/);
   await page
-    .getByRole("link", { name: "＋ 수동 일정 등록", exact: true })
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/sources\/new\?mode=manual&new=.+$/);
-  await expect(
-    page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
-  ).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 직접 등록한 발표 준비");
@@ -107,6 +105,7 @@ test("manual registration replaces the sidebar task entry and saves through the 
   );
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   expect((await sent).postDataJSON()).toEqual({
+    google_reminders: { mode: "none", overrides: [] },
     title: "[테스트] 직접 등록한 발표 준비",
     deadline_id: null,
     description: null,
@@ -137,17 +136,19 @@ test("registration modes preserve both drafts and new registration clears them",
   await page
     .getByLabel("원본 텍스트", { exact: true })
     .fill("[테스트] 자료 입력 초안");
-  await page.getByLabel("이미지 파일 입력", { exact: true }).setInputFiles({
-    name: "[테스트] 자료.png",
-    mimeType: "image/png",
-    buffer: Buffer.from(
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
-      "base64",
-    ),
-  });
+  await page
+    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
+    .setInputFiles({
+      name: "[테스트] 자료.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
   await page
     .getByRole("tab", { name: "자료로 등록", exact: true })
-    .press("ArrowRight");
+    .press("End");
   await expect(
     page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
   ).toBeFocused();
@@ -156,7 +157,7 @@ test("registration modes preserve both drafts and new registration clears them",
     .fill("[테스트] 수동 입력 초안");
   await page
     .getByRole("tab", { name: "수동 일정 등록", exact: true })
-    .press("ArrowLeft");
+    .press("Home");
   await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
     "[테스트] 자료 입력 초안",
   );
@@ -167,6 +168,7 @@ test("registration modes preserve both drafts and new registration clears them",
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue(
     "[테스트] 수동 입력 초안",
   );
+  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("link", { name: "새 일정 등록하기", exact: true })
     .click();
@@ -325,6 +327,7 @@ test("collapsed settings and memo keep their values across mode changes and save
   );
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   expect((await sent).postDataJSON()).toEqual({
+    google_reminders: { mode: "none", overrides: [] },
     title: "[테스트] 밤샘 회의",
     description: "[테스트] 회의실 A",
     deadline_id: "deadline-1",

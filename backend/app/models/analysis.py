@@ -31,6 +31,9 @@ class Analysis(Base):
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     source_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("sources.id", ondelete="CASCADE"), index=True)
+    reused_analysis_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("analyses.id", ondelete="CASCADE"), nullable=True, index=True,
+    )
     input_text: Mapped[str] = mapped_column(Text)
     input_hash: Mapped[str] = mapped_column(String(64))
     model: Mapped[str] = mapped_column(String(100))

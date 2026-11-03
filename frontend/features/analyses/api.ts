@@ -28,15 +28,22 @@ export const analysesApi = {
     api<Analysis>(path(id), { signal }),
   recoverHtml: (id: string) =>
     api<Analysis>(`${path(id)}/recover-html`, { method: "POST" }),
-  review: (id: string, revision: number, candidates: CandidateEdit[]) =>
+  review: (
+    id: string,
+    revision: number,
+    candidates: CandidateEdit[],
+    signal?: AbortSignal,
+  ) =>
     api<Analysis>(path(id), {
       method: "PATCH",
       body: JSON.stringify({ revision, candidates }),
+      signal,
     }),
-  approve: (id: string, revision: number) =>
+  approve: (id: string, revision: number, signal?: AbortSignal) =>
     api<Analysis>(`${path(id)}/approve`, {
       method: "POST",
       body: JSON.stringify({ revision }),
+      signal,
     }),
   autoRegister: (
     id: string,

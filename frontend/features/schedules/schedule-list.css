@@ -1,0 +1,72 @@
+.schedule-type-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.schedule-list-header {
+  justify-content: flex-start;
+  gap: 20px;
+}
+.schedule-type-filters label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 14px;
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.schedule-type-filters label.is-checked {
+  background: #305ee8;
+  color: #fff;
+  border-color: #305ee8;
+}
+.schedule-type-filters input {
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  margin: 0;
+  accent-color: #fff;
+}
+.schedule-type-filters label:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.6;
+}
+.schedule-type-filters label:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+.schedule-rows .date-icon {
+  width: 40px;
+  height: 43px;
+  font-size: 35px;
+  line-height: 1;
+}
+.schedule-row-kind {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+@media (max-width: 600px) {
+  .schedule-list-header {
+    align-items: flex-start;
+    gap: 12px;
+  }
+  .schedule-type-filters label {
+    padding: 8px 10px;
+  }
+  .schedule-rows .deadline-row {
+    gap: 10px;
+  }
+  .schedule-row-kind {
+    min-width: 54px;
+  }
+}

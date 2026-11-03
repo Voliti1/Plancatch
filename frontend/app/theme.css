@@ -2,6 +2,20 @@
   color-scheme: light;
   --action-blue: #305ee8;
 }
+.google-delete-confirm {
+  background: #d32f2f;
+  color: #fff;
+}
+.managed-google-exports {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.managed-google-exports button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-align: left;
+}
 :root[data-theme="dark"] {
   color-scheme: dark;
   --bg: #111827;
@@ -261,4 +275,18 @@ html:has(.account-settings[open]) {
   .account-settings .account-settings-body {
     text-align: left;
   }
+}
+:root {
+  --schedule-task: #305ee8;
+  --schedule-deadline: #be185d;
+}
+.tag.schedule-kind-task,
+:root[data-theme="dark"] .tag.schedule-kind-task {
+  background: var(--schedule-task);
+  color: #fff;
+}
+.tag.schedule-kind-deadline,
+:root[data-theme="dark"] .tag.schedule-kind-deadline {
+  background: var(--schedule-deadline);
+  color: #fff;
 }

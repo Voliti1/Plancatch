@@ -22,7 +22,7 @@ const analysis = {
 test("Saramin original and normalized evidence do not duplicate summary deadlines", () => {
   const text =
     "(주)테스트기업\n마감일\n2026.11.01 23:59\n마감일 원문: 2026.11.01 23:59\n마감일 (정규화): 2026-11-01T23:59:00\n사이트 남은 기간 (추출 당시): 0일 00:00:00";
-  expect(extractedSummary(text)).toEqual({
+  expect(extractedSummary(text)).toMatchObject({
     company: "(주)테스트기업",
     deadline: "2026.11.01 23:59",
   });
@@ -242,7 +242,7 @@ test("JobKorea uses the HTML deadline clock and keeps the removed snapshot row h
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();

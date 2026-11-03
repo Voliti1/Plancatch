@@ -1,12 +1,22 @@
 "use client";
 import { useId, useRef } from "react";
+import { formatSeoul } from "@/lib/date/seoul";
+import type { Source } from "@/types/api";
 import { extractedSummary } from "./extracted-summary";
 
-export function SourceExtractedContent({ text }: { text: string }) {
+export function SourceExtractedContent({
+  text,
+  pdf = false,
+  fileMetadata,
+}: {
+  text: string;
+  pdf?: boolean;
+  fileMetadata?: Source["file_metadata"];
+}) {
   const dialog = useRef<HTMLDialogElement>(null);
   const outsidePress = useRef(false);
   const titleId = useId();
-  const summary = extractedSummary(text);
+  const summary = extractedSummary(text, pdf);
   function outside(event: React.MouseEvent | React.PointerEvent) {
     const rect = event.currentTarget.getBoundingClientRect();
     return (
@@ -28,11 +38,17 @@ export function SourceExtractedContent({ text }: { text: string }) {
           <dl className="extracted-summary">
             <div>
               <dt>회사명</dt>
-              <dd>{summary.company}</dd>
+              <dd>{fileMetadata?.company_name || summary.company}</dd>
             </div>
             <div>
               <dt>마감일</dt>
-              <dd>{summary.deadline}</dd>
+              <dd>
+                {fileMetadata?.deadlines.length
+                  ? fileMetadata.deadlines
+                      .map((value) => formatSeoul(value))
+                      .join(" · ")
+                  : summary.deadline}
+              </dd>
             </div>
           </dl>
           <p className="muted small">

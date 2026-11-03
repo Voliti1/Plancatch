@@ -342,6 +342,7 @@ def read_google_events(
         page = google_events.list_primary(token, _utc(start_from), _utc(end_before))
         exports = {row.google_event_id: row for row in db.scalars(select(GoogleExport).where(
             GoogleExport.user_id == current_user.id, GoogleExport.status == "sent",
+            GoogleExport.deleted_at.is_(None),
             GoogleExport.connection_binding == bound,
             GoogleExport.google_event_id.in_([item.id for item in page.events]),
         ))}

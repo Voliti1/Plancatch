@@ -84,7 +84,7 @@ test("image upload requires consent, preserves missing time and original preview
   ).toBeVisible();
   await page.getByLabel("일정 제목 (선택)", { exact: true }).fill(enteredTitle);
   await page
-    .getByLabel("이미지 파일 입력", { exact: true })
+    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
     .setInputFiles({ name: "캡처.png", mimeType: "image/png", buffer: png });
   expect(uploads).toBe(0);
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
@@ -120,7 +120,7 @@ test("image upload requires consent, preserves missing time and original preview
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await page
-    .getByRole("button", { name: "선택한 1개 승인", exact: true })
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료" }),
@@ -142,6 +142,266 @@ test("image upload requires consent, preserves missing time and original preview
     fullPage: true,
   });
 });
+
+test("text PDF opens review without consent and allows selecting a deadline candidate", async ({
+  page,
+}) => {
+  const pdfSource = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
+  const state = await mockAnalyses(page, [], pdfSource);
+  const pdfResult = {
+    ...readyAnalysis,
+    model: "pdf:local-v1",
+    input_hash: pdfSource.pdf_sha256,
+    warnings: [],
+    candidates: readyAnalysis.candidates.map((item, index) => ({
+      ...item,
+      title: index === 0 ? "서류 접수" : "추가 서류 제출",
+      due_at:
+        index === 0 ? "2026-11-09T18:00:00+09:00" : "2026-11-12T17:00:00+09:00",
+      selected: false,
+    })),
+  };
+  await page.route("**/test-api/api/sources/pdfs", (route) => {
+    expect(route.request().postDataBuffer()?.toString("utf8")).toContain(
+      "notice.PDF",
+    );
+    return route.fulfill({ status: 201, json: pdfSource });
+  });
+  await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      allow_external_ai: false,
+      input_hash: pdfSource.pdf_sha256,
+      reuse_existing: true,
+    });
+    state.starts++;
+    state.analyses.push(structuredClone(pdfResult));
+    return route.fulfill({ status: 202, json: pdfResult });
+  });
+  await login(page);
+  await page.goto("/sources/new");
+  await page
+    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
+    .setInputFiles({
+      name: "notice.PDF",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n%%EOF"),
+    });
+  await expect(page.getByText("PDF 1개 선택됨")).toBeVisible();
+  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
+    "서류 접수",
+  );
+  await expect(page.getByLabel("후보 2 제목", { exact: true })).toHaveValue(
+    "추가 서류 제출",
+  );
+  await expect(
+    page.getByLabel("후보 2 마감일 (한국 시간)", { exact: true }),
+  ).toHaveValue("2026-11-12T17:00");
+  await expect(
+    page.getByRole("button", { name: "동의하고 스캔 읽기" }),
+  ).toHaveCount(0);
+  expect(state.starts).toBe(1);
+  expect(state.deadlines).toHaveLength(0);
+  await page.getByRole("checkbox", { name: "후보 2 포함" }).check();
+  await page
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "마감일 등록 완료" }),
+  ).toBeVisible();
+  expect(state.deadlines.map((item) => item.title)).toEqual(["추가 서류 제출"]);
+});
+
+test("a saved text PDF can be reanalyzed locally", async ({ page }) => {
+  const pdf = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
+  const analysis = {
+    ...readyAnalysis,
+    model: "pdf:test-model",
+    input_hash: pdf.pdf_sha256,
+    input_text: "원서접수",
+  };
+  const state = await mockAnalyses(page, [analysis], pdf);
+  await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      allow_external_ai: false,
+      input_hash: pdf.pdf_sha256,
+      reuse_existing: false,
+    });
+    state.starts++;
+    const fresh = { ...analysis, id: "analysis-2" };
+    state.analyses.unshift(fresh);
+    return route.fulfill({ status: 202, json: fresh });
+  });
+  await login(page);
+  await page.goto("/analyses/analysis-1");
+  await page.getByRole("link", { name: "PDF 다시 분석하기 →" }).click();
+  await expect(page).toHaveURL(/\/analyses\/analysis-2$/);
+  expect(state.starts).toBe(1);
+  expect(state.deadlines).toHaveLength(0);
+});
+
+test("reused PDF review opens the existing analysis", async ({ page }) => {
+  const pdf = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
+  const canonical = {
+    ...readyAnalysis,
+    model: "pdf:local-v1",
+    input_hash: pdf.pdf_sha256,
+  };
+  await mockAnalyses(page, [canonical], pdf);
+  await page.route("**/test-api/api/ai-analyses/reused-file", (route) =>
+    route.fulfill({ json: canonical }),
+  );
+  await login(page);
+  await page.goto("/analyses/reused-file");
+  await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toBeVisible();
+});
+
+test("scan consent is opt-in, applies to later scans and can be revoked", async ({
+  page,
+}) => {
+  const pdf = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
+  const state = await mockAnalyses(page, [], pdf);
+  const permissions: boolean[] = [];
+  await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
+    const payload = route.request().postDataJSON();
+    expect(payload.input_hash).toBe(pdf.pdf_sha256);
+    permissions.push(payload.allow_external_ai);
+    const response = {
+      ...readyAnalysis,
+      id: `analysis-${permissions.length}`,
+      model: payload.allow_external_ai ? "pdf:ocr:test" : "pdf:local-v1",
+      input_hash: pdf.pdf_sha256,
+      status: payload.allow_external_ai ? "ready" : "failed",
+      error_message: payload.allow_external_ai
+        ? null
+        : "pdf_scan_consent_required",
+      candidates: [],
+    } as typeof readyAnalysis;
+    state.analyses.unshift(response);
+    return route.fulfill({ status: 202, json: response });
+  });
+  await login(page);
+  await page.goto("/sources/ai-source/review");
+  const scan = page.getByRole("button", { name: "동의하고 스캔 읽기" });
+  const remember = page.getByRole("checkbox", {
+    name: "앞으로 스캔 PDF에도 적용",
+  });
+  await expect(scan).toBeVisible();
+  await expect(remember).not.toBeChecked();
+  expect(permissions).toEqual([false]);
+  await remember.check();
+  await scan.click();
+  await expect(page).toHaveURL(/\/analyses\/analysis-2$/);
+  state.analyses.length = 0;
+  await page.goto("/sources/ai-source/review");
+  await expect(page).toHaveURL(/\/analyses\/analysis-3$/);
+  expect(permissions).toEqual([false, true, true]);
+  await page.getByRole("button", { name: "설정 열기" }).first().click();
+  await page.getByRole("button", { name: "저장된 스캔 PDF 동의 끄기" }).click();
+  await page.getByRole("button", { name: "설정 닫기" }).click();
+  state.analyses.length = 0;
+  await page.goto("/sources/ai-source/review");
+  await expect(scan).toBeVisible();
+  await expect(remember).not.toBeChecked();
+  expect(permissions).toEqual([false, true, true, false]);
+});
+
+for (const scenario of [
+  {
+    transcript: "2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수",
+    company: "SK하이닉스",
+    title: "2025 하반기 SK하이닉스 신입사원 채용 지원서 접수",
+  },
+  {
+    transcript: "지원서 접수",
+    company: "SK하이닉스 (후보 제목에서 확인)",
+    title: "2025 하반기 SK하이닉스 신입사원 채용 지원서 접수",
+  },
+  {
+    transcript:
+      "2025년 하반기 신입사원 채용 공고\n케이워터기술은 한국수자원공사 자회사로서 국내 시설을 관리합니다.",
+    company: "케이워터기술",
+    title: "2025년 하반기 신입사원 채용 공고",
+    evidence: "1. 채용공고 및 원서접수 ’25. 11. 21.(금) ~ 12. 05.(금) 16:00",
+    due: "2025-12-05T16:00",
+    native: true,
+  },
+  {
+    transcript:
+      "제주콘텐츠진흥원 공고 제 2026 – 114 호\n2026년 제2회 제주특별자치도 공공기관 직원 통합채용\n(제주콘텐츠진흥원 제3차 직원 채용) 공고",
+    company: "제주콘텐츠진흥원",
+    title:
+      "2026년 제2회 제주특별자치도 공공기관 직원 통합채용 (제주콘텐츠진흥원 제3차 직원 채용) 공고",
+    evidence: "6.22.(월) ~ 6.30.(화) 18:00",
+    due: "2026-06-30T18:00",
+    multiple: true,
+    native: true,
+  },
+]) {
+  test(`an existing PDF review shows the title, employer and date for ${scenario.company}`, async ({
+    page,
+  }) => {
+    const evidence = scenario.evidence ?? "9.22(월) ~ 10.1(수) 17:00";
+    const due = scenario.due ?? "2025-10-01T17:00";
+    const candidate = {
+      ...readyAnalysis.candidates[0],
+      title: scenario.multiple ? "원서접수" : scenario.title,
+      evidence_text: evidence,
+      due_at: null,
+      suggested_due_at: `${due}:00+09:00`,
+      selected: false,
+    };
+    const pdf = { ...image, source_type: "pdf", image_sha256: null };
+    const analysis = {
+      ...readyAnalysis,
+      model: scenario.native ? "pdf:local-v1" : "pdf:test-model",
+      input_text: `${scenario.transcript}\n${evidence}`,
+      warnings: [],
+      candidates: scenario.multiple
+        ? [candidate, { ...candidate, id: "candidate-2", title: "면접시험" }]
+        : [candidate],
+    };
+    const state = await mockAnalyses(page, [analysis], pdf);
+    await login(page);
+    await page.goto("/analyses/analysis-1");
+    const summary = page.getByRole("region", { name: "자료 정보 요약" });
+    await expect(
+      summary.getByText(scenario.title, { exact: true }),
+    ).toBeVisible();
+    await expect(summary.locator("dd").nth(1)).toHaveText(scenario.company);
+    if (scenario.native) {
+      await expect(
+        page.getByText("PDF에서 읽은 근거입니다.").first(),
+      ).toBeVisible();
+    }
+    await expect(
+      page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    ).toHaveValue(due);
+    expect(state.starts).toBe(0);
+    expect(state.deadlines).toHaveLength(0);
+  });
+}
 
 for (const scenario of [
   {
@@ -209,7 +469,7 @@ for (const scenario of [
       page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
     ).toHaveValue(scenario.expected);
     await expect(
-      page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+      page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
     ).toBeDisabled();
     await expect(page.locator("body")).not.toContainText("due_at");
     await expect(page.locator("body")).not.toContainText("null");
@@ -233,7 +493,7 @@ for (const scenario of [
       .getByRole("button", { name: "검토 내용 저장", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "선택한 1개 승인", exact: true })
+      .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
       .click();
     await expect(
       page.getByRole("heading", { name: "마감일 등록 완료" }),

@@ -1,6 +1,9 @@
 .dashboard-schedules {
   margin: 0 0 24px;
 }
+.dashboard-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
 .dashboard-schedule-list {
   list-style: none;
   padding: 0;
@@ -47,7 +50,7 @@
 }
 .task-detail.schedule-detail,
 .danger-zone.schedule-detail-danger {
-  max-width: 720px;
+  max-width: 810px;
 }
 .schedule-detail .task-description {
   padding-top: 0;

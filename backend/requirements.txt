@@ -11,3 +11,4 @@ pwdlib[argon2]>=0.3,<1.0
 PyJWT>=2.10,<3.0
 cryptography>=46,<51
 Pillow==13.0.0
+pypdf==6.21.4

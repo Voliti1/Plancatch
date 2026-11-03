@@ -99,6 +99,8 @@ def request_source_analysis(
     `extracted` means text is ready, not that AI analysis has run.
     """
     source = get_owned_source(source_id, current_user.id, db)
+    if source.source_type == "pdf":
+        raise HTTPException(422, "PDF는 마감일 검토 화면에서 전송 동의 후 분석해 주세요.")
     if source.source_type == "image":
         raise HTTPException(422, "이미지는 이미지 검토 화면에서 전송 동의 후 분석해 주세요.")
     if not slots.acquire(blocking=False):
@@ -132,11 +134,13 @@ def update_source(
         raise HTTPException(status_code=409, detail="Source is currently processing")
     changes = payload.model_dump(exclude_unset=True)
 
-    if source.source_type == "image":
+    if source.source_type in {"image", "pdf"}:
         if set(changes) - {"title"}:
-            raise HTTPException(422, "이미지는 제목만 수정할 수 있습니다.")
+            raise HTTPException(422, "이미지는 제목만 수정할 수 있습니다." if source.source_type == "image"
+                                else "PDF는 제목만 수정할 수 있습니다.")
         if "title" in changes:
-            source.title = changes["title"]
+            source.title = changes["title"] or (source.file_metadata or {}).get("document_title") or source.original_filename
+            source.file_metadata = dict(source.file_metadata or {}, title_entered=bool(changes["title"]))
         db.commit()
         db.refresh(source)
         return source
@@ -183,7 +187,7 @@ def delete_source(
         raise HTTPException(status_code=409, detail="source_has_deadlines")
     db.delete(source)
     db.commit()
-    if source.source_type == "image":
-        from app.services.source_images import remove_image
-        remove_image(source.storage_key)
+    if source.source_type in {"image", "pdf"}:
+        from app.services.source_images import remove_file
+        remove_file(source.storage_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

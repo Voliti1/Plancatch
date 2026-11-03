@@ -83,7 +83,7 @@ test("Linkareer explains the metadata time and preserves milliseconds through ti
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();
@@ -165,7 +165,7 @@ test("Linkareer without a metadata clock requires a user time instead of default
     .click();
   await expect(dateInput).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 1개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
   ).toBeDisabled();
   expect(state.deadlines).toHaveLength(0);
   await dateInput.fill("2026-10-31T18:00");
@@ -173,7 +173,7 @@ test("Linkareer without a metadata clock requires a user time instead of default
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   const approve = page.getByRole("button", {
-    name: "선택한 1개 승인",
+    name: "선택한 1개 일정 등록",
     exact: true,
   });
   await expect(approve).toBeEnabled();
@@ -216,6 +216,6 @@ test("Linkareer conflicting source dates stay unselected and cannot be approved"
     page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
-    page.getByRole("button", { name: "선택한 0개 승인", exact: true }),
+    page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
 });

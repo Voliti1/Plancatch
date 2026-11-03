@@ -61,6 +61,45 @@ test("summary shows only company and raw deadline without the full text", async 
   });
 });
 
+test("PDF source shows its saved filename and analysis metadata with even button spacing", async ({
+  page,
+}) => {
+  await openSource(page, {
+    ...source,
+    source_type: "pdf",
+    original_url: null,
+    title: "2025년 하반기 신입사원 채용 공고",
+    original_filename: "2025년 신입사원.pdf",
+    file_metadata: {
+      document_title: "2025년 하반기 신입사원 채용 공고",
+      company_name: "케이워터기술",
+      deadlines: ["2025-12-05T07:00:00Z"],
+    },
+  });
+  await expect(
+    page.getByRole("heading", { name: "2025년 하반기 신입사원 채용 공고" }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("2025년 신입사원.pdf", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByRole("region", { name: "추출된 내용" })).toContainText(
+    "케이워터기술",
+  );
+  const link = page.getByRole("link", { name: "PDF 마감일 검토 →" });
+  const spacing = await link.evaluate((button) => {
+    const rect = button.getBoundingClientRect();
+    const top = document
+      .querySelector(".source-detail")!
+      .getBoundingClientRect().bottom;
+    const bottom = document
+      .querySelector(".danger-zone")!
+      .getBoundingClientRect().top;
+    return [rect.top - top, bottom - rect.bottom];
+  });
+  expect(spacing[0]).toBeGreaterThan(8);
+  expect(Math.abs(spacing[0] - spacing[1])).toBeLessThan(2);
+});
+
 test("modal preserves page layout and scroll, scrolls internally and closes with X", async ({
   page,
 }) => {
@@ -284,7 +323,7 @@ test.describe("narrow desktop viewport", () => {
 });
 for (const value of cases) {
   test(`summary parser: ${value.name}`, () => {
-    expect(extractedSummary(value.text)).toEqual({
+    expect(extractedSummary(value.text)).toMatchObject({
       company: value.company,
       deadline: value.deadline,
     });
