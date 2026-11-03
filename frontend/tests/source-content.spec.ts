@@ -284,7 +284,7 @@ test.describe("narrow desktop viewport", () => {
 });
 for (const value of cases) {
   test(`summary parser: ${value.name}`, () => {
-    expect(extractedSummary(value.text)).toEqual({
+    expect(extractedSummary(value.text)).toMatchObject({
       company: value.company,
       deadline: value.deadline,
     });

@@ -1,4 +1,8 @@
 "use client";
+import {
+  DISCARD_NAVIGATION_EVENT,
+  useUnsavedChanges,
+} from "@/lib/unsaved-changes";
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
@@ -89,6 +93,7 @@ export function ReviewEditor({
   const [drafts, setDrafts] = useState(() =>
     analysis.candidates.map(suggestedDraftOf),
   );
+  const { markSaved } = useUnsavedChanges(JSON.stringify(drafts));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -100,7 +105,13 @@ export function ReviewEditor({
   const request = useRef<AbortController | null>(null);
   useEffect(() => {
     active.current = true;
+    const stopFollowingApproval = () => request.current?.abort();
+    window.addEventListener(DISCARD_NAVIGATION_EVENT, stopFollowingApproval);
     return () => {
+      window.removeEventListener(
+        DISCARD_NAVIGATION_EVENT,
+        stopFollowingApproval,
+      );
       active.current = false;
       request.current?.abort();
     };
@@ -144,6 +155,7 @@ export function ReviewEditor({
         // without re-saving an older revision or losing the user's edits.
         setAnalysis(current);
         setDrafts(current.candidates.map(suggestedDraftOf));
+        markSaved(JSON.stringify(current.candidates.map(suggestedDraftOf)));
       }
       if (!active.current || controller.signal.aborted) return;
       const result =
@@ -167,6 +179,7 @@ export function ReviewEditor({
               : await analysesApi.get(analysis.id);
       if (!active.current || controller.signal.aborted) return;
       setDrafts(result.candidates.map(suggestedDraftOf));
+      markSaved(JSON.stringify(result.candidates.map(suggestedDraftOf)));
       setConfirmReject(false);
       setConfirmReload(false);
       onUpdated(

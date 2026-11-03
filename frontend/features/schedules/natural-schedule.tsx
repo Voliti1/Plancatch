@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ErrorNotice } from "@/components/feedback";
 import { api, errorMessage } from "@/lib/api/client";
 import { TaskForm } from "@/features/tasks/task-form";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { DeadlineInput } from "@/types/api";
 import type { TaskInput } from "@/types/task";
 import type { NaturalScheduleDraft } from "@/types/natural-schedule";
@@ -27,6 +28,7 @@ export function NaturalSchedule({
 }) {
   const textLabelId = useId();
   const [text, setText] = useState("");
+  const { markSaved } = useUnsavedChanges(text);
   const [draft, setDraft] = useState(initialDraft);
   const [version, setVersion] = useState(0);
   const [reading, setReading] = useState(false);
@@ -122,6 +124,7 @@ export function NaturalSchedule({
     onBusyChange(true);
     try {
       await handler(payload);
+      markSaved();
     } catch (err) {
       setSaving(false);
       onBusyChange(false);
@@ -234,6 +237,7 @@ export function NaturalSchedule({
           onSave={(payload) => save(payload, onSave)}
           onSaveDeadline={(payload) => save(payload, onSaveDeadline)}
           onCancel={onCancel}
+          cancelPreservesInput
         />
       </div>
     </section>

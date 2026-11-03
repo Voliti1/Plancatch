@@ -32,6 +32,7 @@ test("a late manual save cannot navigate away from a fresh registration", async 
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await sent;
   try {
+    page.once("dialog", (dialog) => dialog.accept());
     await page
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();
@@ -167,6 +168,7 @@ test("registration modes preserve both drafts and new registration clears them",
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue(
     "[테스트] 수동 입력 초안",
   );
+  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("link", { name: "새 일정 등록하기", exact: true })
     .click();
