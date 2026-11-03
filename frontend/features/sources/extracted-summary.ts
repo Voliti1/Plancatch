@@ -1,6 +1,5 @@
-// Display only explicitly labelled values from the stored text. This is not an
-// AI result, and must not invent a company, year, time or time zone.
-export function extractedSummary(text: string) {
+// Display source facts from labelled values or an explicit PDF recruitment heading.
+export function extractedSummary(text: string, isPdf = false) {
   // Prefer the same-job HTML slot captured at extraction time. Body text can
   // contain unrelated company names from recommendations or advertising.
   const begin = "[URL 마감일 HTML 검토 데이터]";
@@ -40,6 +39,19 @@ export function extractedSummary(text: string) {
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean);
+  // PDFs often print the employer inside the recruitment heading.
+  const pdfHeadingCompanies = isPdf
+    ? lines.slice(0, 8).flatMap((line) => {
+        const heading = line.replace(
+          /^(?:20\d{2}(?:\s*년(?:도)?)?\s*)?(?:[상하]반기\s*)?/,
+          "",
+        );
+        const employer = heading.match(
+          /^((?:[A-Z]{2,8}\s*)?[\p{L}\p{N}][\p{L}\p{N}&.-]{1,29})\s+(?:신입(?:사원)?|경력(?:사원)?|인턴)\s+(?:공개\s*)?(?:채용|공채)(?:\s|$)/u,
+        );
+        return employer ? [employer[1]] : [];
+      })
+    : [];
   const companies: string[] = [];
   const deadlines: string[] = [];
   const corporateNames: string[] = [];
@@ -83,10 +95,12 @@ export function extractedSummary(text: string) {
   }
   const uniqueCompanies = [
     ...new Map(
-      (companies.length ? companies : corporateNames).map((value) => [
-        value.replace(/\(주\)|㈜|주식회사|\s/g, ""),
-        value,
-      ]),
+      (companies.length
+        ? companies
+        : corporateNames.length
+          ? corporateNames
+          : pdfHeadingCompanies
+      ).map((value) => [value.replace(/\(주\)|㈜|주식회사|\s/g, ""), value]),
     ).values(),
   ];
   const uniqueDeadlines = [

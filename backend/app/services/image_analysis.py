@@ -13,7 +13,13 @@ from app.models.analysis import Analysis
 from app.models.source import Source
 from app.schemas.analysis import ProviderResult
 from app.services.ai_analysis import AIError, provider_request, slots
-from app.services.deadline_dates import closing_choice, resolved_warnings
+from app.services.deadline_dates import (
+    UNRESOLVED_FILE_CANDIDATE,
+    UNRESOLVED_FILE_TIME,
+    closing_choice,
+    pdf_document_year,
+    resolved_warnings,
+)
 from app.services.source_images import FILE_EXTENSIONS, file_hash, read_file
 
 
@@ -59,6 +65,7 @@ def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
             "closes at 2026-11-09T18:00:00+09:00. 18시, 18시00분, 오후6시 and 6:00 PM mean 18:00. "
             "evidence_text must include the closing CLOCK when visible, not just the date. "
             "If year or closing date is absent/unclear, due_at MUST be null. NEVER invent a year. "
+            "Preserve any explicitly written year in the document heading when quoting it in transcript. "
             "For a complete visible closing date without a clock, use 23:59 +09:00 as service policy "
             "and explain that default in plain Korean. Never expose field names or null in user-facing text. "
             "If the notice title is absent, "
@@ -81,6 +88,7 @@ def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
             item.get("text", "") for item in candidate["content"]["parts"] if not item.get("thought")))
         defaulted = False
         verified = []
+        document_year = pdf_document_year(result.transcript) if pdf else None
         for item in result.deadlines:
             if item.evidence_text not in result.transcript:
                 if not pdf:
@@ -93,7 +101,7 @@ def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
                 item.evidence_text = matched.group()
             position = result.transcript.find(item.evidence_text)
             context = result.transcript[max(0, position - 100):position + len(item.evidence_text) + 100]
-            choice = closing_choice(item.evidence_text, context)
+            choice = closing_choice(item.evidence_text, context, document_year=document_year)
             expected = datetime.fromisoformat(choice["due_at"]) if choice and choice["due_at"] else None
             if (choice and choice["evidence_text"].startswith(item.evidence_text)
                     and choice["evidence_text"] in result.transcript):
@@ -104,9 +112,9 @@ def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
                 item.due_at = expected
             elif item.due_at is not None and (expected is None or item.due_at != expected):
                 item.due_at = None
-                result.warnings.append("원문 근거에서 마감 일시를 확정하지 못했습니다. 날짜와 시간을 직접 확인해 주세요.")
+                result.warnings.append(UNRESOLVED_FILE_TIME)
             if item.due_at is None:
-                result.warnings.append("마감 날짜와 시간을 확인하지 못한 후보는 직접 입력하거나 제외해 주세요.")
+                result.warnings.append(UNRESOLVED_FILE_CANDIDATE)
             defaulted |= bool(expected and choice["time_defaulted"])
             verified.append(item)
         if len(verified) != len(result.deadlines):
