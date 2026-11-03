@@ -10,7 +10,12 @@ import { formatSeoul } from "@/lib/date/seoul";
 import type { Analysis } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
-import { analysisStatusLabel, isHtmlAnalysis, warningLabel } from "./display";
+import {
+  analysisStatusLabel,
+  isExtractedPdf,
+  isHtmlAnalysis,
+  warningLabel,
+} from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
 import { ReviewSummary } from "./review-summary";
 import { SourceImage } from "@/features/sources/source-image";
@@ -47,6 +52,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
   const now = usePeriodClock();
   const [data, setData] = useState(initial);
   const fromHtml = isHtmlAnalysis(data.model);
+  const fromPdf = isExtractedPdf(data.model);
   const [notice, setNotice] = useState("");
   const [recovering, setRecovering] = useState(false);
   const [recoveryError, setRecoveryError] = useState("");
@@ -78,8 +84,14 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         ← 원본 자료 상세
       </Link>
       <PageHeading
-        eyebrow={fromHtml ? "HTML DEADLINE REVIEW" : "AI DEADLINE REVIEW"}
-        title={fromHtml ? "마감일 검토" : "AI 마감일 검토"}
+        eyebrow={
+          fromPdf
+            ? "PDF DEADLINE REVIEW"
+            : fromHtml
+              ? "HTML DEADLINE REVIEW"
+              : "AI DEADLINE REVIEW"
+        }
+        title={fromHtml || fromPdf ? "마감일 검토" : "AI 마감일 검토"}
         description="추출된 마감일과 짧은 근거를 확인하고 필요한 마감일만 승인하세요."
       />
       <p>
@@ -105,7 +117,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         <p className="notice" role="status">
           {fromHtml
             ? "HTML 접수기간을 확인하고 있습니다."
-            : "AI가 마감일 후보를 분석하고 있습니다. 완료될 때까지 상태를 확인합니다."}
+            : fromPdf
+              ? "PDF에서 접수·제출 기간을 확인하고 있습니다."
+              : "AI가 마감일 후보를 분석하고 있습니다. 완료될 때까지 상태를 확인합니다."}
         </p>
       )}
       {poll.error && <ErrorNotice message={poll.error} retry={poll.resume} />}
@@ -230,7 +244,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           <p className="small muted">
             {fromHtml
               ? "HTML에 명시된 마감일을 사용합니다. 기업이 마감일을 변경할 수 있으므로 원문도 확인해 주세요."
-              : "AI 신뢰도는 모델의 참고값이며 사실의 정확도를 보장하지 않습니다. 원문을 직접 확인해 주세요."}
+              : fromPdf
+                ? "PDF에서 읽은 접수·제출 기한입니다. 원문과 날짜를 확인해 주세요."
+                : "AI 신뢰도는 모델의 참고값이며 사실의 정확도를 보장하지 않습니다. 원문을 직접 확인해 주세요."}
           </p>
           {data.status === "ready" ? (
             <ReviewEditor
@@ -259,10 +275,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
                   {candidate.description && (
                     <p className="analysis-text">{candidate.description}</p>
                   )}
-                  <CandidateEvidence
-                    candidate={candidate}
-                    fromHtml={fromHtml}
-                  />
+                  <CandidateEvidence candidate={candidate} model={data.model} />
                 </article>
               ))}
               {!isProcessing(data) && data.candidates.length === 0 && (

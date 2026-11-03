@@ -280,6 +280,7 @@ for (const scenario of [
     title: "2025년 하반기 신입사원 채용 공고",
     evidence: "1. 채용공고 및 원서접수 ’25. 11. 21.(금) ~ 12. 05.(금) 16:00",
     due: "2025-12-05T16:00",
+    native: true,
   },
   {
     transcript:
@@ -290,6 +291,7 @@ for (const scenario of [
     evidence: "6.22.(월) ~ 6.30.(화) 18:00",
     due: "2026-06-30T18:00",
     multiple: true,
+    native: true,
   },
 ]) {
   test(`an existing PDF review shows the title, employer and date for ${scenario.company}`, async ({
@@ -308,7 +310,7 @@ for (const scenario of [
     const pdf = { ...image, source_type: "pdf", image_sha256: null };
     const analysis = {
       ...readyAnalysis,
-      model: "pdf:test-model",
+      model: scenario.native ? "pdf:local-v1" : "pdf:test-model",
       input_text: `${scenario.transcript}\n${evidence}`,
       warnings: [],
       candidates: scenario.multiple
@@ -323,6 +325,11 @@ for (const scenario of [
       summary.getByText(scenario.title, { exact: true }),
     ).toBeVisible();
     await expect(summary.locator("dd").nth(1)).toHaveText(scenario.company);
+    if (scenario.native) {
+      await expect(
+        page.getByText("PDF에서 읽은 근거입니다.").first(),
+      ).toBeVisible();
+    }
     await expect(
       page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
     ).toHaveValue(due);

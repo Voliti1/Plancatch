@@ -164,8 +164,8 @@ export function SourceFileInput({
         }}
       />
       <p id="source-file-help" className="small muted source-file-help">
-        PDF와 PNG·JPG·WebP·BMP·GIF·TIFF·AVIF 이미지를 지원합니다. 파일을 저장한
-        뒤 전송에 동의하면 Google Gemini로 분석합니다.
+        PDF와 PNG·JPG·WebP·BMP·GIF·TIFF·AVIF 이미지를 지원합니다. PDF의 텍스트를
+        먼저 읽고, 스캔 PDF와 이미지는 동의 후 Google Gemini로 읽습니다.
       </p>
       <p role="status" className="small muted">
         {files.length

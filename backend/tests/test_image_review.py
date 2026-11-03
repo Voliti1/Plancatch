@@ -9,7 +9,7 @@ import pytest
 from PIL import Image
 from pydantic import SecretStr
 
-from app.services import ai_analysis, image_analysis, source_images
+from app.services import ai_analysis, image_analysis, pdf_analysis, source_images
 from tests.test_sources import auth_headers, client, configure_test_jwt  # noqa: F401
 
 TEXT = "공통지원자격\n2027년 2월 졸업예정자 및 기졸업자\n접수기간 2026년 10월 21일(수) ~ 11월 01일(일) 까지\n면접일정 별도 통지"
@@ -139,11 +139,6 @@ def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monk
     pdf = picture("PDF")
     first = "서류 접수 마감 11.09 18:00"
     second = "추가 서류 제출 마감 2026.11.12 17:00"
-    proposals = [
-        {"title": title, "due_at": None, "description": None,
-         "evidence_text": evidence, "confidence": 0.9}
-        for title, evidence in [("서류 접수", first), ("추가 서류 제출", second)]
-    ]
     calls = []
 
     def respond(payload, model):
@@ -151,12 +146,10 @@ def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monk
         assert inline["mimeType"] == "application/pdf"
         assert base64.b64decode(inline["data"]) == pdf
         calls.append(model)
-        value = {"transcript": "2026년 채용 공고\n" + first + "\n" + second.replace("마감 2026", "마감\n2026"),
-                 "deadlines": [*proposals, dict(proposals[0], evidence_text="문서에 없는 근거 2026.11.30")],
-                 "warnings": []}
+        value = {"transcript": "2026년 신입 채용 공고\n" + first + "\n" + second.replace("마감 2026", "마감\n2026")}
         return {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(value)}]}}]}
 
-    monkeypatch.setattr(image_analysis, "provider_request", respond)
+    monkeypatch.setattr(pdf_analysis, "provider_request", respond)
     upload_path = "/api/sources/pdfs"
     assert client.post(upload_path, files={"file": ("notice.pdf", pdf)}).status_code == 401
     bad = client.post(upload_path, headers=headers, files={"file": ("fake.pdf", b"%PDF-1.4\nno trailer")})
@@ -185,10 +178,10 @@ def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monk
     analysis = client.get(analysis_path, headers=headers).json()
     assert analysis["status"] == "ready" and analysis["model"].startswith("pdf:")
     assert [(c["title"], c["due_at"], c["selected"]) for c in analysis["candidates"]] == [
-        ("서류 접수", "2026-11-09T18:00:00+09:00", False),
+        ("2026년 신입 채용 공고", "2026-11-09T18:00:00+09:00", False),
         ("추가 서류 제출", "2026-11-12T17:00:00+09:00", False),
     ]
-    assert any("근거 문구를 확인하지 못한 후보" in warning for warning in analysis["warnings"])
+    assert analysis["warnings"] == []
     assert client.post(analysis_route, headers=headers, json=payload).json()["id"] == analysis["id"]
     assert calls == ["test-model"]
     assert client.get("/api/deadlines", headers=headers).json() == []
@@ -206,6 +199,35 @@ def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monk
     assert client.delete(source_path, headers=headers).status_code == 409
     assert client.delete("/api/deadlines/" + deadlines[0]["id"], headers=headers).status_code == 204
     assert not source_images.file_path(source["storage_key"]).exists()
+
+
+def test_pdf_native_text_keeps_heading_and_later_deadline_without_external_ai(monkeypatch):
+    headers = auth()
+    pdf = picture("PDF")
+    pages = [
+        "2025 하반기\nSK하이닉스\n신입사원 채용\n2027년 2월 졸업예정자",
+        "지원서 접수\n9.22(월) ~ 10.1(수) 17:00\n추가 서류 제출 기한: 2025.10.10.",
+    ]
+    monkeypatch.setattr(pdf_analysis, "read_pdf_pages", lambda data: pages)
+
+    def unexpected_request(*args):
+        pytest.fail("A readable PDF must not request external OCR")
+
+    monkeypatch.setattr(pdf_analysis, "provider_request", unexpected_request)
+    monkeypatch.setattr(pdf_analysis, "configured_model", unexpected_request)
+    source = client.post("/api/sources/pdfs", headers=headers, files={"file": ("notice.pdf", pdf)}).json()
+    route = "/api/sources/" + source["id"] + "/ai-analyses"
+    started = client.post(route, headers=headers,
+                          json={"allow_external_ai": True, "input_hash": source["pdf_sha256"]})
+    assert started.status_code == 202
+    analysis = client.get("/api/ai-analyses/" + started.json()["id"], headers=headers).json()
+    assert analysis["status"] == "ready" and analysis["model"] == "pdf:local-v1"
+    assert analysis["input_text"].startswith("2025 하반기 SK하이닉스 신입사원 채용\n")
+    assert [(item["title"], item["due_at"], item["selected"]) for item in analysis["candidates"]] == [
+        ("2025 하반기 SK하이닉스 신입사원 채용", "2025-10-01T17:00:00+09:00", False),
+        ("추가 서류 제출", "2025-10-10T23:59:00+09:00", False),
+    ]
+    assert client.get("/api/deadlines", headers=headers).json() == []
 
 
 def test_limits_and_integrity_are_enforced(monkeypatch):

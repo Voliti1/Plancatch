@@ -22,6 +22,7 @@ from app.schemas.analysis import AnalysisRequest
 from app.schemas.source import SourceResponse
 from app.services.ai_analysis import AIError, configured_model, slots
 from app.services.image_analysis import process_file_analysis
+from app.services.pdf_analysis import LOCAL_MODEL
 from app.services.source_images import (
     MAX_BYTES,
     file_hash,
@@ -106,7 +107,7 @@ def start_file_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSe
                                            Analysis.status == "processing")) is not None:
         raise HTTPException(409, "Source analysis is already processing")
     try:
-        model = configured_model()
+        model = LOCAL_MODEL if source.source_type == "pdf" else prefix + configured_model()
         read_file(source.storage_key, source.source_type)
     except AIError as exc:
         raise HTTPException(503, str(exc)) from exc
@@ -116,7 +117,7 @@ def start_file_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSe
         raise HTTPException(429, "AI capacity reached; retry later")
     try:
         analysis = Analysis(user_id=source.user_id, source_id=source.id,
-            input_text="파일 분석 준비 중", input_hash=digest, model=prefix + model)
+            input_text="파일 분석 준비 중", input_hash=digest, model=model)
         source.processing_status = "processing"
         source.error_message = None
         db.add(analysis)

@@ -208,8 +208,9 @@ export function SourceReview({
               </p>
             ) : pdf ? (
               <p>
-                원본 PDF 전체를 Google Gemini로 전송합니다. 읽어 온 제목과
-                마감일을 확인한 뒤 원하는 후보를 승인할 수 있습니다.
+                PDF에 들어 있는 텍스트를 먼저 읽습니다. 스캔 등으로 필요한
+                글자를 읽기 어려운 경우에만 원본 PDF를 Google Gemini로
+                전송합니다.
               </p>
             ) : (
               <p>
@@ -235,7 +236,7 @@ export function SourceReview({
               {image
                 ? "이 원본 이미지를 Google Gemini에 전송하여 분석하는 데 동의합니다."
                 : pdf
-                  ? "이 원본 PDF를 Google Gemini에 전송하여 분석하는 데 동의합니다."
+                  ? "텍스트를 읽기 어려운 경우 이 원본 PDF를 Google Gemini에 전송하는 데 동의합니다."
                   : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
             </label>
             <button disabled={!accepted} onClick={retry}>
