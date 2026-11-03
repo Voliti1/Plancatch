@@ -27,10 +27,15 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
     [analysis.source_id],
   );
   const source = useResource(loader);
+  const pdf = analysis.model.startsWith("pdf:");
   const { company } = useMemo(
-    () => extractedSummary(analysis.input_text),
-    [analysis.input_text],
+    () => extractedSummary(analysis.input_text, pdf),
+    [analysis.input_text, pdf],
   );
+  const candidateTitle =
+    pdf && analysis.candidates.length === 1
+      ? analysis.candidates[0].title
+      : null;
   const url = publicPageUrl(source.data?.original_url);
   return (
     <section className="card analysis-summary" aria-label="자료 정보 요약">
@@ -40,6 +45,7 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
           <dt>자료 제목</dt>
           <dd>
             {source.data?.title ||
+              candidateTitle ||
               (source.loading ? "불러오는 중…" : "제목 정보 없음")}
           </dd>
         </div>
@@ -64,8 +70,8 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
         </p>
       )}
       <p className="small muted">
-        회사명과 마감일 근거는 분석 시점의 원문 기준입니다. 자료 제목과 원본
-        링크는 현재 저장된 정보입니다.
+        회사명과 마감일 근거는 분석 시점의 원문 기준입니다. 자료 제목은 저장한
+        제목이나 분석에서 읽은 제목을 표시합니다.
       </p>
     </section>
   );

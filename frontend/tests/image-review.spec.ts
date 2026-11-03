@@ -220,6 +220,41 @@ test("PDF upload opens consent and allows selecting one of two deadline candidat
   expect(state.deadlines.map((item) => item.title)).toEqual(["추가 서류 제출"]);
 });
 
+test("an existing PDF review shows its extracted title, employer and suggested date", async ({
+  page,
+}) => {
+  const evidence = "9.22(월) ~ 10.1(수) 17:00";
+  const title = "2025 하반기 SK하이닉스 신입사원 채용 지원서 접수";
+  const pdf = { ...image, source_type: "pdf", image_sha256: null };
+  const analysis = {
+    ...readyAnalysis,
+    model: "pdf:test-model",
+    input_text: `2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수\n${evidence}`,
+    warnings: [],
+    candidates: [
+      {
+        ...readyAnalysis.candidates[0],
+        title,
+        evidence_text: evidence,
+        due_at: null,
+        suggested_due_at: "2025-10-01T17:00:00+09:00",
+        selected: false,
+      },
+    ],
+  };
+  const state = await mockAnalyses(page, [analysis], pdf);
+  await login(page);
+  await page.goto("/analyses/analysis-1");
+  const summary = page.getByRole("region", { name: "자료 정보 요약" });
+  await expect(summary.getByText(title, { exact: true })).toBeVisible();
+  await expect(summary.getByText("SK하이닉스", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+  ).toHaveValue("2025-10-01T17:00");
+  expect(state.starts).toBe(0);
+  expect(state.deadlines).toHaveLength(0);
+});
+
 for (const scenario of [
   {
     name: "사진의 오후 5시 유지",

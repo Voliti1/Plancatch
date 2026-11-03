@@ -5,6 +5,11 @@ from datetime import datetime, timedelta, timezone
 
 SEOUL = timezone(timedelta(hours=9))
 DEFAULT_TIME_NOTICE = "마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면 변경해 주세요."
+UNRESOLVED_FILE_TIME = "원문 근거에서 마감 일시를 확정하지 못했습니다. 날짜와 시간을 직접 확인해 주세요."
+UNRESOLVED_FILE_CANDIDATE = "마감 날짜와 시간을 확인하지 못한 후보는 직접 입력하거나 제외해 주세요."
+DOCUMENT_HEADING_YEAR = re.compile(
+    r"^\s*(20\d{2})(?:\s*년(?:도)?)?(?:\s+|(?=[상하]반기)).{0,160}(?:채용|모집|공고|안내|접수|공모|일정)"
+)
 DATE = re.compile(
     r"(?<![\d.])(?:(?P<year>\d{4})\s*[.\-/년]\s*)?"
     r"(?P<month>\d{1,2})\s*[.\-/월]\s*(?P<day>\d{1,2})(?:\s*일|\.)?"
@@ -77,7 +82,7 @@ def date_choice(raw: str, evidence: str) -> dict | None:
             "time_defaulted": defaulted}
 
 
-def closing_choice(evidence: str, context: str | None = None) -> dict | None:
+def closing_choice(evidence: str, context: str | None = None, *, document_year: str | None = None) -> dict | None:
     # Only the written range's end is a deadline. Never infer a year from today's date.
     if re.search(r"채용\s*시|채용\s*완료\s*시|상시\s*모집", evidence):
         return None
@@ -88,12 +93,18 @@ def closing_choice(evidence: str, context: str | None = None) -> dict | None:
         return None
     match = matches[0]
     normalized = closing
-    if not match["year"] and len(parts) == 2:
+    if not match["year"] and len(parts) == 1 and document_year:
+        normalized = closing[:match.start()] + f"{document_year}년 " + closing[match.start():]
+    elif not match["year"] and len(parts) == 2:
         preceding = list(DATE.finditer(parts[0]))
-        if (len(preceding) == 1 and preceding[0]["year"]
-                and (int(match["month"]), int(match["day"])) >=
-                (int(preceding[0]["month"]), int(preceding[0]["day"]))):
-            normalized = preceding[0]["year"] + "년 " + closing
+        if len(preceding) == 1:
+            opening = preceding[0]
+            year = opening["year"] or document_year
+            # A year from the heading must also fit the written opening weekday.
+            if (year and (int(match["month"]), int(match["day"])) >=
+                    (int(opening["month"]), int(opening["day"]))
+                    and (opening["year"] or date_choice(f"{year}년 {opening.group()}", opening.group())["due_at"])):
+                normalized = closing[:match.start()] + f"{year}년 " + closing[match.start():]
     choice = date_choice(normalized, evidence)
     if choice:
         choice["raw_text"] = match.group(0).strip()[:100]
@@ -115,6 +126,13 @@ def closing_choice(evidence: str, context: str | None = None) -> dict | None:
         if context and FOREIGN_ZONE.search(context) and not match["offset"]:
             choice.update(due_at=None, time_defaulted=False)
     return choice
+
+
+def pdf_document_year(transcript: str) -> str | None:
+    """Use a single explicit notice-heading year, excluding dates in the body."""
+    years = {match[1] for line in transcript.splitlines()
+             if (match := DOCUMENT_HEADING_YEAR.match(line)) and DATE.search(line) is None}
+    return next(iter(years)) if len(years) == 1 else None
 
 
 def readable_warning(value: str) -> str:
