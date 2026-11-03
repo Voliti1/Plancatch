@@ -66,7 +66,7 @@ test("연결은 명시적 클릭만 시작하고 서버 상태를 표시한다",
   ).toBeVisible();
   expect(requests.every((item) => item === "GET status")).toBeTruthy();
   await expect(
-    page.getByText(/연결 후 플랜캐치에 등록·수정·삭제하는 일정이/),
+    page.getByText("다른 앱에서 만든 Google 일정은 변경하지 않습니다."),
   ).toBeVisible();
   await page.getByRole("button", { name: "상태 다시 확인" }).click();
   await expect(

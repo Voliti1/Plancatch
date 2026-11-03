@@ -97,8 +97,7 @@ export function GoogleCalendarConnectionPage() {
       <section className="card form-card" aria-label="구글 계정 연결 설정">
         <h2>Google Calendar 계정</h2>
         <p className="muted">
-          연결 후 플랜캐치에 등록·수정·삭제하는 일정이 Google 기본 캘린더에 자동
-          반영됩니다. 다른 앱에서 만든 Google 일정은 변경하지 않습니다.
+          다른 앱에서 만든 Google 일정은 변경하지 않습니다.
         </p>
         {status.loading && <Loading />}
         {status.error && (
@@ -137,10 +136,6 @@ export function GoogleCalendarConnectionPage() {
                   : "연결 버튼을 누른 뒤 Google에서 계정과 캘린더 권한을 직접 승인해 주세요."}
               </p>
             </div>
-            <p className="muted">
-              연결을 유지하는 인증 정보는 서버에 암호화하여 보관합니다. 구글
-              연결은 플랜캐치 로그인과 별개이며, 언제든 해제할 수 있습니다.
-            </p>
             <div className="actions">
               {status.data.configured && (
                 <button
