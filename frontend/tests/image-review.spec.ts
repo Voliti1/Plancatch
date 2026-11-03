@@ -143,7 +143,7 @@ test("image upload requires consent, preserves missing time and original preview
   });
 });
 
-test("PDF upload opens consent and allows selecting one of two deadline candidates", async ({
+test("text PDF opens review without consent and allows selecting a deadline candidate", async ({
   page,
 }) => {
   const pdfSource = {
@@ -155,7 +155,7 @@ test("PDF upload opens consent and allows selecting one of two deadline candidat
   const state = await mockAnalyses(page, [], pdfSource);
   const pdfResult = {
     ...readyAnalysis,
-    model: "pdf:test-model",
+    model: "pdf:local-v1",
     input_hash: pdfSource.pdf_sha256,
     warnings: [],
     candidates: readyAnalysis.candidates.map((item, index) => ({
@@ -174,7 +174,7 @@ test("PDF upload opens consent and allows selecting one of two deadline candidat
   });
   await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
     expect(route.request().postDataJSON()).toEqual({
-      allow_external_ai: true,
+      allow_external_ai: false,
       input_hash: pdfSource.pdf_sha256,
       reuse_existing: true,
     });
@@ -193,13 +193,6 @@ test("PDF upload opens consent and allows selecting one of two deadline candidat
     });
   await expect(page.getByText("PDF 1개 선택됨")).toBeVisible();
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
-  const start = page.getByRole("button", { name: "동의하고 AI 검토 시작" });
-  await expect(start).toBeDisabled();
-  expect(state.starts).toBe(0);
-  await page
-    .getByRole("checkbox", { name: /이 원본 PDF를 Google Gemini에 전송/ })
-    .check();
-  await start.click();
   await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
     "서류 접수",
   );
@@ -209,6 +202,10 @@ test("PDF upload opens consent and allows selecting one of two deadline candidat
   await expect(
     page.getByLabel("후보 2 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-11-12T17:00");
+  await expect(
+    page.getByRole("button", { name: "동의하고 스캔 읽기" }),
+  ).toHaveCount(0);
+  expect(state.starts).toBe(1);
   expect(state.deadlines).toHaveLength(0);
   await page.getByRole("checkbox", { name: "후보 2 포함" }).check();
   await page
@@ -220,9 +217,7 @@ test("PDF upload opens consent and allows selecting one of two deadline candidat
   expect(state.deadlines.map((item) => item.title)).toEqual(["추가 서류 제출"]);
 });
 
-test("a PDF with no company in the saved text can be reanalyzed with renewed consent", async ({
-  page,
-}) => {
+test("a saved text PDF can be reanalyzed locally", async ({ page }) => {
   const pdf = {
     ...image,
     source_type: "pdf",
@@ -238,7 +233,7 @@ test("a PDF with no company in the saved text can be reanalyzed with renewed con
   const state = await mockAnalyses(page, [analysis], pdf);
   await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
     expect(route.request().postDataJSON()).toEqual({
-      allow_external_ai: true,
+      allow_external_ai: false,
       input_hash: pdf.pdf_sha256,
       reuse_existing: false,
     });
@@ -250,16 +245,64 @@ test("a PDF with no company in the saved text can be reanalyzed with renewed con
   await login(page);
   await page.goto("/analyses/analysis-1");
   await page.getByRole("link", { name: "PDF 다시 분석하기 →" }).click();
-  const start = page.getByRole("button", { name: "동의하고 AI 검토 시작" });
-  await expect(start).toBeDisabled();
-  expect(state.starts).toBe(0);
-  await page
-    .getByRole("checkbox", { name: /이 원본 PDF를 Google Gemini에 전송/ })
-    .check();
-  await start.click();
   await expect(page).toHaveURL(/\/analyses\/analysis-2$/);
   expect(state.starts).toBe(1);
   expect(state.deadlines).toHaveLength(0);
+});
+
+test("scan consent is opt-in, applies to later scans and can be revoked", async ({
+  page,
+}) => {
+  const pdf = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
+  const state = await mockAnalyses(page, [], pdf);
+  const permissions: boolean[] = [];
+  await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
+    const payload = route.request().postDataJSON();
+    expect(payload.input_hash).toBe(pdf.pdf_sha256);
+    permissions.push(payload.allow_external_ai);
+    const response = {
+      ...readyAnalysis,
+      id: `analysis-${permissions.length}`,
+      model: payload.allow_external_ai ? "pdf:ocr:test" : "pdf:local-v1",
+      input_hash: pdf.pdf_sha256,
+      status: payload.allow_external_ai ? "ready" : "failed",
+      error_message: payload.allow_external_ai
+        ? null
+        : "pdf_scan_consent_required",
+      candidates: [],
+    } as typeof readyAnalysis;
+    state.analyses.unshift(response);
+    return route.fulfill({ status: 202, json: response });
+  });
+  await login(page);
+  await page.goto("/sources/ai-source/review");
+  const scan = page.getByRole("button", { name: "동의하고 스캔 읽기" });
+  const remember = page.getByRole("checkbox", {
+    name: "앞으로 스캔 PDF에도 적용",
+  });
+  await expect(scan).toBeVisible();
+  await expect(remember).not.toBeChecked();
+  expect(permissions).toEqual([false]);
+  await remember.check();
+  await scan.click();
+  await expect(page).toHaveURL(/\/analyses\/analysis-2$/);
+  state.analyses.length = 0;
+  await page.goto("/sources/ai-source/review");
+  await expect(page).toHaveURL(/\/analyses\/analysis-3$/);
+  expect(permissions).toEqual([false, true, true]);
+  await page.getByRole("button", { name: "설정 열기" }).first().click();
+  await page.getByRole("button", { name: "저장된 스캔 PDF 동의 끄기" }).click();
+  await page.getByRole("button", { name: "설정 닫기" }).click();
+  state.analyses.length = 0;
+  await page.goto("/sources/ai-source/review");
+  await expect(scan).toBeVisible();
+  await expect(remember).not.toBeChecked();
+  expect(permissions).toEqual([false, true, true, false]);
 });
 
 for (const scenario of [

@@ -18,7 +18,7 @@ from app.services.deadline_dates import (
     closing_choice,
     resolved_warnings,
 )
-from app.services.pdf_analysis import analyze_pdf
+from app.services.pdf_analysis import SCAN_CONSENT_REQUIRED, analyze_pdf
 from app.services.source_images import FILE_EXTENSIONS, file_hash, read_file
 
 
@@ -102,7 +102,7 @@ def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
         raise AIError("ai_invalid_result") from exc
 
 
-def process_file_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
+def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external_ai: bool) -> None:
     source_id = None
     try:
         with Session(engine) as db:
@@ -119,7 +119,7 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
         try:
             data = read_file(key, source_type)
             if source_type == "pdf":
-                result, output_model = analyze_pdf(data)
+                result, output_model = analyze_pdf(data, allow_external_ai=allow_external_ai)
             else:
                 result = analyze_file(data, model, source_type)
                 output_model = f"image:{model}"
@@ -141,8 +141,11 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
                     and digest == file_hash(source.storage_key, source_type)):
                 for name, value in values.items():
                     setattr(analysis, name, value)
-                source.processing_status = "extracted" if values["status"] == "ready" else "failed"
-                source.error_message = values["error_message"]
+                needs_consent = values["error_message"] == SCAN_CONSENT_REQUIRED
+                source.processing_status = (
+                    "pending" if needs_consent else ("extracted" if values["status"] == "ready" else "failed")
+                )
+                source.error_message = None if needs_consent else values["error_message"]
                 if values["status"] == "ready":
                     source.extracted_text = values["input_text"]
                 db.commit()

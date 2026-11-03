@@ -1,9 +1,14 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useId, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { ThemeToggle } from "./theme";
+import {
+  hasPdfScanConsent,
+  setPdfScanConsent,
+  subscribePdfScanConsent,
+} from "./pdf-scan-consent";
 
 export function AccountControls({
   name,
@@ -15,7 +20,12 @@ export function AccountControls({
   const dialog = useRef<HTMLDialogElement>(null);
   const pending = useRef(false);
   const heading = useId();
-  const { changePassword } = useAuth();
+  const { changePassword, user } = useAuth();
+  const pdfConsent = useSyncExternalStore(
+    subscribePdfScanConsent,
+    () => hasPdfScanConsent(user?.id),
+    () => false,
+  );
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -199,6 +209,21 @@ export function AccountControls({
               </div>
             </fieldset>
           </form>
+          <h3>스캔 PDF 전송 동의</h3>
+          <p className="small muted">
+            {pdfConsent
+              ? "이 브라우저에서 스캔 PDF를 읽을 때 저장된 동의를 사용합니다."
+              : "스캔 PDF를 Google Gemini에 보내기 전에 매번 동의를 받습니다."}
+          </p>
+          {pdfConsent && user && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setPdfScanConsent(user.id, false)}
+            >
+              저장된 스캔 PDF 동의 끄기
+            </button>
+          )}
         </div>
       </dialog>
     </>

@@ -6,6 +6,11 @@ import { PageHeading } from "@/components/page-heading";
 import { ErrorNotice } from "@/components/feedback";
 import { analysesApi } from "@/features/analyses/api";
 import { analysisError, processingError } from "@/features/analyses/errors";
+import { useAuth } from "@/features/auth/provider";
+import {
+  hasPdfScanConsent,
+  PDF_SCAN_CONSENT_REQUIRED,
+} from "@/features/settings/pdf-scan-consent";
 import type { Source } from "@/types/api";
 import { sourcesApi } from "./api";
 import { SourceImage } from "./source-image";
@@ -33,6 +38,7 @@ export function SourceReview({
   reanalyzePdf?: boolean;
 }) {
   const router = useRouter();
+  const userId = useAuth().user?.id;
   const [source, setSource] = useState<Source | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(true);
@@ -69,24 +75,32 @@ export function SourceReview({
             reanalyzePdf &&
             item.source_type === "pdf" &&
             existing?.status === "ready";
-          if (existing && existing.status !== "failed" && !redo) {
+          const awaitingScan =
+            existing?.error_message === PDF_SCAN_CONSENT_REQUIRED;
+          const savedConsent =
+            item.source_type === "pdf" && hasPdfScanConsent(userId);
+          if (
+            existing &&
+            !redo &&
+            (existing.status !== "failed" || (awaitingScan && !savedConsent))
+          ) {
             router.replace(`/analyses/${encodeURIComponent(existing.id)}`);
             return;
           }
-          if (consent.current !== digest) {
+          if (item.source_type === "image" && consent.current !== digest) {
             setProgress(
-              redo
-                ? "기존 검토는 그대로 보관합니다. PDF 전송에 동의하면 새 검토를 만듭니다."
-                : existing
-                  ? "이전 분석에 실패했습니다. 파일 전송에 동의한 뒤 다시 시도할 수 있습니다."
-                  : "AI 전송에 동의하면 저장한 파일을 분석합니다.",
+              existing
+                ? "이전 분석에 실패했습니다. 파일 전송에 동의한 뒤 다시 시도할 수 있습니다."
+                : "AI 전송에 동의하면 저장한 파일을 분석합니다.",
             );
             return;
           }
+          if (item.source_type === "pdf")
+            setProgress("PDF에서 접수·제출 기간을 확인하고 있습니다.");
           const analysis = await analysesApi.start(
             id,
             requestSignal(),
-            true,
+            item.source_type === "image" || savedConsent,
             digest,
             !existing,
           );
@@ -161,17 +175,11 @@ export function SourceReview({
     }
     void run();
     return () => controller.abort();
-  }, [id, attempt, reanalyzePdf, router]);
+  }, [id, attempt, reanalyzePdf, router, userId]);
   const image = source?.source_type === "image";
-  const pdf = source?.source_type === "pdf";
-  const consentVersion = image
-    ? source?.image_sha256
-    : pdf
-      ? source?.pdf_sha256
-      : source?.extracted_text;
+  const consentVersion = image ? source?.image_sha256 : source?.extracted_text;
   const needsConsent =
     image ||
-    pdf ||
     (source?.source_type === "text" &&
       source.processing_status === "extracted");
   const accepted = Boolean(consentVersion && consentText === consentVersion);
@@ -206,12 +214,6 @@ export function SourceReview({
                 원본 이미지 한 장을 Google Gemini로 전송합니다. 날짜·시각과
                 제목이 불명확하면 직접 입력한 뒤 승인합니다.
               </p>
-            ) : pdf ? (
-              <p>
-                PDF에 들어 있는 텍스트를 먼저 읽습니다. 스캔 등으로 필요한
-                글자를 읽기 어려운 경우에만 원본 PDF를 Google Gemini로
-                전송합니다.
-              </p>
             ) : (
               <p>
                 입력한 원문{" "}
@@ -235,9 +237,7 @@ export function SourceReview({
               />
               {image
                 ? "이 원본 이미지를 Google Gemini에 전송하여 분석하는 데 동의합니다."
-                : pdf
-                  ? "텍스트를 읽기 어려운 경우 이 원본 PDF를 Google Gemini에 전송하는 데 동의합니다."
-                  : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
+                : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
             </label>
             <button disabled={!accepted} onClick={retry}>
               동의하고 AI 검토 시작
