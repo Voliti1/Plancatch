@@ -55,6 +55,7 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
                  if not any(c.start() <= m.start() and c.end() >= m.end() for c in clocks)]
     duration_spans = [m.span() for m in durations]
     date_matches = list(DATE.finditer(text))
+    infer_date = bool(clocks) and not date_matches and not offsets
     is_range = len(clocks) == 2 and bool(re.search(
         r"부터|에서|[~～–—-]", text[clocks[0].end():clocks[1].start()],
     ))
@@ -102,14 +103,19 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
             valid = valid and 1 <= hour <= 12
             if valid:
                 hour = hour % 12 + (12 if marker in {"오후", "저녁", "밤", "낮"} else 0)
+        assume_afternoon = (infer_date and not marker and m["hour"] and m["colon"] is None
+                            and 1 <= hour <= 11 and not (is_range and index == 1 and clocks[0]["ampm"]))
         if not valid:
             parsed_clocks.append(None)
             notices.append("시간 표기를 확인해 주세요. 예: 오후 3시, 18:00.")
         else:
+            if assume_afternoon:
+                hour += 12
+                notices.append("날짜 없이 적은 시각을 오후로 해석했습니다. 오전 일정은 ‘오전’을 붙여 주세요.")
             parsed_clocks.append((hour, minute))
             if m["midnight"]:
                 notices.append("자정은 해당 날짜의 시작인 00:00으로 해석했습니다. 날짜를 확인해 주세요.")
-            elif (not marker and m["hour"] and 1 <= int(m["hour"]) <= 11
+            elif (not assume_afternoon and not marker and m["hour"] and 1 <= int(m["hour"]) <= 11
                   and not (is_range and index == 1 and clocks[0]["ampm"] in {"오후", "저녁", "밤", "낮"})):
                 notices.append("오전·오후 표시가 없는 시간은 24시간 기준입니다. 시간을 확인해 주세요.")
 
@@ -168,9 +174,21 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
 
     start = end = None
     day = dates[0] if dates else None
+    if not blocked and infer_date:
+        clock = parsed_clocks[-1] if kind == "deadline" else parsed_clocks[0]
+        candidate = combine(today, clock)
+        if candidate is not None:
+            day = today
+            if candidate < reference:
+                try:
+                    day += timedelta(days=1)
+                except OverflowError:
+                    day = None
+                else:
+                    notices.append("오늘은 해당 시각이 지나 내일로 제안했습니다.")
     if not blocked:
         if kind == "deadline":
-            end = relative_time or combine(dates[-1] if dates else None, parsed_clocks[-1] if parsed_clocks else (23, 59))
+            end = relative_time or combine(dates[-1] if dates else day, parsed_clocks[-1] if parsed_clocks else (23, 59))
             if end and not clocks and relative_time is None:
                 notices.append("마감 시간이 없어 해당 날짜 23:59로 제안했습니다.")
         else:

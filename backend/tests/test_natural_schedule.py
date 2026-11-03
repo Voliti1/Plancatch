@@ -14,6 +14,7 @@ NOW = datetime(2026, 11, 2, 12, 0, tzinfo=SEOUL)  # Monday, independent of host 
     ('10분 뒤 알림 테스트', 'task', '알림 테스트', '2026-11-02T12:10', '2026-11-02T13:10'),
     ('지금부터 1시간 30분 후에 20분 동안 회의', 'task', '회의', '2026-11-02T13:30', '2026-11-02T13:50'),
     ('10분뒤알림 테스트', 'task', '알림 테스트', '2026-11-02T12:10', '2026-11-02T13:10'),
+    ('1시간 뒤 이발', 'task', '이발', '2026-11-02T13:00', '2026-11-02T14:00'),
     ('두 시간 후 보고서 제출', 'deadline', '보고서 제출', None, '2026-11-02T14:00'),
     ('내일 오후 3시 회의', 'task', '회의', '2026-11-03T15:00', '2026-11-03T16:00'),
     ('내일오후3시회의', 'task', '회의', '2026-11-03T15:00', '2026-11-03T16:00'),
@@ -84,6 +85,24 @@ def test_relative_minutes_cross_midnight_in_seoul():
     assert all('직접' not in notice for notice in result.notices)
 
 
+@pytest.mark.parametrize('phrase,reference,start,end', [
+    ('3시 이발', '2026-11-02T12:00:00+09:00', '2026-11-02T15:00', '2026-11-02T16:00'),
+    ('3시 이발', '2026-11-02T12:00:00+00:00', '2026-11-03T15:00', '2026-11-03T16:00'),
+    ('3시 이발', '2026-11-02T15:00:01+09:00', '2026-11-03T15:00', '2026-11-03T16:00'),
+    ('03:00 이발', '2026-11-02T21:00:00+09:00', '2026-11-03T03:00', '2026-11-03T04:00'),
+    ('오전 3시 이발', '2026-11-02T01:00:00+09:00', '2026-11-02T03:00', '2026-11-02T04:00'),
+    ('오늘 3시 이발', '2026-11-02T01:00:00+09:00', '2026-11-02T03:00', '2026-11-02T04:00'),
+    ('3시부터 4시 이발', '2026-11-02T21:00:00+09:00', '2026-11-03T15:00', '2026-11-03T16:00'),
+    ('3시까지 보고서 제출', '2026-11-02T21:00:00+09:00', None, '2026-11-03T15:00'),
+    ('23:30 점검', '2026-11-02T21:00:00+09:00', '2026-11-02T23:30', '2026-11-03T00:30'),
+])
+def test_time_without_date_uses_next_occurrence_in_seoul(phrase, reference, start, end):
+    draft = interpret(phrase, now=datetime.fromisoformat(reference))
+    assert (draft.start_at.isoformat(timespec='minutes')[:16] if draft.start_at else None) == start
+    assert draft.end_at.isoformat(timespec='minutes')[:16] == end
+    assert all('직접' not in notice for notice in draft.notices)
+
+
 def test_preview_does_not_write_and_reviewed_items_use_existing_calendar():
     auth = auth_headers('natural-' + uuid.uuid4().hex + '@example.com')
     result = client.post('/api/schedules/interpret', headers=auth, json={'text': '10분 뒤 알림 테스트'})
@@ -93,9 +112,14 @@ def test_preview_does_not_write_and_reviewed_items_use_existing_calendar():
     assert relative['title'] == '알림 테스트'
     assert datetime.fromisoformat(relative['start_at']) == reference + timedelta(minutes=10)
     assert datetime.fromisoformat(relative['end_at']) == reference + timedelta(minutes=70)
-    result = client.post('/api/schedules/interpret', headers=auth, json={'text': '내일 오후3시 회의'})
+    result = client.post('/api/schedules/interpret', headers=auth, json={'text': '3시 이발'})
     assert result.status_code == 200
     draft = result.json()
+    reference = datetime.fromisoformat(draft['reference_at'])
+    expected_start = reference.replace(hour=15, minute=0, second=0, microsecond=0)
+    if expected_start < reference:
+        expected_start += timedelta(days=1)
+    assert datetime.fromisoformat(draft['start_at']) == expected_start
     assert client.get('/api/tasks', headers=auth).json() == []
     assert client.get('/api/deadlines', headers=auth).json() == []
     assert client.get('/api/sources', headers=auth).json() == []
@@ -113,7 +137,7 @@ def test_preview_does_not_write_and_reviewed_items_use_existing_calendar():
     calendar = client.get('/api/calendar/registrations', headers=auth,
                           params={'start_from': start, 'end_before': end})
     assert calendar.status_code == 200
-    assert {item['title'] for item in calendar.json()['entries']} == {'회의', 'Reviewed title'}
+    assert {item['title'] for item in calendar.json()['entries']} == {'이발', 'Reviewed title'}
 
 
 def test_auth_and_input_contract():
