@@ -99,8 +99,7 @@ export function GoogleExportPanel({
     <section className="card form-card" aria-label="Google 자동 동기화">
       <h2>Google 캘린더 자동 반영</h2>
       <p className="small muted">
-        Google 연결 후 등록·수정·삭제한 일정은 자동으로 반영됩니다. 창을 닫아도
-        서버에서 처리를 이어갑니다.
+        Google 연결 후 등록·수정·삭제한 일정은 자동으로 반영됩니다.
       </p>
       {status.loading && !status.data && <Loading />}
       {status.error && <ErrorNotice message={status.error} retry={reload} />}
