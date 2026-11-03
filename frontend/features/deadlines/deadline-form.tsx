@@ -4,6 +4,7 @@ import { toSeoulInput, seoulInputToUtc } from "@/lib/date/seoul";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { Deadline, DeadlineInput } from "@/types/api";
 import { parseSafetyBuffer, splitSafetyBuffer } from "./safety-buffer";
 import {
@@ -44,6 +45,18 @@ export function DeadlineForm({
   const [safetyParts, setSafetyParts] = useState(() =>
     splitSafetyBuffer(initial?.safety_buffer_minutes ?? null),
   );
+  const { markSaved } = useUnsavedChanges(
+    JSON.stringify([
+      title,
+      dueAt,
+      description,
+      deadlineType,
+      confirmed,
+      safetyEnabled,
+      safetyParts,
+      reminders,
+    ]),
+  );
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current) return;
@@ -68,6 +81,7 @@ export function DeadlineForm({
         source_id: initial?.source_id ?? null,
         is_confirmed: confirmed,
       });
+      markSaved();
     } catch (err) {
       setError(errorMessage(err));
     } finally {

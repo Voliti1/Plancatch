@@ -100,6 +100,7 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   await expect(page).toHaveURL(/\/tasks\/task-1$/);
   await page.getByRole("button", { name: "일정 수정", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("취소할 수정");
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "취소", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "발표 초안 작성", exact: true }),
