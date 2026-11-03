@@ -14,10 +14,12 @@ from app.models.deadline import Deadline
 from app.schemas.analysis import (
     AnalysisRequest,
     AnalysisResponse,
+    ApprovalRequest,
     AutoRegistrationRequest,
     DecisionRequest,
     ReviewRequest,
 )
+from app.schemas.google_reminders import GoogleReminders, default_reminders
 from app.services import google_sync as sync
 from app.services.ai_analysis import (
     MAX_INPUT,
@@ -183,18 +185,18 @@ def review_analysis(analysis_id: uuid.UUID, payload: ReviewRequest,
 
 
 @router.post("/api/ai-analyses/{analysis_id}/approve", response_model=AnalysisResponse)
-def approve_analysis(analysis_id: uuid.UUID, payload: DecisionRequest,
+def approve_analysis(analysis_id: uuid.UUID, payload: ApprovalRequest,
                      current_user: CurrentUser, db: DatabaseSession) -> Analysis:
     sync.lock_owner(db, current_user.id)
     analysis = owned_analysis(analysis_id, current_user.id, db)
     if analysis.status == "approved":
         return analysis  # Idempotent retry; no duplicate deadlines.
     ensure_ready(analysis, payload.revision)
-    return create_approved_deadlines(analysis, current_user, db)
+    return create_approved_deadlines(analysis, current_user, db, payload.google_reminders)
 
 
 def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
-                              db: DatabaseSession) -> Analysis:
+                              db: DatabaseSession, reminders: GoogleReminders) -> Analysis:
     source = get_owned_source(analysis.source_id, current_user.id, db)
     from app.services.source_images import file_hash
     is_file = source.source_type in {"image", "pdf"}
@@ -212,7 +214,8 @@ def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
         deadline = Deadline(user_id=current_user.id, source_id=source.id,
                             title=item["title"], due_at=datetime.fromisoformat(item["due_at"]),
                             description=item["description"], confidence=item["confidence"],
-                            evidence_text=item["evidence_text"], is_confirmed=True)
+                            evidence_text=item["evidence_text"], is_confirmed=True,
+                            google_reminders=reminders.model_dump())
         db.add(deadline)
         db.flush()
         sync.enqueue_deadline(db, current_user.id, deadline.id)
@@ -245,7 +248,7 @@ def auto_register_analysis(analysis_id: uuid.UUID, payload: AutoRegistrationRequ
     analysis.candidates = [dict(analysis.candidates[0], title=payload.title)]
     analysis.revision += 1
     # Title replacement and deadline creation share one transaction and the analysis row lock.
-    return create_approved_deadlines(analysis, current_user, db)
+    return create_approved_deadlines(analysis, current_user, db, default_reminders())
 
 
 @router.post("/api/ai-analyses/{analysis_id}/reject", response_model=AnalysisResponse)

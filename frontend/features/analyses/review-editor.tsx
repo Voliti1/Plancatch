@@ -17,6 +17,11 @@ import { analysisError } from "./errors";
 import { RemainingPeriod } from "./remaining-period";
 import { isExtractedPdf, isHtmlAnalysis } from "./display";
 import { briefEvidence } from "./brief-evidence";
+import {
+  ReminderSettings,
+  validateReminders,
+} from "@/features/google-calendar/reminder-settings";
+import { newReminderSettings } from "@/types/google-reminders";
 
 type Draft = {
   id: string;
@@ -93,7 +98,8 @@ export function ReviewEditor({
   const [drafts, setDrafts] = useState(() =>
     analysis.candidates.map(suggestedDraftOf),
   );
-  const { markSaved } = useUnsavedChanges(JSON.stringify(drafts));
+  const [reminders, setReminders] = useState(newReminderSettings);
+  const { markSaved } = useUnsavedChanges(JSON.stringify([drafts, reminders]));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [conflict, setConflict] = useState(false);
@@ -140,6 +146,7 @@ export function ReviewEditor({
     setError("");
     setConflict(false);
     try {
+      if (action === "approve") validateReminders(reminders);
       let current = analysis;
       if (action === "approve" && dirty) {
         current = await analysesApi.review(
@@ -154,8 +161,9 @@ export function ReviewEditor({
         // Keep the acknowledged revision locally so a failed approval can retry
         // without re-saving an older revision or losing the user's edits.
         setAnalysis(current);
-        setDrafts(current.candidates.map(suggestedDraftOf));
-        markSaved(JSON.stringify(current.candidates.map(suggestedDraftOf)));
+        const savedDrafts = current.candidates.map(suggestedDraftOf);
+        setDrafts(savedDrafts);
+        markSaved(JSON.stringify([savedDrafts, newReminderSettings()]));
       }
       if (!active.current || controller.signal.aborted) return;
       const result =
@@ -172,16 +180,27 @@ export function ReviewEditor({
             ? await analysesApi.approve(
                 current.id,
                 current.revision,
+                reminders,
                 controller.signal,
               )
             : action === "reject"
               ? await analysesApi.reject(analysis.id, analysis.revision)
               : await analysesApi.get(analysis.id);
       if (!active.current || controller.signal.aborted) return;
-      setDrafts(result.candidates.map(suggestedDraftOf));
-      markSaved(JSON.stringify(result.candidates.map(suggestedDraftOf)));
+      const savedDrafts = result.candidates.map(suggestedDraftOf);
+      const defaultReminders = newReminderSettings();
+      setAnalysis(result);
+      setDrafts(savedDrafts);
+      if (action === "reload") setReminders(defaultReminders);
+      markSaved(
+        JSON.stringify([
+          savedDrafts,
+          action === "approve" ? reminders : defaultReminders,
+        ]),
+      );
       setConfirmReject(false);
       setConfirmReload(false);
+      setChoiceNotice("");
       onUpdated(
         result,
         action === "save"
@@ -369,6 +388,18 @@ export function ReviewEditor({
             마감일 후보가 없습니다. 원문과 주의사항을 확인해 주세요.
           </p>
         )}
+        {drafts.length > 0 && (
+          <div>
+            <ReminderSettings
+              value={reminders}
+              onChange={(value) => setReminders(value ?? newReminderSettings())}
+            />
+            <p className="small muted">
+              선택한 마감일에 같은 알림을 적용합니다. 일정 등록을 누를 때
+              저장됩니다.
+            </p>
+          </div>
+        )}
         <div className="review-actions">
           {choiceNotice && (
             <p className="notice small" role="status">
@@ -424,7 +455,7 @@ export function ReviewEditor({
               type="button"
               className="secondary"
               onClick={() => {
-                if (dirty) {
+                if (dirty || reminders.mode !== "none") {
                   setConfirmReload(true);
                   setConfirmReject(false);
                 } else void mutate("reload");

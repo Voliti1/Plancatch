@@ -74,12 +74,22 @@ test("failed approval keeps acknowledged revision and retries without saving aga
   await login(page);
   await page.goto("/analyses/analysis-1");
   await page.getByLabel("후보 1 제목", { exact: true }).fill("승인 재시도");
+  await page.getByLabel("구글 캘린더 알림", { exact: true }).selectOption("custom");
+  await page.getByLabel("알림 1 방식", { exact: true }).selectOption("email");
+  await page.getByLabel("알림 1 시간 (분 전)", { exact: true }).fill("15");
   let failed = true,
     patches = 0;
   const revisions: number[] = [];
   page.on("request", (r) => {
     if (r.method() === "PATCH") patches++;
-    if (r.url().endsWith("/approve")) revisions.push(r.postDataJSON().revision);
+    if (r.url().endsWith("/approve")) {
+      const body = r.postDataJSON();
+      revisions.push(body.revision);
+      expect(body.google_reminders).toEqual({
+        mode: "custom",
+        overrides: [{ method: "email", minutes: 15 }],
+      });
+    }
   });
   await page.route("**/test-api/api/ai-analyses/analysis-1/approve", (route) =>
     failed
@@ -94,6 +104,9 @@ test("failed approval keeps acknowledged revision and retries without saving aga
   expect(state.deadlines).toHaveLength(0);
   await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
     "승인 재시도",
+  );
+  await expect(page.getByLabel("알림 1 방식", { exact: true })).toHaveValue(
+    "email",
   );
   failed = false;
   await register(page).click();
