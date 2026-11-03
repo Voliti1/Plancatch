@@ -186,11 +186,6 @@ export function SourceForm({
               </section>
             </div>
           </div>
-          <p className="small muted source-registration-help">
-            저장 후 바로 원문 추출과 마감일 검토로 이어집니다. URL은 HTML에서
-            날짜를 읽고, 텍스트·이미지·PDF는 AI 전송에 동의한 뒤 분석합니다.
-            검토 후 승인해야 마감일이 등록됩니다.
-          </p>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions source-registration-actions">
             <Link
