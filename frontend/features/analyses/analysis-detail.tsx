@@ -18,6 +18,8 @@ import {
 } from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
 import { ReviewSummary } from "./review-summary";
+import { PdfScanConsentPanel } from "./pdf-scan-consent-panel";
+import { PDF_SCAN_CONSENT_REQUIRED } from "@/features/settings/pdf-scan-consent";
 import { SourceImage } from "@/features/sources/source-image";
 import {
   RemainingPeriod,
@@ -53,6 +55,10 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
   const [data, setData] = useState(initial);
   const fromHtml = isHtmlAnalysis(data.model);
   const fromPdf = isExtractedPdf(data.model);
+  const needsScanConsent =
+    fromPdf &&
+    data.status === "failed" &&
+    data.error_message === PDF_SCAN_CONSENT_REQUIRED;
   const [notice, setNotice] = useState("");
   const [recovering, setRecovering] = useState(false);
   const [recoveryError, setRecoveryError] = useState("");
@@ -96,7 +102,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
       />
       <p>
         <span className="tag">
-          {analysisStatusLabel(data.status, data.model)}
+          {needsScanConsent
+            ? "전송 동의 대기"
+            : analysisStatusLabel(data.status, data.model)}
         </span>{" "}
         <span className="small muted">
           분석 요청 {formatSeoul(data.created_at)}
@@ -129,14 +137,15 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           retry={poll.resume}
         />
       )}
-      {data.status === "failed" && (
+      {needsScanConsent && <PdfScanConsentPanel analysis={data} />}
+      {data.status === "failed" && !needsScanConsent && (
         <ErrorNotice
           message={processingError(
             data.error_message ?? "ai_processing_failed",
           )}
         />
       )}
-      {data.status === "failed" && (
+      {data.status === "failed" && !needsScanConsent && (
         <p>
           <Link
             className="source-detail-link"

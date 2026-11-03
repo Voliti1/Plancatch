@@ -22,6 +22,7 @@ from app.services.deadline_dates import (
 )
 
 LOCAL_MODEL = "pdf:local-v1"
+SCAN_CONSENT_REQUIRED = "pdf_scan_consent_required"
 LABEL = re.compile(
     r"(?:채용\s*공고\s*및\s*)?(?:(?:입사\s*)?지원서|응시\s*원서|원서|서류)\s*(?:접수|제출)"
     r"(?:\s*(?:기간|마감(?:일시?)?|기한))?|접수\s*(?:기간|마감(?:일시?)?|기한)|"
@@ -143,13 +144,15 @@ def extract_review(pages: list[str]) -> FileResult:
                       deadlines=list(candidates.values()), warnings=warnings)
 
 
-def analyze_pdf(data: bytes) -> tuple[FileResult, str]:
+def analyze_pdf(data: bytes, *, allow_external_ai: bool = False) -> tuple[FileResult, str]:
     pages = read_pdf_pages(data)
     result = extract_review(pages)
     if pages and all(len(page.strip()) >= 8 for page in pages):
         return result, LOCAL_MODEL
     if pages and len(pages[0].strip()) >= 8 and any(item.due_at for item in result.deadlines):
         return result, LOCAL_MODEL
+    if not allow_external_ai:
+        raise AIError(SCAN_CONSENT_REQUIRED)
     model = configured_model()
     scan = read_scan(data, model)
     return extract_review([scan, *pages]), f"pdf:ocr:{model}"[:100]

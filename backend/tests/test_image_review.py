@@ -167,14 +167,19 @@ def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monk
     assert client.post(source_path + "/analyze", headers=headers).status_code == 422
     analysis_route = source_path + "/ai-analyses"
     payload = {"input_hash": source["pdf_sha256"], "reuse_existing": True}
-    assert client.post(analysis_route, headers=headers, json=payload).status_code == 422
+    local = client.post(analysis_route, headers=headers, json=payload)
+    assert local.status_code == 202
+    waiting = client.get("/api/ai-analyses/" + local.json()["id"], headers=headers).json()
+    assert waiting["error_message"] == pdf_analysis.SCAN_CONSENT_REQUIRED
+    assert client.get(source_path, headers=headers).json()["processing_status"] == "pending"
     assert client.post(analysis_route, headers=headers, json={**payload, "allow_external_ai": True,
                        "input_hash": "0" * 64}).status_code == 409
     assert calls == []
     payload["allow_external_ai"] = True
-    started = client.post(analysis_route, headers=headers, json=payload)
+    started = client.post(analysis_route, headers=headers, json={**payload, "reuse_existing": False})
     assert started.status_code == 202
     analysis_path = "/api/ai-analyses/" + started.json()["id"]
+    assert started.json()["id"] != waiting["id"]
     analysis = client.get(analysis_path, headers=headers).json()
     assert analysis["status"] == "ready" and analysis["model"].startswith("pdf:")
     assert [(c["title"], c["due_at"], c["selected"]) for c in analysis["candidates"]] == [
@@ -218,7 +223,7 @@ def test_pdf_native_text_keeps_heading_and_later_deadline_without_external_ai(mo
     source = client.post("/api/sources/pdfs", headers=headers, files={"file": ("notice.pdf", pdf)}).json()
     route = "/api/sources/" + source["id"] + "/ai-analyses"
     started = client.post(route, headers=headers,
-                          json={"allow_external_ai": True, "input_hash": source["pdf_sha256"]})
+                          json={"input_hash": source["pdf_sha256"]})
     assert started.status_code == 202
     analysis = client.get("/api/ai-analyses/" + started.json()["id"], headers=headers).json()
     assert analysis["status"] == "ready" and analysis["model"] == "pdf:local-v1"

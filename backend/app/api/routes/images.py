@@ -12,7 +12,7 @@ from fastapi import (
     Response,
     UploadFile,
 )
-from sqlalchemy import select
+from sqlalchemy import case, select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.sources import get_owned_source
@@ -22,7 +22,7 @@ from app.schemas.analysis import AnalysisRequest
 from app.schemas.source import SourceResponse
 from app.services.ai_analysis import AIError, configured_model, slots
 from app.services.image_analysis import process_file_analysis
-from app.services.pdf_analysis import LOCAL_MODEL
+from app.services.pdf_analysis import LOCAL_MODEL, SCAN_CONSENT_REQUIRED
 from app.services.source_images import (
     MAX_BYTES,
     file_hash,
@@ -95,12 +95,15 @@ def start_file_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSe
     prefix = f"{source.source_type}:"
     if not digest or payload.input_hash != digest:
         raise HTTPException(409, "Source changed; confirm the source again")
-    if not payload.allow_external_ai:
+    if source.source_type == "image" and not payload.allow_external_ai:
         raise HTTPException(422, "External AI consent is required for file analysis")
     if payload.reuse_existing:
         existing = db.scalar(select(Analysis).where(Analysis.source_id == source.id,
             Analysis.user_id == source.user_id, Analysis.input_hash == digest,
-            Analysis.model.startswith(prefix)).order_by(Analysis.created_at.desc()).limit(1))
+            Analysis.model.startswith(prefix)).order_by(
+                Analysis.created_at.desc(), case((Analysis.error_message == SCAN_CONSENT_REQUIRED, 1), else_=0),
+                Analysis.id.desc(),
+            ).limit(1))
         if existing is not None:
             return existing
     if db.scalar(select(Analysis.id).where(Analysis.source_id == source.id,
@@ -123,7 +126,7 @@ def start_file_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSe
         db.add(analysis)
         db.commit()
         db.refresh(analysis)
-        background_tasks.add_task(process_file_analysis, analysis.id, db.get_bind())
+        background_tasks.add_task(process_file_analysis, analysis.id, db.get_bind(), payload.allow_external_ai)
         return analysis
     except Exception:
         db.rollback()

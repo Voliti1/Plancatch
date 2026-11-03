@@ -9,6 +9,7 @@ import type { Source } from "@/types/api";
 import { analysesApi } from "./api";
 import { analysisError } from "./errors";
 import { analysisStatusLabel } from "./display";
+import { PDF_SCAN_CONSENT_REQUIRED } from "@/features/settings/pdf-scan-consent";
 
 export function SourceAnalyses({
   source,
@@ -146,7 +147,10 @@ function AnalysisHistory({
             <li key={item.id}>
               <Link href={`/analyses/${encodeURIComponent(item.id)}`}>
                 {formatSeoul(item.created_at)} ·{" "}
-                {analysisStatusLabel(item.status, item.model)} →
+                {item.error_message === PDF_SCAN_CONSENT_REQUIRED
+                  ? "전송 동의 대기"
+                  : analysisStatusLabel(item.status, item.model)}{" "}
+                →
               </Link>
             </li>
           ))}
