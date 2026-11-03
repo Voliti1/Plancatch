@@ -183,9 +183,7 @@ export function ScheduleList() {
             ))}
           </div>
         </div>
-        <p className="small muted">
-          날짜가 빠른 순 · 시간 미정은 마지막 · 한국 시간
-        </p>
+        <p className="small muted">날짜가 빠른 순</p>
         <ScheduleResults
           key={`${search.query}:${search.page}:${version}:${kinds.deadline}:${kinds.task}`}
           page={search.page}
