@@ -3,6 +3,7 @@ import { useId, useRef, useState } from "react";
 import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { Source, SourceUpdateInput } from "@/types/api";
 
 export function SourceEditForm({
@@ -26,6 +27,9 @@ export function SourceEditForm({
   const [error, setError] = useState("");
   const submitting = useRef(false);
   const isUrl = initial.source_type === "url";
+  const { markSaved, confirmDiscard } = useUnsavedChanges(
+    JSON.stringify([title, content]),
+  );
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -49,6 +53,7 @@ export function SourceEditForm({
       } else {
         await onSave({ title: updatedTitle, original_text: content });
       }
+      markSaved();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -94,7 +99,13 @@ export function SourceEditForm({
         </label>
         {error && <ErrorNotice message={error} />}
         <div className="form-actions">
-          <button className="secondary" type="button" onClick={onCancel}>
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => {
+              if (confirmDiscard()) onCancel();
+            }}
+          >
             취소
           </button>
           <button type="submit">{busy ? "저장 중…" : "변경 사항 저장"}</button>

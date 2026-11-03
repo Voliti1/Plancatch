@@ -6,6 +6,7 @@ import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import { AccountControls } from "@/features/settings/account-controls";
+import { useUnsavedNavigation } from "@/lib/unsaved-changes";
 const nav = [
   ["/dashboard", "◈", "대시보드"],
   ["/sources", "▤", "원본 자료"],
@@ -21,6 +22,7 @@ export default function WorkspaceLayout({
   const { user, loading, error, logout, refresh } = useAuth();
   const router = useRouter();
   const path = usePathname();
+  const { confirmLeave } = useUnsavedNavigation();
   const isNewRegistration = path === "/sources/new";
   useEffect(() => {
     if (!loading && !user && !error) router.replace("/login");
@@ -76,6 +78,7 @@ export default function WorkspaceLayout({
           <button
             className="text-button"
             onClick={() => {
+              if (!confirmLeave()) return;
               logout();
               router.replace("/login");
             }}

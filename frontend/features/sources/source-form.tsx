@@ -9,6 +9,7 @@ import { ErrorNotice } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useHydrated } from "@/lib/use-hydrated";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import "./source-registration.css";
 export function SourceForm({
   embedded = false,
@@ -33,6 +34,14 @@ export function SourceForm({
     };
   }, []);
   const router = useRouter();
+  const { markSaved } = useUnsavedChanges(
+    JSON.stringify([
+      title,
+      url,
+      text,
+      files.map((file) => [file.name, file.size, file.lastModified]),
+    ]),
+  );
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current || !hydrated) return;
@@ -86,8 +95,10 @@ export function SourceForm({
           );
       // A new keyed registration can replace this form while a save is in flight.
       // Keep the saved source, but never redirect or update its replacement.
-      if (active.current)
+      if (active.current) {
+        markSaved();
         router.push(`/sources/${encodeURIComponent(source.id)}/review`);
+      }
     } catch (err) {
       if (!active.current) return;
       setError(errorMessage(err));
