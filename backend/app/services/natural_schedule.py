@@ -26,13 +26,20 @@ MINUTE_AMOUNT = r"(?P<only_minutes>\d{1,3})\s*분"
 DURATION = re.compile(rf"{HOUR_AMOUNT}|{MINUTE_AMOUNT}(?:\s*동안)?")
 OFFSET = re.compile(
     rf"(?<![\d.])(?:지금\s*(?:부터\s*)?)?(?:{HOUR_AMOUNT}|{MINUTE_AMOUNT})"
-    r"\s*(?:뒤|후(?=\s|$|에|까지|[,!.?]))"
+    r"\s*(?:뒤|후(?=\s|$|에|부터|까지|[,!.?]))"
 )
 
 
 def minutes_in(amount: re.Match[str]) -> int:
     hours = {"한": 1, "두": 2, "세": 3, "네": 4}.get(amount["hours"], amount["hours"] or 0)
     return int(hours) * 60 + int(amount["minutes"] or amount["only_minutes"] or 0) + (30 if amount["half"] else 0)
+
+
+def has_time_range(text: str, times: list[re.Match[str]]) -> bool:
+    if len(times) != 2:
+        return False
+    between = text[times[0].end():times[1].start()].strip()
+    return not between or bool(re.search(r"부터|에서|[~～–—-]", between))
 
 
 def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft:
@@ -56,12 +63,14 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
     duration_spans = [m.span() for m in durations]
     date_matches = list(DATE.finditer(text))
     infer_date = bool(clocks) and not date_matches and not offsets
-    is_range = len(clocks) == 2 and bool(re.search(
-        r"부터|에서|[~～–—-]", text[clocks[0].end():clocks[1].start()],
-    ))
-    kind = "deadline" if re.search(r"마감|기한|제출|완료(?:해|하|해야)|까지", text) and not is_range else "task"
-    if re.search(r"마감|기한", text):
-        kind = "deadline"
+    is_range = has_time_range(text, clocks)
+    relative_range = has_time_range(text, offsets)
+    time_count = len(clocks) + len(offsets)
+    if time_count:
+        # A duration with a start supplies the end of a task as well.
+        kind = "deadline" if time_count == 1 and not durations else "task"
+    else:
+        kind = "deadline" if re.search(r"마감|기한|제출|완료(?:해|하|해야)|까지", text) else "task"
     for m in date_matches:
         spans.append(m.span())
         try:
@@ -147,21 +156,24 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
         notices.append("한국 시간으로 입력해 주세요. 다른 지역의 시간은 자동 변환하지 않습니다.")
         blocked = True
 
-    relative_time = None
+    relative_times: list[datetime] = []
     if offsets:
-        offset_minutes = minutes_in(offsets[0])
-        if len(offsets) > 1 or date_matches or clocks:
-            notices.append("‘몇 분 뒤’와 다른 날짜·시간이 함께 있습니다. 사용할 시간을 직접 입력해 주세요.")
+        offset_minutes = [minutes_in(m) for m in offsets]
+        if (len(offsets) > 1 and not relative_range) or date_matches or clocks:
+            notices.append("‘몇 분 뒤’로 시작·종료 시각을 적을 때는 ‘부터’로 연결하거나 시간을 직접 입력해 주세요.")
             blocked = True
-        elif not 1 <= offset_minutes <= 7 * 24 * 60:
+        elif any(not 1 <= value <= 7 * 24 * 60 for value in offset_minutes):
             notices.append("지금부터 1분 뒤부터 7일 뒤 사이로 입력해 주세요.")
             blocked = True
         else:
             try:
-                relative_time = reference.replace(second=0, microsecond=0) + timedelta(minutes=offset_minutes)
+                minute_reference = reference.replace(second=0, microsecond=0)
+                relative_times = [minute_reference + timedelta(minutes=value) for value in offset_minutes]
             except OverflowError:
                 notices.append("날짜를 직접 입력해 주세요.")
                 blocked = True
+
+    relative_time = relative_times[0] if relative_times else None
 
     def combine(day: date | None, clock: tuple[int, int] | None):
         if day is None or clock is None:
@@ -209,11 +221,14 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
                 if start and end and end <= start:
                     end = None
                     notices.append("종료 시간이 시작 시간보다 늦도록 직접 확인해 주세요.")
-            elif start and (not durations or duration is not None):
+            elif relative_range:
+                end = relative_times[1]
+                if end <= start:
+                    end = None
+                    notices.append("종료 시간이 시작 시간보다 늦도록 직접 확인해 주세요.")
+            elif start and duration is not None:
                 try:
-                    end = start + timedelta(minutes=duration or 60)
-                    if duration is None:
-                        notices.append("종료 시간이 없어 1시간 일정으로 제안했습니다. 수정할 수 있습니다.")
+                    end = start + timedelta(minutes=duration)
                 except OverflowError:
                     notices.append("종료 날짜를 직접 입력해 주세요.")
 

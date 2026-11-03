@@ -158,7 +158,7 @@ export function NaturalSchedule({
             maxLength={1000}
             disabled={saving}
             value={text}
-            placeholder="예: 내일 오후 3시 회의"
+            placeholder="예: 내일 오후 3시부터 4시까지 회의"
             onChange={(event) => editSentence(event.target.value)}
             onCompositionStart={() => {
               cancelReading();
@@ -169,7 +169,7 @@ export function NaturalSchedule({
         </label>
         <div className="natural-examples" aria-label="입력 예시">
           {[
-            "내일 오후 3시 회의",
+            "내일 오후 3시부터 4시까지 회의",
             "금요일까지 보고서 제출",
             "모레 오전 10시부터 11시 면접",
           ].map((example) => (
@@ -188,8 +188,8 @@ export function NaturalSchedule({
           ))}
         </div>
         <p className="small muted">
-          입력을 멈추면 아래 항목을 자동으로 채웁니다. 종료 시간이 없으면 1시간,
-          마감 시간이 없으면 23:59를 제안합니다.
+          시각 하나는 마감일로, 시작·종료 시각이나 시작 시각과 소요시간은 할
+          일로 제안합니다. 날짜만 있는 마감일은 23:59로 제안합니다.
         </p>
         {reading && (
           <p className="small muted" role="status">

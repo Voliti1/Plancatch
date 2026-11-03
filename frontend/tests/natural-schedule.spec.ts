@@ -9,9 +9,7 @@ const draft: NaturalScheduleDraft = {
   end_at: "2026-11-03T16:00:00+09:00",
   reference_at: "2026-11-02T12:00:00+09:00",
   timezone: "Asia/Seoul",
-  notices: [
-    "종료 시간이 없어 1시간 일정으로 제안했습니다. 수정할 수 있습니다.",
-  ],
+  notices: [],
 };
 
 async function setup(page: Page, result = draft) {
@@ -35,11 +33,16 @@ test("sentence preview is not a write, starts in Seoul time, stays editable and 
 }) => {
   const writes = await setup(page);
   await page
-    .getByRole("button", { name: "내일 오후 3시 회의", exact: true })
+    .getByRole("button", {
+      name: "내일 오후 3시부터 4시까지 회의",
+      exact: true,
+    })
     .click();
 
   const preview = page.getByRole("region", { name: "일정 입력", exact: true });
-  await expect(preview).toContainText("1시간");
+  await expect(
+    preview.getByRole("button", { name: "할 일", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await expect(preview.getByLabel("시작 일시", { exact: true })).toHaveValue(
     "2026-11-03T15:00",
   );
@@ -70,17 +73,16 @@ test("a deadline only asks for its end, can change kind, and saves the confirmed
     kind: "deadline",
     title: "보고서 제출",
     start_at: null,
-    end_at: "2026-11-06T23:59:00+09:00",
-    notices: ["마감 시간이 없어 해당 날짜 23:59로 제안했습니다."],
+    end_at: "2026-11-06T15:00:00+09:00",
   });
   await page
     .getByLabel("일정 설명 (선택)", { exact: true })
-    .fill("금요일까지 보고서 제출");
+    .fill("금요일 오후 3시 보고서 제출");
 
   const preview = page.getByRole("region", { name: "일정 입력", exact: true });
   await expect(preview.getByLabel("시작 일시", { exact: true })).toHaveCount(0);
   await expect(preview.getByLabel("종료 일시", { exact: true })).toHaveValue(
-    "2026-11-06T23:59",
+    "2026-11-06T15:00",
   );
   await preview.getByRole("button", { name: "할 일", exact: true }).click();
   await expect(preview.getByLabel("시작 일시", { exact: true })).toBeVisible();
@@ -93,7 +95,7 @@ test("a deadline only asks for its end, can change kind, and saves the confirmed
   expect(writes).toHaveLength(1);
   expect(writes[0].body).toMatchObject({
     title: "보고서 제출",
-    due_at: "2026-11-06T14:59:00.000Z",
+    due_at: "2026-11-06T06:00:00.000Z",
     is_confirmed: true,
     source_id: null,
   });
