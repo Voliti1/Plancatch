@@ -1,4 +1,4 @@
-"""Private immutable PNG snapshots, never served as public/static files."""
+"""Normalize images and keep immutable image/PDF files in private storage."""
 import hashlib
 import io
 import re
@@ -10,7 +10,8 @@ from PIL import Image, ImageOps
 MAX_BYTES = 5 * 1024 * 1024
 MAX_PIXELS = 12_000_000
 ROOT = Path(__file__).resolve().parents[2] / "private_uploads"
-KEY = re.compile(r"[a-f0-9]{32}-([a-f0-9]{64})\.png")
+FILE_EXTENSIONS = {"image": "png", "pdf": "pdf"}
+KEY = re.compile(r"[a-f0-9]{32}-([a-f0-9]{64})\.(png|pdf)")
 FORMATS = ["PNG", "JPEG", "WEBP", "BMP", "GIF", "TIFF", "AVIF"]
 FORMAT_LABEL = "PNG·JPG·WebP·BMP·GIF·TIFF·AVIF"
 
@@ -47,12 +48,12 @@ def normalize_image(data: bytes) -> bytes:
         raise ValueError(f"읽을 수 없는 이미지입니다. {FORMAT_LABEL} 파일을 확인해 주세요.") from exc
 
 
-def image_hash(key: str | None) -> str | None:
+def file_hash(key: str | None, source_type: str) -> str | None:
     match = KEY.fullmatch(key or "")
-    return match[1] if match else None
+    return match[1] if match and match[2] == FILE_EXTENSIONS.get(source_type) else None
 
 
-def image_path(key: str) -> Path:
+def file_path(key: str) -> Path:
     if not KEY.fullmatch(key):
         raise ValueError("Invalid image key")
     root = ROOT.resolve()
@@ -62,24 +63,33 @@ def image_path(key: str) -> Path:
     return path
 
 
-def store_image(data: bytes) -> str:
+def store_file(data: bytes, source_type: str) -> str:
     ROOT.mkdir(mode=0o700, parents=True, exist_ok=True)
-    key = uuid.uuid4().hex + "-" + hashlib.sha256(data).hexdigest() + ".png"
-    path = image_path(key)
+    key = f"{uuid.uuid4().hex}-{hashlib.sha256(data).hexdigest()}.{FILE_EXTENSIONS[source_type]}"
+    path = file_path(key)
     with path.open("xb") as output:
         path.chmod(0o600)
         output.write(data)
     return key
 
 
-def read_image(key: str) -> bytes:
-    with image_path(key).open("rb") as image:
-        data = image.read(MAX_BYTES + 1)
-    if len(data) > MAX_BYTES or hashlib.sha256(data).hexdigest() != image_hash(key):
-        raise ValueError("Image snapshot changed")
+def read_file(key: str, source_type: str) -> bytes:
+    with file_path(key).open("rb") as uploaded:
+        data = uploaded.read(MAX_BYTES + 1)
+    if len(data) > MAX_BYTES or hashlib.sha256(data).hexdigest() != file_hash(key, source_type):
+        raise ValueError("File snapshot changed")
     return data
 
 
-def remove_image(key: str | None) -> None:
+def remove_file(key: str | None) -> None:
     if key:
-        image_path(key).unlink(missing_ok=True)
+        file_path(key).unlink(missing_ok=True)
+
+
+def validate_pdf(data: bytes) -> bytes:
+    if len(data) > MAX_BYTES:
+        raise ValueError("PDF는 5MB 이하여야 합니다.")
+    # Check the file envelope here. Document decoding happens only after consent.
+    if not re.match(rb"%PDF-(?:1\.[0-7]|2\.0)[\r\n]", data) or not data.rstrip().endswith(b"%%EOF"):
+        raise ValueError("읽을 수 없는 PDF입니다. 파일을 확인해 주세요.")
+    return data

@@ -84,7 +84,7 @@ test("image upload requires consent, preserves missing time and original preview
   ).toBeVisible();
   await page.getByLabel("일정 제목 (선택)", { exact: true }).fill(enteredTitle);
   await page
-    .getByLabel("이미지 파일 입력", { exact: true })
+    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
     .setInputFiles({ name: "캡처.png", mimeType: "image/png", buffer: png });
   expect(uploads).toBe(0);
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
@@ -141,6 +141,83 @@ test("image upload requires consent, preserves missing time and original preview
     path: test.info().outputPath("image-review.png"),
     fullPage: true,
   });
+});
+
+test("PDF upload opens consent and allows selecting one of two deadline candidates", async ({
+  page,
+}) => {
+  const pdfSource = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
+  const state = await mockAnalyses(page, [], pdfSource);
+  const pdfResult = {
+    ...readyAnalysis,
+    model: "pdf:test-model",
+    input_hash: pdfSource.pdf_sha256,
+    warnings: [],
+    candidates: readyAnalysis.candidates.map((item, index) => ({
+      ...item,
+      title: index === 0 ? "서류 접수" : "추가 서류 제출",
+      due_at:
+        index === 0 ? "2026-11-09T18:00:00+09:00" : "2026-11-12T17:00:00+09:00",
+      selected: false,
+    })),
+  };
+  await page.route("**/test-api/api/sources/pdfs", (route) => {
+    expect(route.request().postDataBuffer()?.toString("utf8")).toContain(
+      "notice.PDF",
+    );
+    return route.fulfill({ status: 201, json: pdfSource });
+  });
+  await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      allow_external_ai: true,
+      input_hash: pdfSource.pdf_sha256,
+      reuse_existing: true,
+    });
+    state.starts++;
+    state.analyses.push(structuredClone(pdfResult));
+    return route.fulfill({ status: 202, json: pdfResult });
+  });
+  await login(page);
+  await page.goto("/sources/new");
+  await page
+    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
+    .setInputFiles({
+      name: "notice.PDF",
+      mimeType: "application/pdf",
+      buffer: Buffer.from("%PDF-1.4\n%%EOF"),
+    });
+  await expect(page.getByText("PDF 1개 선택됨")).toBeVisible();
+  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  const start = page.getByRole("button", { name: "동의하고 AI 검토 시작" });
+  await expect(start).toBeDisabled();
+  expect(state.starts).toBe(0);
+  await page
+    .getByRole("checkbox", { name: /이 원본 PDF를 Google Gemini에 전송/ })
+    .check();
+  await start.click();
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
+    "서류 접수",
+  );
+  await expect(page.getByLabel("후보 2 제목", { exact: true })).toHaveValue(
+    "추가 서류 제출",
+  );
+  await expect(
+    page.getByLabel("후보 2 마감일 (한국 시간)", { exact: true }),
+  ).toHaveValue("2026-11-12T17:00");
+  expect(state.deadlines).toHaveLength(0);
+  await page.getByRole("checkbox", { name: "후보 2 포함" }).check();
+  await page
+    .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "마감일 등록 완료" }),
+  ).toBeVisible();
+  expect(state.deadlines.map((item) => item.title)).toEqual(["추가 서류 제출"]);
 });
 
 for (const scenario of [
