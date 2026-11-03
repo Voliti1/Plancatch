@@ -205,6 +205,7 @@ test("a late preview cannot restore an old registration after the sidebar opens 
   await expect(
     page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
   ).toBeEnabled();
+  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("link", { name: "새 일정 등록하기", exact: true })
     .click();
