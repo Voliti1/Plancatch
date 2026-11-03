@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     db_password: SecretStr | None = None
     jwt_secret_key: SecretStr | None = None
     jwt_algorithm: str = "HS256"
-    jwt_access_token_expire_minutes: int = 30
+    jwt_access_token_expire_minutes: int = 60
     aws_region: str = "ap-northeast-2"
     s3_bucket_name: str | None = None
     gemini_api_key: SecretStr | None = None
