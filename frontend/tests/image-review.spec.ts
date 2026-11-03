@@ -220,40 +220,116 @@ test("PDF upload opens consent and allows selecting one of two deadline candidat
   expect(state.deadlines.map((item) => item.title)).toEqual(["추가 서류 제출"]);
 });
 
-test("an existing PDF review shows its extracted title, employer and suggested date", async ({
+test("a PDF with no company in the saved text can be reanalyzed with renewed consent", async ({
   page,
 }) => {
-  const evidence = "9.22(월) ~ 10.1(수) 17:00";
-  const title = "2025 하반기 SK하이닉스 신입사원 채용 지원서 접수";
-  const pdf = { ...image, source_type: "pdf", image_sha256: null };
+  const pdf = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
   const analysis = {
     ...readyAnalysis,
     model: "pdf:test-model",
-    input_text: `2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수\n${evidence}`,
-    warnings: [],
-    candidates: [
-      {
-        ...readyAnalysis.candidates[0],
-        title,
-        evidence_text: evidence,
-        due_at: null,
-        suggested_due_at: "2025-10-01T17:00:00+09:00",
-        selected: false,
-      },
-    ],
+    input_hash: pdf.pdf_sha256,
+    input_text: "원서접수",
   };
   const state = await mockAnalyses(page, [analysis], pdf);
+  await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) => {
+    expect(route.request().postDataJSON()).toEqual({
+      allow_external_ai: true,
+      input_hash: pdf.pdf_sha256,
+      reuse_existing: false,
+    });
+    state.starts++;
+    const fresh = { ...analysis, id: "analysis-2" };
+    state.analyses.unshift(fresh);
+    return route.fulfill({ status: 202, json: fresh });
+  });
   await login(page);
   await page.goto("/analyses/analysis-1");
-  const summary = page.getByRole("region", { name: "자료 정보 요약" });
-  await expect(summary.getByText(title, { exact: true })).toBeVisible();
-  await expect(summary.getByText("SK하이닉스", { exact: true })).toBeVisible();
-  await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
-  ).toHaveValue("2025-10-01T17:00");
+  await page.getByRole("link", { name: "PDF 다시 분석하기 →" }).click();
+  const start = page.getByRole("button", { name: "동의하고 AI 검토 시작" });
+  await expect(start).toBeDisabled();
   expect(state.starts).toBe(0);
+  await page
+    .getByRole("checkbox", { name: /이 원본 PDF를 Google Gemini에 전송/ })
+    .check();
+  await start.click();
+  await expect(page).toHaveURL(/\/analyses\/analysis-2$/);
+  expect(state.starts).toBe(1);
   expect(state.deadlines).toHaveLength(0);
 });
+
+for (const scenario of [
+  {
+    transcript: "2025 하반기 SK하이닉스 신입사원 채용\n지원서 접수",
+    company: "SK하이닉스",
+    title: "2025 하반기 SK하이닉스 신입사원 채용 지원서 접수",
+  },
+  {
+    transcript: "지원서 접수",
+    company: "SK하이닉스 (후보 제목에서 확인)",
+    title: "2025 하반기 SK하이닉스 신입사원 채용 지원서 접수",
+  },
+  {
+    transcript:
+      "2025년 하반기 신입사원 채용 공고\n케이워터기술은 한국수자원공사 자회사로서 국내 시설을 관리합니다.",
+    company: "케이워터기술",
+    title: "2025년 하반기 신입사원 채용 공고",
+    evidence: "1. 채용공고 및 원서접수 ’25. 11. 21.(금) ~ 12. 05.(금) 16:00",
+    due: "2025-12-05T16:00",
+  },
+  {
+    transcript:
+      "제주콘텐츠진흥원 공고 제 2026 – 114 호\n2026년 제2회 제주특별자치도 공공기관 직원 통합채용\n(제주콘텐츠진흥원 제3차 직원 채용) 공고",
+    company: "제주콘텐츠진흥원",
+    title:
+      "2026년 제2회 제주특별자치도 공공기관 직원 통합채용 (제주콘텐츠진흥원 제3차 직원 채용) 공고",
+    evidence: "6.22.(월) ~ 6.30.(화) 18:00",
+    due: "2026-06-30T18:00",
+    multiple: true,
+  },
+]) {
+  test(`an existing PDF review shows the title, employer and date for ${scenario.company}`, async ({
+    page,
+  }) => {
+    const evidence = scenario.evidence ?? "9.22(월) ~ 10.1(수) 17:00";
+    const due = scenario.due ?? "2025-10-01T17:00";
+    const candidate = {
+      ...readyAnalysis.candidates[0],
+      title: scenario.multiple ? "원서접수" : scenario.title,
+      evidence_text: evidence,
+      due_at: null,
+      suggested_due_at: `${due}:00+09:00`,
+      selected: false,
+    };
+    const pdf = { ...image, source_type: "pdf", image_sha256: null };
+    const analysis = {
+      ...readyAnalysis,
+      model: "pdf:test-model",
+      input_text: `${scenario.transcript}\n${evidence}`,
+      warnings: [],
+      candidates: scenario.multiple
+        ? [candidate, { ...candidate, id: "candidate-2", title: "면접시험" }]
+        : [candidate],
+    };
+    const state = await mockAnalyses(page, [analysis], pdf);
+    await login(page);
+    await page.goto("/analyses/analysis-1");
+    const summary = page.getByRole("region", { name: "자료 정보 요약" });
+    await expect(
+      summary.getByText(scenario.title, { exact: true }),
+    ).toBeVisible();
+    await expect(summary.locator("dd").nth(1)).toHaveText(scenario.company);
+    await expect(
+      page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    ).toHaveValue(due);
+    expect(state.starts).toBe(0);
+    expect(state.deadlines).toHaveLength(0);
+  });
+}
 
 for (const scenario of [
   {
