@@ -1004,6 +1004,13 @@ footer {
   max-width: 810px;
   margin-bottom: 24px;
 }
+.form-card.pdf-source-detail,
+.pdf-source-review-actions {
+  margin-bottom: 16px;
+}
+.pdf-source-review-actions {
+  display: flex;
+}
 .form-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;

@@ -65,6 +65,8 @@ def test_image_schedule_title_reaches_candidates_and_can_be_edited(monkeypatch, 
     source = client.post("/api/sources/images", headers=headers,
                         files={"file": ("notice.png", picture(), "image/png")},
                         data={"title": title}).json()
+    assert source["original_filename"] == "notice.png"
+    assert source["title"] == (title or "notice.png")
     started = client.post("/api/sources/" + source["id"] + "/ai-analyses", headers=headers,
                           json={"allow_external_ai": True, "input_hash": source["image_sha256"]})
     path = "/api/ai-analyses/" + started.json()["id"]
@@ -233,6 +235,63 @@ def test_pdf_native_text_keeps_heading_and_later_deadline_without_external_ai(mo
         ("추가 서류 제출", "2025-10-10T23:59:00+09:00", False),
     ]
     assert client.get("/api/deadlines", headers=headers).json() == []
+
+
+def test_file_upload_reuses_only_same_owner_filename_and_complete_metadata(monkeypatch):
+    headers = auth()
+    pdf = picture("PDF")
+    name = "채용공고.pdf"
+
+    def pages(data):
+        end = "11.13 16:00" if data.endswith(b"\t") else "11.12 16:00"
+        return [f"2026년 하반기 신입사원 채용 공고\n회사명: 테스트기술\n접수기간 2026.11.09 ~ {end}"]
+
+    monkeypatch.setattr(pdf_analysis, "read_pdf_pages", pages)
+
+    def save(data, *, account=headers, filename=name, title=""):
+        reply = client.post("/api/sources/pdfs", headers=account,
+                            files={"file": (filename, data, "application/pdf")}, data={"title": title})
+        assert reply.status_code == 201
+        return reply.json()
+
+    def analyze(source):
+        started = client.post(f"/api/sources/{source['id']}/ai-analyses", headers=headers,
+                              json={"input_hash": source["pdf_sha256"]})
+        assert started.status_code == 202
+        return started.json()["id"], client.get(f"/api/ai-analyses/{started.json()['id']}", headers=headers).json()
+
+    original = save(pdf)
+    assert original["title"] == original["original_filename"] == name
+    _, review = analyze(original)
+    persisted = client.get(f"/api/sources/{original['id']}", headers=headers).json()
+    assert persisted["title"] == "2026년 하반기 신입사원 채용 공고"
+    assert persisted["file_metadata"]["company_name"] == "테스트기술"
+    assert save(pdf)["id"] == original["id"]
+    assert save(pdf, filename="다른파일.pdf")["id"] != original["id"]
+    assert save(pdf, account=auth())["id"] != original["id"]
+
+    duplicate = save(pdf + b"\n")
+    assert duplicate["id"] != original["id"]
+    alias, canonical = analyze(duplicate)
+    assert alias != review["id"] == canonical["id"]
+    assert canonical["source_id"] == original["id"]
+    assert not source_images.file_path(duplicate["storage_key"]).exists()
+    assert client.get(f"/api/sources/{duplicate['id']}", headers=headers).status_code == 404
+    assert client.get(f"/api/ai-analyses/{alias}", headers=auth()).status_code == 404
+    assert client.post(f"/api/ai-analyses/{alias}/approve", headers=headers, json={"revision": 1}).status_code == 409
+    assert [item["id"] for item in client.get(f"/api/sources/{original['id']}/ai-analyses", headers=headers).json()] == [
+        review["id"],
+    ]
+
+    different = save(pdf + b"\t")
+    _, distinct_review = analyze(different)
+    assert distinct_review["source_id"] == different["id"]
+
+    custom = save(pdf, title="내가 정한 제목")
+    _, custom_review = analyze(custom)
+    assert custom_review["source_id"] == custom["id"]
+    assert custom_review["candidates"][0]["title"] == "내가 정한 제목"
+    assert client.get(f"/api/sources/{custom['id']}", headers=headers).json()["title"] == "내가 정한 제목"
 
 
 def test_limits_and_integrity_are_enforced(monkeypatch):

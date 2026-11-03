@@ -250,6 +250,28 @@ test("a saved text PDF can be reanalyzed locally", async ({ page }) => {
   expect(state.deadlines).toHaveLength(0);
 });
 
+test("reused PDF review opens the existing analysis", async ({ page }) => {
+  const pdf = {
+    ...image,
+    source_type: "pdf",
+    image_sha256: null,
+    pdf_sha256: "b".repeat(64),
+  };
+  const canonical = {
+    ...readyAnalysis,
+    model: "pdf:local-v1",
+    input_hash: pdf.pdf_sha256,
+  };
+  await mockAnalyses(page, [canonical], pdf);
+  await page.route("**/test-api/api/ai-analyses/reused-file", (route) =>
+    route.fulfill({ json: canonical }),
+  );
+  await login(page);
+  await page.goto("/analyses/reused-file");
+  await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toBeVisible();
+});
+
 test("scan consent is opt-in, applies to later scans and can be revoked", async ({
   page,
 }) => {

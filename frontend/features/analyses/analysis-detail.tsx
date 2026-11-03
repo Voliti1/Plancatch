@@ -28,6 +28,7 @@ import {
 } from "./remaining-period";
 
 export function AnalysisDetail({ id }: { id: string }) {
+  const router = useRouter();
   const loader = useCallback(async () => {
     try {
       return await analysesApi.get(id);
@@ -36,6 +37,10 @@ export function AnalysisDetail({ id }: { id: string }) {
     }
   }, [id]);
   const { data, loading, error, reload } = useResource(loader);
+  useEffect(() => {
+    if (data && data.id !== id)
+      router.replace(`/analyses/${encodeURIComponent(data.id)}`);
+  }, [data, id, router]);
   if (loading) return <Loading />;
   if (error)
     return (
@@ -74,11 +79,19 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
     (signal: AbortSignal) => analysesApi.get(initial.id, signal),
     [initial.id],
   );
+  const onData = useCallback(
+    (next: Analysis) => {
+      if (next.id !== initial.id)
+        router.replace(`/analyses/${encodeURIComponent(next.id)}`);
+      setData(next);
+    },
+    [initial.id, router],
+  );
   const poll = useProcessingPoll({
     active: isProcessing(data),
     read,
     isProcessing,
-    onData: setData,
+    onData,
     formatError: analysisError,
   });
   return (

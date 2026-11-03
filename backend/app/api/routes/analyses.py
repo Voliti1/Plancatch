@@ -50,6 +50,15 @@ def owned_analysis(analysis_id: uuid.UUID, user_id: uuid.UUID, db: DatabaseSessi
     analysis = db.scalar(statement)
     if analysis is None:
         raise HTTPException(404, "Analysis not found")
+    if analysis.reused_analysis_id is not None:
+        if for_update:
+            raise HTTPException(409, "Open the existing file review to make changes")
+        analysis = db.scalar(select(Analysis).where(
+            Analysis.id == analysis.reused_analysis_id, Analysis.source_id == source_id,
+            Analysis.user_id == user_id, Analysis.reused_analysis_id.is_(None),
+        ))
+        if analysis is None:
+            raise HTTPException(404, "Analysis not found")
     return analysis
 
 
@@ -123,7 +132,7 @@ def list_analyses(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseS
                   offset: Annotated[int, Query(ge=0)] = 0) -> list[Analysis]:
     get_owned_source(source_id, current_user.id, db, for_update=False)
     return list(db.scalars(select(Analysis).where(
-        Analysis.source_id == source_id, Analysis.user_id == current_user.id,
+        Analysis.source_id == source_id, Analysis.user_id == current_user.id, Analysis.reused_analysis_id.is_(None),
     ).order_by(Analysis.created_at.desc(), Analysis.id).limit(limit).offset(offset)))
 
 
