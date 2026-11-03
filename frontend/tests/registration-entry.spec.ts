@@ -59,6 +59,7 @@ test("schedule registration uses the shared fresh page and source library has no
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
   await expect(menu.locator("[aria-current]")).toHaveCount(0);
   await page.getByLabel("일정명", { exact: true }).fill("남기지 않을 입력");
+  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("navigation")
     .getByRole("link", { name: "일정", exact: true })
