@@ -21,10 +21,18 @@ CLOCK = re.compile(
     r"|시(?:\s*(?P<minute>\d{1,2})\s*분|\s*(?P<half>반))?(?!\d))"
     r"|(?P<noon>정오)|(?P<midnight>자정)"
 )
-DURATION = re.compile(
-    r"(?:(?P<hours>\d{1,3}|한|두|세|네)\s*시간\s*(?:(?P<half>반)|(?P<minutes>\d{1,3})\s*분)?)"
-    r"|(?P<only_minutes>\d{1,3})\s*분(?:\s*동안)?"
+HOUR_AMOUNT = r"(?P<hours>\d{1,3}|한|두|세|네)\s*시간\s*(?:(?P<half>반)|(?P<minutes>\d{1,3})\s*분)?"
+MINUTE_AMOUNT = r"(?P<only_minutes>\d{1,3})\s*분"
+DURATION = re.compile(rf"{HOUR_AMOUNT}|{MINUTE_AMOUNT}(?:\s*동안)?")
+OFFSET = re.compile(
+    rf"(?<![\d.])(?:지금\s*(?:부터\s*)?)?(?:{HOUR_AMOUNT}|{MINUTE_AMOUNT})"
+    r"\s*(?:뒤|후(?=\s|$|에|까지|[,!.?]))"
 )
+
+
+def minutes_in(amount: re.Match[str]) -> int:
+    hours = {"한": 1, "두": 2, "세": 3, "네": 4}.get(amount["hours"], amount["hours"] or 0)
+    return int(hours) * 60 + int(amount["minutes"] or amount["only_minutes"] or 0) + (30 if amount["half"] else 0)
 
 
 def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft:
@@ -33,9 +41,12 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
     notices: list[str] = []
     spans: list[tuple[int, int]] = []
     dates: list[date | None] = []
-    durations = list(DURATION.finditer(text))
+    offsets = list(OFFSET.finditer(text))
+    spans.extend(m.span() for m in offsets)
+    durations = [m for m in DURATION.finditer(text)
+                 if not any(offset.start() <= m.start() < offset.end() for offset in offsets)]
     # A duration such as "1시간" must not also become the clock "1시".
-    duration_spans = [m.span() for m in durations]
+    duration_spans = [m.span() for m in durations] + [m.span() for m in offsets]
     clocks = [m for m in CLOCK.finditer(text)
               if not any(a <= (m.start("hour") if m["hour"] else m.start()) < b
                          for a, b in duration_spans)]
@@ -104,9 +115,7 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
 
     duration = None
     if durations:
-        m = durations[0]
-        hours = {"한": 1, "두": 2, "세": 3, "네": 4}.get(m["hours"], m["hours"] or 0)
-        duration = int(hours) * 60 + int(m["minutes"] or m["only_minutes"] or 0) + (30 if m["half"] else 0)
+        duration = minutes_in(durations[0])
         spans.extend(duration_spans)
         if not 1 <= duration <= 7 * 24 * 60:
             duration = None
@@ -132,6 +141,22 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
         notices.append("한국 시간으로 입력해 주세요. 다른 지역의 시간은 자동 변환하지 않습니다.")
         blocked = True
 
+    relative_time = None
+    if offsets:
+        offset_minutes = minutes_in(offsets[0])
+        if len(offsets) > 1 or date_matches or clocks:
+            notices.append("‘몇 분 뒤’와 다른 날짜·시간이 함께 있습니다. 사용할 시간을 직접 입력해 주세요.")
+            blocked = True
+        elif not 1 <= offset_minutes <= 7 * 24 * 60:
+            notices.append("지금부터 1분 뒤부터 7일 뒤 사이로 입력해 주세요.")
+            blocked = True
+        else:
+            try:
+                relative_time = reference.replace(second=0, microsecond=0) + timedelta(minutes=offset_minutes)
+            except OverflowError:
+                notices.append("날짜를 직접 입력해 주세요.")
+                blocked = True
+
     def combine(day: date | None, clock: tuple[int, int] | None):
         if day is None or clock is None:
             return None
@@ -145,11 +170,11 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
     day = dates[0] if dates else None
     if not blocked:
         if kind == "deadline":
-            end = combine(dates[-1] if dates else None, parsed_clocks[-1] if parsed_clocks else (23, 59))
-            if end and not clocks:
+            end = relative_time or combine(dates[-1] if dates else None, parsed_clocks[-1] if parsed_clocks else (23, 59))
+            if end and not clocks and relative_time is None:
                 notices.append("마감 시간이 없어 해당 날짜 23:59로 제안했습니다.")
         else:
-            start = combine(day, parsed_clocks[0] if parsed_clocks else None)
+            start = relative_time or combine(day, parsed_clocks[0] if parsed_clocks else None)
             if is_range:
                 # "오후 3시부터 4시" inherits the explicit 오후 only for a 1..11 clock.
                 last = parsed_clocks[1]
@@ -191,7 +216,7 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
     if len(title) > 255:
         title = title[:255]
         notices.append("제목이 길어 앞부분만 넣었습니다. 저장 전 확인해 주세요.")
-    if not day:
+    if not day and not offsets:
         notices.append("날짜를 읽지 못했습니다. 날짜를 직접 선택해 주세요.")
     if kind == "task" and start is None:
         notices.append("시작 시간을 직접 입력해 주세요.")

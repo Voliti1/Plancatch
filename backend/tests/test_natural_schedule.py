@@ -1,6 +1,6 @@
 """Korean command dates, ambiguity and preview-to-existing-calendar integration."""
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -11,6 +11,10 @@ NOW = datetime(2026, 11, 2, 12, 0, tzinfo=SEOUL)  # Monday, independent of host 
 
 
 @pytest.mark.parametrize('text,kind,title,start,end', [
+    ('10분 뒤 알림 테스트', 'task', '알림 테스트', '2026-11-02T12:10', '2026-11-02T13:10'),
+    ('지금부터 1시간 30분 후에 20분 동안 회의', 'task', '회의', '2026-11-02T13:30', '2026-11-02T13:50'),
+    ('10분뒤알림 테스트', 'task', '알림 테스트', '2026-11-02T12:10', '2026-11-02T13:10'),
+    ('두 시간 후 보고서 제출', 'deadline', '보고서 제출', None, '2026-11-02T14:00'),
     ('내일 오후 3시 회의', 'task', '회의', '2026-11-03T15:00', '2026-11-03T16:00'),
     ('내일오후3시회의', 'task', '회의', '2026-11-03T15:00', '2026-11-03T16:00'),
     ('금요일까지 보고서 제출', 'deadline', '보고서 제출', None, '2026-11-06T23:59'),
@@ -52,6 +56,8 @@ def test_common_expressions(text, kind, title, start, end):
     '내일 오후3시부터 오후2시 회의',
     '내일 18:999 마감', '내일 123:00 마감', '내일 18:00:30 마감',
     '내일 100시 마감', '내일18시3 마감',
+    '0분 뒤 알림 테스트', '169시간 후 회의',
+    '내일 3시와 10분 뒤 회의', '10분 뒤 또는 20분 뒤 회의',
 ])
 def test_missing_invalid_or_unsupported_fields_are_editable_not_invented(text):
     result = interpret(text, now=NOW)
@@ -69,8 +75,24 @@ def test_relative_dates_use_seoul_and_report_defaults_and_past():
     assert any('요일' in notice for notice in interpret('2026년11월3일(월) 마감', now=NOW).notices)
 
 
+def test_relative_minutes_cross_midnight_in_seoul():
+    reference = datetime.fromisoformat('2026-11-02T14:55:42+00:00')
+    result = interpret('10분 뒤에 알림 테스트', now=reference)
+    assert result.title == '알림 테스트'
+    assert result.start_at.isoformat() == '2026-11-03T00:05:00+09:00'
+    assert result.end_at.isoformat() == '2026-11-03T01:05:00+09:00'
+    assert all('직접' not in notice for notice in result.notices)
+
+
 def test_preview_does_not_write_and_reviewed_items_use_existing_calendar():
     auth = auth_headers('natural-' + uuid.uuid4().hex + '@example.com')
+    result = client.post('/api/schedules/interpret', headers=auth, json={'text': '10분 뒤 알림 테스트'})
+    assert result.status_code == 200
+    relative = result.json()
+    reference = datetime.fromisoformat(relative['reference_at']).replace(second=0, microsecond=0)
+    assert relative['title'] == '알림 테스트'
+    assert datetime.fromisoformat(relative['start_at']) == reference + timedelta(minutes=10)
+    assert datetime.fromisoformat(relative['end_at']) == reference + timedelta(minutes=70)
     result = client.post('/api/schedules/interpret', headers=auth, json={'text': '내일 오후3시 회의'})
     assert result.status_code == 200
     draft = result.json()
