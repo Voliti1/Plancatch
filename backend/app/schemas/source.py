@@ -63,8 +63,16 @@ class SourceResponse(BaseModel):
     def image_sha256(self) -> str | None:
         if self.source_type != "image":
             return None
-        from app.services.source_images import image_hash
-        return image_hash(self.storage_key)
+        from app.services.source_images import file_hash
+        return file_hash(self.storage_key, "image")
+
+    @computed_field
+    @property
+    def pdf_sha256(self) -> str | None:
+        if self.source_type != "pdf":
+            return None
+        from app.services.source_images import file_hash
+        return file_hash(self.storage_key, "pdf")
 
     @computed_field
     @property

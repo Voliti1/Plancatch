@@ -88,7 +88,7 @@ def test_image_is_removed_only_after_successful_commit(tmp_path, monkeypatch):
     identity = deadline(auth, source['id'])
     with TestingSession() as db:
         key = db.get(Source, uuid.UUID(source['id'])).storage_key
-    path = source_images.image_path(key)
+    path = source_images.file_path(key)
     assert path.is_file()
     def reject_commit(session):
         if any(isinstance(item, Source) for item in session.deleted):

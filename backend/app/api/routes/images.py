@@ -1,4 +1,4 @@
-"""Owned bounded image upload/preview; external analysis requires separate consent."""
+"""Private image/PDF uploads. File analysis requires separate consent."""
 import uuid
 from threading import BoundedSemaphore
 from typing import Annotated
@@ -21,14 +21,15 @@ from app.models.source import Source
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.source import SourceResponse
 from app.services.ai_analysis import AIError, configured_model, slots
-from app.services.image_analysis import PREFIX, process_image_analysis
+from app.services.image_analysis import process_file_analysis
 from app.services.source_images import (
     MAX_BYTES,
-    image_hash,
+    file_hash,
     normalize_image,
-    read_image,
-    remove_image,
-    store_image,
+    read_file,
+    remove_file,
+    store_file,
+    validate_pdf,
 )
 
 router = APIRouter(prefix="/api/sources", tags=["source-images"])
@@ -39,18 +40,30 @@ upload_slots = BoundedSemaphore(1)
 def upload_image(current_user: CurrentUser, db: DatabaseSession,
                  file: Annotated[UploadFile, File()],
                  title: Annotated[str, Form(max_length=255)] = "") -> Source:
+    return upload_file(current_user, db, file, title, "image")
+
+
+@router.post("/pdfs", response_model=SourceResponse, status_code=201)
+def upload_pdf(current_user: CurrentUser, db: DatabaseSession,
+               file: Annotated[UploadFile, File()],
+               title: Annotated[str, Form(max_length=255)] = "") -> Source:
+    return upload_file(current_user, db, file, title, "pdf")
+
+
+def upload_file(current_user, db, file: UploadFile, title: str, source_type: str) -> Source:
     if not upload_slots.acquire(blocking=False):
         file.file.close()
         raise HTTPException(429, "Image upload capacity reached; retry later")
     try:
-        data = normalize_image(file.file.read(MAX_BYTES + 1))
+        data = file.file.read(MAX_BYTES + 1)
+        data = validate_pdf(data) if source_type == "pdf" else normalize_image(data)
     except ValueError as exc:
         raise HTTPException(422, str(exc)) from exc
     finally:
         file.file.close()
         upload_slots.release()
-    key = store_image(data)
-    source = Source(user_id=current_user.id, source_type="image", title=title.strip() or None,
+    key = store_file(data, source_type)
+    source = Source(user_id=current_user.id, source_type=source_type, title=title.strip() or None,
                     storage_key=key)
     try:
         db.add(source)
@@ -58,7 +71,7 @@ def upload_image(current_user: CurrentUser, db: DatabaseSession,
         db.refresh(source)
     except Exception:
         db.rollback()
-        remove_image(key)
+        remove_file(key)
         raise
     return source
 
@@ -69,23 +82,24 @@ def preview_image(source_id: uuid.UUID, current_user: CurrentUser, db: DatabaseS
     if source.source_type != "image":
         raise HTTPException(404, "Image not found")
     try:
-        data = read_image(source.storage_key)
+        data = read_file(source.storage_key, "image")
     except (OSError, ValueError, TypeError) as exc:
         raise HTTPException(404, "Image not found") from exc
     return Response(data, media_type="image/png", headers={"Cache-Control":"no-store", "X-Content-Type-Options":"nosniff"})
 
 
-def start_image_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSession,
-                         background_tasks: BackgroundTasks) -> Analysis:
-    digest = image_hash(source.storage_key)
+def start_file_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSession,
+                        background_tasks: BackgroundTasks) -> Analysis:
+    digest = file_hash(source.storage_key, source.source_type)
+    prefix = f"{source.source_type}:"
     if not digest or payload.input_hash != digest:
-        raise HTTPException(409, "Image changed; confirm the image again")
+        raise HTTPException(409, "Source changed; confirm the source again")
     if not payload.allow_external_ai:
-        raise HTTPException(422, "External AI consent is required for image analysis")
+        raise HTTPException(422, "External AI consent is required for file analysis")
     if payload.reuse_existing:
         existing = db.scalar(select(Analysis).where(Analysis.source_id == source.id,
             Analysis.user_id == source.user_id, Analysis.input_hash == digest,
-            Analysis.model.startswith(PREFIX)).order_by(Analysis.created_at.desc()).limit(1))
+            Analysis.model.startswith(prefix)).order_by(Analysis.created_at.desc()).limit(1))
         if existing is not None:
             return existing
     if db.scalar(select(Analysis.id).where(Analysis.source_id == source.id,
@@ -93,22 +107,22 @@ def start_image_analysis(source: Source, payload: AnalysisRequest, db: DatabaseS
         raise HTTPException(409, "Source analysis is already processing")
     try:
         model = configured_model()
-        read_image(source.storage_key)
+        read_file(source.storage_key, source.source_type)
     except AIError as exc:
         raise HTTPException(503, str(exc)) from exc
     except (OSError, ValueError, TypeError) as exc:
-        raise HTTPException(409, "Saved image is unavailable") from exc
+        raise HTTPException(409, "Saved file is unavailable") from exc
     if not slots.acquire(blocking=False):
         raise HTTPException(429, "AI capacity reached; retry later")
     try:
         analysis = Analysis(user_id=source.user_id, source_id=source.id,
-            input_text="이미지 분석 준비 중", input_hash=digest, model=PREFIX + model)
+            input_text="파일 분석 준비 중", input_hash=digest, model=prefix + model)
         source.processing_status = "processing"
         source.error_message = None
         db.add(analysis)
         db.commit()
         db.refresh(analysis)
-        background_tasks.add_task(process_image_analysis, analysis.id, db.get_bind())
+        background_tasks.add_task(process_file_analysis, analysis.id, db.get_bind())
         return analysis
     except Exception:
         db.rollback()

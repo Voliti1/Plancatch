@@ -124,7 +124,7 @@ def test_date_only_crop_defaults_time_but_still_requires_selection_and_review(mo
     assert client.delete("/api/deadlines/"+identity,headers=headers).status_code == 204
     key = source["storage_key"]
     assert client.get(path,headers=headers).status_code == 404
-    assert not source_images.image_path(key).exists()
+    assert not source_images.file_path(key).exists()
 
 
 @pytest.mark.parametrize("data", [b"not an image",b"<svg onload='alert(1)'/>", b"%PDF-1.4"])
@@ -134,6 +134,80 @@ def test_invalid_uploads_do_not_create_source_or_send_ai(data):
     assert client.get("/api/sources",headers=headers).json() == []
 
 
+def test_pdf_upload_requires_consent_and_keeps_distinct_deadline_candidates(monkeypatch):
+    headers = auth()
+    pdf = picture("PDF")
+    first = "서류 접수 마감 2026.11.09 18:00"
+    second = "추가 서류 제출 마감 2026.11.12 17:00"
+    proposals = [
+        {"title": title, "due_at": None, "description": None,
+         "evidence_text": evidence, "confidence": 0.9}
+        for title, evidence in [("서류 접수", first), ("추가 서류 제출", second)]
+    ]
+    calls = []
+
+    def respond(payload, model):
+        inline = payload["contents"][0]["parts"][1]["inlineData"]
+        assert inline["mimeType"] == "application/pdf"
+        assert base64.b64decode(inline["data"]) == pdf
+        calls.append(model)
+        value = {"transcript": first + "\n" + second.replace("마감 2026", "마감\n2026"),
+                 "deadlines": [*proposals, dict(proposals[0], evidence_text="문서에 없는 근거 2026.11.30")],
+                 "warnings": []}
+        return {"candidates": [{"finishReason": "STOP", "content": {"parts": [{"text": json.dumps(value)}]}}]}
+
+    monkeypatch.setattr(image_analysis, "provider_request", respond)
+    upload_path = "/api/sources/pdfs"
+    assert client.post(upload_path, files={"file": ("notice.pdf", pdf)}).status_code == 401
+    bad = client.post(upload_path, headers=headers, files={"file": ("fake.pdf", b"%PDF-1.4\nno trailer")})
+    assert bad.status_code == 422
+    oversized = client.post(upload_path, headers=headers,
+        files={"file": ("large.pdf", b"x" * (source_images.MAX_BYTES + 1))})
+    assert oversized.status_code == 422
+    saved = client.post(upload_path, headers=headers, files={"file": ("notice.pdf", pdf)})
+    assert saved.status_code == 201
+    source = saved.json()
+    assert source["source_type"] == "pdf" and len(source["pdf_sha256"]) == 64
+    source_path = "/api/sources/" + source["id"]
+    assert client.get(source_path, headers=auth()).status_code == 404
+    assert client.get(source_path + "/image", headers=headers).status_code == 404
+    assert client.post(source_path + "/analyze", headers=headers).status_code == 422
+    analysis_route = source_path + "/ai-analyses"
+    payload = {"input_hash": source["pdf_sha256"], "reuse_existing": True}
+    assert client.post(analysis_route, headers=headers, json=payload).status_code == 422
+    assert client.post(analysis_route, headers=headers, json={**payload, "allow_external_ai": True,
+                       "input_hash": "0" * 64}).status_code == 409
+    assert calls == []
+    payload["allow_external_ai"] = True
+    started = client.post(analysis_route, headers=headers, json=payload)
+    assert started.status_code == 202
+    analysis_path = "/api/ai-analyses/" + started.json()["id"]
+    analysis = client.get(analysis_path, headers=headers).json()
+    assert analysis["status"] == "ready" and analysis["model"].startswith("pdf:")
+    assert [(c["title"], c["due_at"], c["selected"]) for c in analysis["candidates"]] == [
+        ("서류 접수", "2026-11-09T18:00:00+09:00", False),
+        ("추가 서류 제출", "2026-11-12T17:00:00+09:00", False),
+    ]
+    assert any("근거 문구를 확인하지 못한 후보" in warning for warning in analysis["warnings"])
+    assert client.post(analysis_route, headers=headers, json=payload).json()["id"] == analysis["id"]
+    assert calls == ["test-model"]
+    assert client.get("/api/deadlines", headers=headers).json() == []
+    auto = client.post(analysis_path + "/auto-register", headers=headers,
+                       json={"revision": 1, "title": "PDF", "confirm_auto_registration": True})
+    assert auto.status_code == 422 and auto.json()["detail"] == "pdf_registration_requires_review"
+    candidates = [{key: c[key] for key in ("id", "title", "due_at", "description", "selected")}
+                  for c in analysis["candidates"]]
+    candidates[1]["selected"] = True
+    assert client.patch(analysis_path, headers=headers, json={"revision": 1, "candidates": candidates}).status_code == 200
+    approved = client.post(analysis_path + "/approve", headers=headers, json={"revision": 2})
+    assert approved.status_code == 200
+    deadlines = client.get("/api/deadlines", headers=headers).json()
+    assert [d["title"] for d in deadlines] == ["추가 서류 제출"]
+    assert client.delete(source_path, headers=headers).status_code == 409
+    assert client.delete("/api/deadlines/" + deadlines[0]["id"], headers=headers).status_code == 204
+    assert not source_images.file_path(source["storage_key"]).exists()
+
+
 def test_limits_and_integrity_are_enforced(monkeypatch):
     with pytest.raises(ValueError): source_images.normalize_image(b"x"*(source_images.MAX_BYTES+1))
     monkeypatch.setattr(source_images,"MAX_PIXELS",10)
@@ -141,10 +215,10 @@ def test_limits_and_integrity_are_enforced(monkeypatch):
     monkeypatch.setattr(source_images,"MAX_PIXELS",12_000_000)
     headers = auth()
     source = upload(headers,picture("JPEG"))
-    path = source_images.image_path(source["storage_key"])
+    path = source_images.file_path(source["storage_key"])
     path.write_bytes(b"changed")
     assert client.get('/api/sources/'+source['id']+'/image',headers=headers).status_code == 404
-    with pytest.raises(ValueError): source_images.image_path("../../.env")
+    with pytest.raises(ValueError): source_images.file_path("../../.env")
 
 
 def test_bad_evidence_fails_safely_and_explicit_time_is_grounded(monkeypatch):
@@ -152,11 +226,11 @@ def test_bad_evidence_fails_safely_and_explicit_time_is_grounded(monkeypatch):
     value["deadlines"][0]["evidence_text"] = "not in image transcript"
     mock_provider(monkeypatch,value)
     with pytest.raises(ai_analysis.AIError,match="ai_evidence_not_in_source"):
-        image_analysis.analyze_image(picture(),"test-model")
+        image_analysis.analyze_file(picture(),"test-model","image")
     value = result("2026-11-01T18:00:00+09:00")
     value["transcript"] = value["deadlines"][0]["evidence_text"] = "접수 마감 2026년 11월 1일 18:00"
     mock_provider(monkeypatch,value)
-    assert image_analysis.analyze_image(picture(),"test-model").deadlines[0].due_at.hour == 18
+    assert image_analysis.analyze_file(picture(),"test-model","image").deadlines[0].due_at.hour == 18
 
 
 @pytest.mark.parametrize("evidence", [
@@ -169,7 +243,7 @@ def test_screenshot_korean_pm_clock_is_not_discarded(monkeypatch, evidence, prov
     value["transcript"] = value["deadlines"][0]["evidence_text"] = evidence
     value["warnings"] = ["마감 시간(시, 분)이 명시되어 있지 않아 due_at을 null로 처리했습니다."]
     mock_provider(monkeypatch, value)
-    parsed = image_analysis.analyze_image(picture(), "test-model")
+    parsed = image_analysis.analyze_file(picture(), "test-model", "image")
     assert parsed.deadlines[0].due_at.isoformat() == "2026-10-27T17:00:00+09:00"
     assert not any("due_at" in item or "null" in item for item in parsed.warnings)
     assert not any("11시 59분" in item for item in parsed.warnings)
@@ -185,7 +259,7 @@ def test_linkareer_capture_clock_overrides_a_false_model_default(monkeypatch, cl
     value["deadlines"][0]["evidence_text"] = evidence
     value["warnings"] = [DEFAULT_TIME_NOTICE]
     mock_provider(monkeypatch, value)
-    parsed = image_analysis.analyze_image(picture(), "test-model")
+    parsed = image_analysis.analyze_file(picture(), "test-model", "image")
     assert parsed.deadlines[0].due_at.isoformat() == "2026-11-09T18:00:00+09:00"
     assert DEFAULT_TIME_NOTICE not in parsed.warnings
 
@@ -196,7 +270,7 @@ def test_image_date_only_quote_includes_its_adjacent_transcribed_clock(monkeypat
     value["transcript"] = evidence + " 18:00까지 제출하세요."
     value["deadlines"][0]["evidence_text"] = evidence
     mock_provider(monkeypatch, value)
-    parsed = image_analysis.analyze_image(picture(), "test-model")
+    parsed = image_analysis.analyze_file(picture(), "test-model", "image")
     assert parsed.deadlines[0].due_at.isoformat() == "2026-11-09T18:00:00+09:00"
     assert parsed.deadlines[0].evidence_text == evidence + " 18:00"
 

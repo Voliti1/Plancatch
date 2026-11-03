@@ -44,28 +44,30 @@ export function SourceReview({ id }: { id: string }) {
       try {
         let item = await sourcesApi.get(id, requestSignal());
         signal.throwIfAborted();
-        if (!["url", "text", "image"].includes(item.source_type))
+        if (!["url", "text", "image", "pdf"].includes(item.source_type))
           throw new Error("이 자료 유형은 아직 검토할 수 없습니다.");
         setSource(item);
-        if (item.source_type === "image") {
-          if (!item.image_sha256)
-            throw new Error("저장한 이미지 버전을 확인하지 못했습니다.");
+        if (item.source_type === "image" || item.source_type === "pdf") {
+          const digest =
+            item.source_type === "pdf" ? item.pdf_sha256 : item.image_sha256;
+          if (!digest)
+            throw new Error("저장한 파일 버전을 확인하지 못했습니다.");
           const history = await analysesApi.list(id, 0, requestSignal());
           signal.throwIfAborted();
           const existing = history.find(
             (entry) =>
-              entry.model.startsWith("image:") &&
-              entry.input_hash === item.image_sha256,
+              entry.model.startsWith(`${item.source_type}:`) &&
+              entry.input_hash === digest,
           );
           if (existing && existing.status !== "failed") {
             router.replace(`/analyses/${encodeURIComponent(existing.id)}`);
             return;
           }
-          if (consent.current !== item.image_sha256) {
+          if (consent.current !== digest) {
             setProgress(
               existing
-                ? "이전 분석에 실패했습니다. 이미지 전송에 동의한 뒤 다시 시도할 수 있습니다."
-                : "이미지를 확인하고 AI 전송에 동의하면 분석을 시작합니다.",
+                ? "이전 분석에 실패했습니다. 파일 전송에 동의한 뒤 다시 시도할 수 있습니다."
+                : "AI 전송에 동의하면 저장한 파일을 분석합니다.",
             );
             return;
           }
@@ -73,7 +75,7 @@ export function SourceReview({ id }: { id: string }) {
             id,
             requestSignal(),
             true,
-            item.image_sha256,
+            digest,
             !existing,
           );
           signal.throwIfAborted();
@@ -149,9 +151,15 @@ export function SourceReview({ id }: { id: string }) {
     return () => controller.abort();
   }, [id, attempt, router]);
   const image = source?.source_type === "image";
-  const consentVersion = image ? source?.image_sha256 : source?.extracted_text;
+  const pdf = source?.source_type === "pdf";
+  const consentVersion = image
+    ? source?.image_sha256
+    : pdf
+      ? source?.pdf_sha256
+      : source?.extracted_text;
   const needsConsent =
     image ||
+    pdf ||
     (source?.source_type === "text" &&
       source.processing_status === "extracted");
   const accepted = Boolean(consentVersion && consentText === consentVersion);
@@ -186,10 +194,15 @@ export function SourceReview({ id }: { id: string }) {
                 원본 이미지 한 장을 Google Gemini로 전송합니다. 날짜·시각과
                 제목이 불명확하면 직접 입력한 뒤 승인합니다.
               </p>
+            ) : pdf ? (
+              <p>
+                원본 PDF 전체를 Google Gemini로 전송합니다. 읽어 온 제목과
+                마감일을 확인한 뒤 원하는 후보를 승인할 수 있습니다.
+              </p>
             ) : (
               <p>
                 입력한 원문{" "}
-                {Array.from(source.extracted_text ?? "").length.toLocaleString(
+                {Array.from(source?.extracted_text ?? "").length.toLocaleString(
                   "ko-KR",
                 )}
                 자를 분석합니다.
@@ -209,7 +222,9 @@ export function SourceReview({ id }: { id: string }) {
               />
               {image
                 ? "이 원본 이미지를 Google Gemini에 전송하여 분석하는 데 동의합니다."
-                : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
+                : pdf
+                  ? "이 원본 PDF를 Google Gemini에 전송하여 분석하는 데 동의합니다."
+                  : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
             </label>
             <button disabled={!accepted} onClick={retry}>
               동의하고 AI 검토 시작

@@ -177,14 +177,14 @@ def delete_deadline(
             Analysis.source_id == source.id, Analysis.status == "processing",
     ).limit(1)) is not None):
         raise HTTPException(status_code=409, detail="deadline_source_busy")
-    image_key = source.storage_key if remove_source and source.source_type == "image" else None
+    file_key = source.storage_key if remove_source and source.source_type in {"image", "pdf"} else None
     db.delete(deadline)
     sync.enqueue_deadline(db, current_user.id, deadline_id)
     db.flush()
     if remove_source:
         db.delete(source)
     db.commit()
-    if image_key:
-        from app.services.source_images import remove_image
-        remove_image(image_key)
+    if file_key:
+        from app.services.source_images import remove_file
+        remove_file(file_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

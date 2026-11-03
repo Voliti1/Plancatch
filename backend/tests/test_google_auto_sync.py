@@ -274,9 +274,10 @@ def test_source_approval_queues_only_approved_deadlines_and_last_delete_cleans_s
 
 def test_natural_language_registration_uses_the_same_automatic_delivery(setup, automatic):
     auth, _, remote, writes, _, _, _, drain = automatic
-    draft = setup.client.post('/api/schedules/interpret', headers=auth, json={'text':'내일 오후3시 회의'})
+    draft = setup.client.post('/api/schedules/interpret', headers=auth, json={'text':'내일 오후3시부터 4시까지 회의'})
     assert draft.status_code == 200
     value = draft.json()
+    assert value['kind'] == 'task'
     assert setup.client.post('/api/tasks', headers=auth, json={'title':value['title'], 'schedule_type':'fixed',
         'earliest_start':value['start_at'], 'latest_end':value['end_at']}).status_code == 201
     drain()

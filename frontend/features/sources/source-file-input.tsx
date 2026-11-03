@@ -8,6 +8,7 @@ import {
 } from "react";
 
 const IMAGE_NAME = /\.(png|jpe?g|webp|bmp|gif|tiff?|avif)$/i;
+const PDF_NAME = /\.pdf$/i;
 const CLIPBOARD_EXTENSIONS: Record<string, string> = {
   "image/png": "png",
   "image/x-png": "png",
@@ -37,20 +38,23 @@ export function SourceFileInput({
       if (disabled) return;
       setDragging(false);
       if (incoming.length !== 1) {
-        setError("이미지 한 장씩 등록해 주세요.");
+        setError("파일은 한 개씩 등록해 주세요.");
         return;
       }
       const file = incoming[0];
       // Browsers can report PNG as image/x-png or application/octet-stream.
       // The server decodes the actual bytes; MIME is not a reliable format check here.
-      if (!IMAGE_NAME.test(file.name)) {
+      const pdf = PDF_NAME.test(file.name);
+      if (!pdf && !IMAGE_NAME.test(file.name)) {
         setError(
-          "PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원합니다. HEIC·SVG·PDF는 아직 지원하지 않습니다.",
+          "PDF·PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원합니다. HEIC·SVG는 지원하지 않습니다.",
         );
         return;
       }
       if (!file.size || file.size > 5 * 1024 * 1024) {
-        setError("이미지는 5MB 이하여야 합니다.");
+        setError(
+          pdf ? "PDF는 5MB 이하여야 합니다." : "이미지는 5MB 이하여야 합니다.",
+        );
         return;
       }
       setError("");
@@ -115,13 +119,13 @@ export function SourceFileInput({
     >
       <div className="source-file-heading">
         <h3 id="source-file-heading">파일로 추가</h3>
-        <span className="tag">이미지 지원</span>
+        <span className="tag">PDF·이미지 지원</span>
       </div>
       <button
         type="button"
         className={`source-file-drop${dragging ? " is-dragging" : ""}`}
         disabled={disabled}
-        aria-label="이미지 파일 선택"
+        aria-label="PDF 또는 이미지 파일 선택"
         aria-describedby="source-file-help"
         onClick={() => picker.current?.click()}
         onDragEnter={(event) => {
@@ -136,38 +140,38 @@ export function SourceFileInput({
         onDrop={drop}
       >
         <span className="source-file-symbol" aria-hidden="true">
-          PNG<span>JPG</span>
+          PDF<span>JPG</span>
         </span>
-        <strong>이미지를 여기에 끌어다 놓으세요</strong>
+        <strong>PDF나 이미지를 여기에 끌어다 놓으세요</strong>
         <span className="source-file-hint">
           캡처한 사진은 이 화면에서 Ctrl+V로 붙여넣을 수도 있어요.
         </span>
         <span className="source-file-picker">또는 파일 선택</span>
         <span className="source-file-hint">
-          PNG · JPG · WebP 등 · 한 장 · 최대 5MB
+          PDF · PNG · JPG 등 · 파일 한 개 · 최대 5MB
         </span>
       </button>
       <input
         ref={picker}
         type="file"
-        accept=".png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff,.avif,image/png,image/x-png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif"
+        accept=".pdf,.png,.jpg,.jpeg,.webp,.bmp,.gif,.tif,.tiff,.avif,application/pdf,image/png,image/x-png,image/jpeg,image/webp,image/bmp,image/gif,image/tiff,image/avif"
         hidden
         disabled={disabled}
-        aria-label="이미지 파일 입력"
+        aria-label="PDF 또는 이미지 파일 입력"
         onChange={(event) => {
           choose(Array.from(event.target.files ?? []));
           event.target.value = "";
         }}
       />
       <p id="source-file-help" className="small muted source-file-help">
-        PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원하며 PNG로 변환해 저장합니다.
-        움직이는 이미지·여러 페이지·HEIC·SVG·PDF는 지원하지 않습니다. 이미지를
-        저장한 뒤 전송 동의를 받습니다. 동의 전에는 Google Gemini로 보내지
-        않습니다.
+        PDF와 PNG·JPG·WebP·BMP·GIF·TIFF·AVIF 이미지를 지원합니다. 파일을 저장한
+        뒤 전송에 동의하면 Google Gemini로 분석합니다.
       </p>
       <p role="status" className="small muted">
         {files.length
-          ? "이미지 1장 선택됨"
+          ? PDF_NAME.test(files[0].name)
+            ? "PDF 1개 선택됨"
+            : "이미지 1장 선택됨"
           : "선택한 파일이 없습니다."}
       </p>
       {error && (
@@ -179,7 +183,9 @@ export function SourceFileInput({
         <ul className="source-file-list" aria-label="선택한 파일">
           {files.map((file) => (
             <li key={file.name}>
-              <span className="source-file-kind">이미지</span>
+              <span className="source-file-kind">
+                {PDF_NAME.test(file.name) ? "PDF" : "이미지"}
+              </span>
               <span className="source-file-name">
                 {file.name}
                 <small>{(file.size / 1024).toFixed(1)} KB</small>

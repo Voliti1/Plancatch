@@ -165,14 +165,14 @@ export function SourceDetail({ id }: { id: string }) {
                 </>
               )}
             </section>
-            {data.source_type === "image" ? (
+            {data.source_type === "image" || data.source_type === "pdf" ? (
               <>
-                <SourceImage id={id} />
+                {data.source_type === "image" && <SourceImage id={id} />}
                 <Link
                   className="button"
                   href={`/sources/${encodeURIComponent(id)}/review`}
                 >
-                  이미지 마감일 검토 →
+                  {data.source_type === "pdf" ? "PDF" : "이미지"} 마감일 검토 →
                 </Link>
               </>
             ) : (
