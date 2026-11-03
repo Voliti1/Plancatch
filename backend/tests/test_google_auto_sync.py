@@ -244,7 +244,8 @@ def test_unconnected_crud_and_status_need_no_google_or_outbound_calls(setup, mon
     assert not calls
 
 
-def test_source_approval_queues_only_approved_deadlines_and_last_delete_cleans_source(setup, automatic):
+@pytest.mark.parametrize("use_email", [False, True])
+def test_source_approval_queues_only_approved_deadlines_and_last_delete_cleans_source(setup, automatic, use_email):
     from app.models import Analysis, Source
     from app.services.ai_analysis import content_hash
     auth, user_id, remote, writes, _, _, rows, drain = automatic
@@ -262,11 +263,18 @@ def test_source_approval_queues_only_approved_deadlines_and_last_delete_cleans_s
         db.commit()
         path = '/api/ai-analyses/' + str(analysis.id) + '/approve'
     assert rows() == []
-    approved = setup.client.post(path, headers=auth, json={'revision':1})
+    approval = {'revision': 1}
+    if use_email:
+        approval['google_reminders'] = {'mode': 'custom', 'overrides': [{'method': 'email', 'minutes': 15}]}
+    approved = setup.client.post(path, headers=auth, json=approval)
     assert approved.status_code == 200 and len(rows()) == 1
     assert setup.client.post(path, headers=auth, json={'revision':1}).json()['approved_deadline_ids'] == approved.json()['approved_deadline_ids']
     drain()
     assert writes == ['POST'] and len(remote) == 1
+    assert next(iter(remote.values()))['reminders'] == {
+        'useDefault': False,
+        'overrides': [{'method': 'email', 'minutes': 15}] if use_email else [],
+    }
     assert setup.client.delete('/api/deadlines/' + approved.json()['approved_deadline_ids'][0], headers=auth).status_code == 204
     drain()
     assert remote == {} and setup.client.get('/api/sources/' + source_id, headers=auth).status_code == 404
