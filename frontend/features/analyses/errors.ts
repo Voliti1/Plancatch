@@ -42,6 +42,8 @@ const messages: Record<string, string> = {
     "원본 사이트에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.",
   extraction_failed:
     "원문 추출에 실패했습니다. 자료를 확인한 뒤 다시 시도해 주세요.",
+  pdf_text_unavailable:
+    "PDF를 읽지 못했습니다. 암호가 걸려 있거나 페이지가 많은 파일은 나누거나 다시 저장해 주세요.",
   ai_not_configured:
     "서버의 AI 설정이 준비되지 않아 분석할 수 없습니다. 관리자에게 확인해 주세요.",
   ai_model_not_configured:

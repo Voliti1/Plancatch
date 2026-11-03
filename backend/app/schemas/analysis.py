@@ -45,6 +45,10 @@ class ProviderResult(BaseModel):
         return values
 
 
+class FileResult(ProviderResult):
+    transcript: str = Field(min_length=1, max_length=40000)
+
+
 class AnalysisRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     allow_external_ai: bool = Field(default=False, strict=True)

@@ -54,6 +54,7 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
           <dt>자료 제목</dt>
           <dd>
             {source.data?.title ||
+              (analysis.model === "pdf:local-v1" ? documentTitle : null) ||
               candidateTitle ||
               documentTitle ||
               (source.loading ? "불러오는 중…" : "제목 정보 없음")}
@@ -86,7 +87,7 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
       )}
       {pdf &&
         analysis.status === "ready" &&
-        company === "원문에서 회사명을 확인하지 못했습니다." && (
+        analysis.model !== "pdf:local-v1" && (
           <Link
             className="source-detail-link"
             href={`/sources/${encodeURIComponent(analysis.source_id)}/review?reanalyze=1`}

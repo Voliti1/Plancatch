@@ -11,7 +11,7 @@ import type {
 import { analysesApi } from "./api";
 import { analysisError } from "./errors";
 import { RemainingPeriod } from "./remaining-period";
-import { isHtmlAnalysis } from "./display";
+import { isExtractedPdf, isHtmlAnalysis } from "./display";
 import { briefEvidence } from "./brief-evidence";
 
 type Draft = {
@@ -57,19 +57,21 @@ function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
 }
 export function CandidateEvidence({
   candidate,
-  fromHtml = false,
+  model,
 }: {
   candidate: AnalysisCandidate;
-  fromHtml?: boolean;
+  model: string;
 }) {
   return (
     <div className="candidate-evidence">
       <h4>원문 근거</h4>
       <p className="analysis-text">{briefEvidence(candidate.evidence_text)}</p>
       <p className="small muted">
-        {fromHtml
+        {isHtmlAnalysis(model)
           ? "HTML에 명시된 접수기간을 직접 확인한 결과입니다. AI 추정값이 아닙니다."
-          : `AI 신뢰도 참고값 ${Math.round(candidate.confidence * 100)}% · 정확도를 보장하지 않습니다.`}
+          : isExtractedPdf(model)
+            ? "PDF에서 읽은 근거입니다."
+            : `AI 신뢰도 참고값 ${Math.round(candidate.confidence * 100)}% · 정확도를 보장하지 않습니다.`}
       </p>
     </div>
   );
@@ -345,10 +347,7 @@ export function ReviewEditor({
                   update(index, { description: event.target.value })
                 }
               />
-              <CandidateEvidence
-                candidate={original}
-                fromHtml={isHtmlAnalysis(analysis.model)}
-              />
+              <CandidateEvidence candidate={original} model={analysis.model} />
             </article>
           );
         })}
