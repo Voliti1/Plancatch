@@ -1,4 +1,5 @@
 """Private image/PDF uploads. File analysis requires separate consent."""
+import hashlib
 import uuid
 from threading import BoundedSemaphore
 from typing import Annotated
@@ -21,6 +22,13 @@ from app.models.source import Source
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.source import SourceResponse
 from app.services.ai_analysis import AIError, configured_model, slots
+from app.services.file_source_metadata import (
+    filename_label,
+    lock_file_owner,
+    metadata_key,
+    reusable_files,
+    reusable_review,
+)
 from app.services.image_analysis import process_file_analysis
 from app.services.pdf_analysis import LOCAL_MODEL, SCAN_CONSENT_REQUIRED
 from app.services.source_images import (
@@ -52,6 +60,7 @@ def upload_pdf(current_user: CurrentUser, db: DatabaseSession,
 
 
 def upload_file(current_user, db, file: UploadFile, title: str, source_type: str) -> Source:
+    filename = filename_label(file.filename, "자료.pdf" if source_type == "pdf" else "이미지.png")
     if not upload_slots.acquire(blocking=False):
         file.file.close()
         raise HTTPException(429, "Image upload capacity reached; retry later")
@@ -63,9 +72,20 @@ def upload_file(current_user, db, file: UploadFile, title: str, source_type: str
     finally:
         file.file.close()
         upload_slots.release()
+    entered_title = title.strip()
+    lock_file_owner(db, current_user.id)
+    digest = hashlib.sha256(data).hexdigest()
+    for existing in reusable_files(db, current_user.id, source_type, filename):
+        if (metadata_key(existing.file_metadata) and file_hash(existing.storage_key, source_type) == digest
+                and (not entered_title or entered_title == existing.title) and reusable_review(db, existing)):
+            try:
+                read_file(existing.storage_key, source_type)
+            except (OSError, ValueError, TypeError):
+                continue
+            return existing
     key = store_file(data, source_type)
-    source = Source(user_id=current_user.id, source_type=source_type, title=title.strip() or None,
-                    storage_key=key)
+    source = Source(user_id=current_user.id, source_type=source_type, title=entered_title or filename,
+                    original_filename=filename, file_metadata={"title_entered": bool(entered_title)}, storage_key=key)
     try:
         db.add(source)
         db.commit()
@@ -100,6 +120,7 @@ def start_file_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSe
     if payload.reuse_existing:
         existing = db.scalar(select(Analysis).where(Analysis.source_id == source.id,
             Analysis.user_id == source.user_id, Analysis.input_hash == digest,
+            Analysis.reused_analysis_id.is_(None),
             Analysis.model.startswith(prefix)).order_by(
                 Analysis.created_at.desc(), case((Analysis.error_message == SCAN_CONSENT_REQUIRED, 1), else_=0),
                 Analysis.id.desc(),

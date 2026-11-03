@@ -139,7 +139,8 @@ def update_source(
             raise HTTPException(422, "이미지는 제목만 수정할 수 있습니다." if source.source_type == "image"
                                 else "PDF는 제목만 수정할 수 있습니다.")
         if "title" in changes:
-            source.title = changes["title"]
+            source.title = changes["title"] or (source.file_metadata or {}).get("document_title") or source.original_filename
+            source.file_metadata = dict(source.file_metadata or {}, title_entered=bool(changes["title"]))
         db.commit()
         db.refresh(source)
         return source

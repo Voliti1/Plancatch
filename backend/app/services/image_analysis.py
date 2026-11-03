@@ -1,6 +1,7 @@
 """Opt-in image/PDF analysis with evidence and explicit review."""
 import base64
 import uuid
+from contextlib import suppress
 from datetime import datetime
 
 from pydantic import ValidationError
@@ -9,6 +10,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
 from app.models.analysis import Analysis
+from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.analysis import FileResult
 from app.services.ai_analysis import AIError, provider_request, slots
@@ -18,8 +20,20 @@ from app.services.deadline_dates import (
     closing_choice,
     resolved_warnings,
 )
+from app.services.file_source_metadata import (
+    analyze_metadata,
+    lock_file_owner,
+    metadata_key,
+    reusable_files,
+    reusable_review,
+)
 from app.services.pdf_analysis import SCAN_CONSENT_REQUIRED, analyze_pdf
-from app.services.source_images import FILE_EXTENSIONS, file_hash, read_file
+from app.services.source_images import (
+    FILE_EXTENSIONS,
+    file_hash,
+    read_file,
+    remove_file,
+)
 
 
 def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
@@ -114,8 +128,11 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
             if source is None or source.user_id != analysis.user_id or source.source_type not in FILE_EXTENSIONS:
                 raise AIError("ai_input_invalid")
             source_type = source.source_type
+            user_id = source.user_id
             key, model, digest = source.storage_key, analysis.model.removeprefix(f"{source_type}:"), analysis.input_hash
-            source_title = (source.title or "").strip()
+            title_entered = (source.file_metadata or {}).get("title_entered", bool(source.title))
+            source_title = (source.title or "").strip() if title_entered else ""
+        metadata = None
         try:
             data = read_file(key, source_type)
             if source_type == "pdf":
@@ -123,6 +140,7 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
             else:
                 result = analyze_file(data, model, source_type)
                 output_model = f"image:{model}"
+            metadata = analyze_metadata(result, title_entered=title_entered)
             if source_title:
                 for item in result.deadlines:
                     item.title = source_title
@@ -134,11 +152,37 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
         except Exception:  # noqa: BLE001 -- never store provider responses/credentials
             values = {"status":"failed", "error_message":"ai_processing_failed"}
         with Session(engine) as db:
+            if metadata_key(metadata):
+                lock_file_owner(db, user_id)
             # Same parent-before-child locking as source deletion and approval.
             source = db.scalar(select(Source).where(Source.id == source_id).with_for_update())
             analysis = db.scalar(select(Analysis).where(Analysis.id == analysis_id).with_for_update())
             if (source and analysis and analysis.status == "processing" and source.source_type == source_type
                     and digest == file_hash(source.storage_key, source_type)):
+                prior_key = metadata_key(source.file_metadata)
+                new_key = metadata_key(metadata)
+                if (new_key and not prior_key and source.original_filename
+                        and db.scalar(select(Deadline.id).where(Deadline.source_id == source.id).limit(1)) is None
+                        and db.scalar(select(Analysis.id).where(
+                            Analysis.source_id == source.id, Analysis.id != analysis.id,
+                            Analysis.status.in_(("ready", "approved", "rejected")),
+                        ).limit(1)) is None):
+                    for existing in reusable_files(db, user_id, source_type, source.original_filename):
+                        if (existing.id == source.id or metadata_key(existing.file_metadata) != new_key
+                                or (source_title and source_title != existing.title)):
+                            continue
+                        canonical = reusable_review(db, existing)
+                        if canonical is None:
+                            continue
+                        analysis.status = "ready"
+                        analysis.source_id = existing.id
+                        analysis.reused_analysis_id = canonical.id
+                        db.flush()
+                        db.delete(source)
+                        db.commit()
+                        with suppress(OSError):
+                            remove_file(key)
+                        return
                 for name, value in values.items():
                     setattr(analysis, name, value)
                 needs_consent = values["error_message"] == SCAN_CONSENT_REQUIRED
@@ -148,6 +192,9 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
                 source.error_message = None if needs_consent else values["error_message"]
                 if values["status"] == "ready":
                     source.extracted_text = values["input_text"]
+                    source.file_metadata = metadata
+                    if not title_entered and metadata and metadata["document_title"]:
+                        source.title = metadata["document_title"]
                 db.commit()
     finally:
         slots.release()

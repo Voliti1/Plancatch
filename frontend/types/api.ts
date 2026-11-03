@@ -15,6 +15,12 @@ export interface Source {
   id: string;
   source_type: string;
   title: string | null;
+  original_filename?: string | null;
+  file_metadata?: {
+    document_title: string | null;
+    company_name: string | null;
+    deadlines: string[];
+  } | null;
   original_url: string | null;
   original_text: string | null;
   extracted_text: string | null;

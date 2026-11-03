@@ -41,6 +41,12 @@ class SourceUpdate(BaseModel):
     original_text: str | None = Field(default=None, min_length=1)
 
 
+class FileMetadata(BaseModel):
+    document_title: str | None = None
+    company_name: str | None = None
+    deadlines: list[datetime] = Field(default_factory=list)
+
+
 class SourceResponse(BaseModel):
     """Source material returned to its owner."""
 
@@ -49,6 +55,8 @@ class SourceResponse(BaseModel):
     id: uuid.UUID
     source_type: str
     title: str | None
+    original_filename: str | None = None
+    file_metadata: FileMetadata | None = None
     original_url: str | None
     storage_key: str | None
     original_text: str | None
