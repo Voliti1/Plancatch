@@ -199,7 +199,7 @@ test("new connection explanation describes future automatic changes", async ({
   await login(page);
   await page.goto("/settings/google-calendar");
   await expect(
-    page.getByText(/플랜캐치에 등록·수정·삭제하는 일정이/),
+    page.getByText(/플랜캐치에서 등록·수정·삭제하는 일정이 Google 캘린더에 자동으로 반영/),
   ).toBeVisible();
   await expect(
     page.getByText(/다른 앱에서 만든 Google 일정은 변경하지/),
