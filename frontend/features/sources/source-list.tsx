@@ -48,10 +48,6 @@ export function SourceList() {
           }
         }}
       />
-      <div className="notice subtle">
-        새 일정 등록하기에서 저장한 자료를 모아 보여줍니다. 상세 화면에서 원문과
-        마감일 검토 결과를 확인할 수 있습니다.
-      </div>
       <ListDeleteNotice
         deletion={deletion}
         consequence="마감일이 등록된 자료는 삭제할 수 없습니다. 삭제 가능한 자료의 분석 기록은 함께 삭제되며 Google 일정은 유지됩니다."
