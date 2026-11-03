@@ -21,6 +21,7 @@ export default function WorkspaceLayout({
   const { user, loading, error, logout, refresh } = useAuth();
   const router = useRouter();
   const path = usePathname();
+  const isNewRegistration = path === "/sources/new";
   useEffect(() => {
     if (!loading && !user && !error) router.replace("/login");
   }, [loading, user, error, router]);
@@ -53,9 +54,10 @@ export default function WorkspaceLayout({
               key={href}
               href={href}
               aria-current={
-                path.startsWith(href) ||
-                (href === "/sources" && path.startsWith("/analyses/")) ||
-                (href === "/deadlines" && path.startsWith("/tasks"))
+                !isNewRegistration &&
+                (path.startsWith(href) ||
+                  (href === "/sources" && path.startsWith("/analyses/")) ||
+                  (href === "/deadlines" && path.startsWith("/tasks")))
                   ? "page"
                   : undefined
               }
