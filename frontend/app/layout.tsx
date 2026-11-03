@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthProvider } from "@/features/auth/provider";
+import { UnsavedChangesProvider } from "@/lib/unsaved-changes";
 import "./globals.css";
 import "./theme.css";
 import "./readability-preview.css";
@@ -22,7 +23,9 @@ export default function RootLayout({
         />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          <UnsavedChangesProvider>{children}</UnsavedChangesProvider>
+        </AuthProvider>
       </body>
     </html>
   );

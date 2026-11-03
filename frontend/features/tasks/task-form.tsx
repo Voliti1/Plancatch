@@ -5,6 +5,7 @@ import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { ScheduleType, Task, TaskInput } from "@/types/task";
 import type { DeadlineInput } from "@/types/api";
 import type { NaturalScheduleDraft } from "@/types/natural-schedule";
@@ -38,6 +39,7 @@ export function TaskForm({
   disabled = false,
   submitDisabled = false,
   onUserEdit,
+  cancelPreservesInput = false,
   variant = "task",
 }: {
   initial?: Task;
@@ -50,6 +52,7 @@ export function TaskForm({
   disabled?: boolean;
   submitDisabled?: boolean;
   onUserEdit?: () => void;
+  cancelPreservesInput?: boolean;
   variant?: "task" | "calendar";
 }) {
   const simple = variant === "calendar";
@@ -94,6 +97,24 @@ export function TaskForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const submitting = useRef(false);
+  const { markSaved, confirmDiscard } = useUnsavedChanges(
+    JSON.stringify([
+      registrationKind,
+      title,
+      description,
+      deadline,
+      minutes,
+      priority,
+      scheduleType,
+      start,
+      end,
+      completed,
+      reminders,
+    ]),
+  );
+  function cancel() {
+    if (cancelPreservesInput || confirmDiscard()) onCancel();
+  }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -119,6 +140,7 @@ export function TaskForm({
           safety_buffer_minutes: null,
           is_confirmed: true,
         });
+        markSaved();
         return;
       }
       if (requireTimes && (!start || !end))
@@ -161,6 +183,7 @@ export function TaskForm({
         latest_end: latest,
         is_completed: completed,
       });
+      markSaved();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -407,7 +430,7 @@ export function TaskForm({
         )}
         {error && <ErrorNotice message={error} />}
         <div className="form-actions">
-          <button type="button" className="secondary" onClick={onCancel}>
+          <button type="button" className="secondary" onClick={cancel}>
             취소
           </button>
           <button type="submit" disabled={submitDisabled}>
@@ -422,7 +445,7 @@ export function TaskForm({
         </div>
       </fieldset>
       {!isDeadline && options.error && (
-        <button type="button" className="secondary" onClick={onCancel}>
+        <button type="button" className="secondary" onClick={cancel}>
           돌아가기
         </button>
       )}

@@ -1,4 +1,5 @@
 "use client";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { useId, useRef, useState } from "react";
 import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
@@ -42,6 +43,9 @@ export function EventForm({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
+  const { markSaved, confirmDiscard } = useUnsavedChanges(
+    JSON.stringify([start, end, status]),
+  );
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current || blocked || !hydrated) return;
@@ -66,6 +70,7 @@ export function EventForm({
     setBusy(true);
     try {
       await onSave({ start_at, end_at, status });
+      markSaved();
     } catch (error) {
       setError(errorMessage(error));
     } finally {
@@ -119,7 +124,13 @@ export function EventForm({
         </p>
         {error && <ErrorNotice message={error} />}
         <div className="form-actions">
-          <button className="secondary" type="button" onClick={onCancel}>
+          <button
+            className="secondary"
+            type="button"
+            onClick={() => {
+              if (confirmDiscard()) onCancel();
+            }}
+          >
             닫기
           </button>
           <button type="submit" disabled={blocked}>

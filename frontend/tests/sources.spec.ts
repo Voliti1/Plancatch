@@ -48,6 +48,7 @@ test("source detail, URL edit, cancel and confirmed deletion", async ({
   ).not.toBeVisible();
   await page.getByRole("button", { name: "자료 수정", exact: true }).click();
   await page.getByLabel("일정 제목 (선택)").fill("취소할 제목");
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("button", { name: "취소", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "프로젝트 안내", exact: true }),

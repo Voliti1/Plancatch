@@ -52,7 +52,9 @@ test("save failure never approves and retains inputs for a one click retry", asy
       : route.fallback(),
   );
   await register(page).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("저장 검사 실패");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "저장 검사 실패",
+  );
   expect(approvals).toBe(0);
   expect(state.deadlines).toHaveLength(0);
   await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
@@ -85,7 +87,9 @@ test("failed approval keeps acknowledged revision and retries without saving aga
       : route.fallback(),
   );
   await register(page).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("등록 검사 실패");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "등록 검사 실패",
+  );
   expect(patches).toBe(1);
   expect(state.deadlines).toHaveLength(0);
   await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
@@ -158,7 +162,9 @@ test("a changed revision blocks registration and preserves edited values", async
   await page.getByLabel("후보 1 제목", { exact: true }).fill("충돌 시 유지");
   state.analyses[0].revision = 2;
   await register(page).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText("버전이 바뀌었습니다");
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "버전이 바뀌었습니다",
+  );
   await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
     "충돌 시 유지",
   );
@@ -188,6 +194,7 @@ test("leaving while edits save cancels the following approval", async ({
   });
   await register(page).click();
   await saving;
+  page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("navigation")
     .getByRole("link", { name: "일정", exact: true })

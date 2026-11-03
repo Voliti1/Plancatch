@@ -7,6 +7,7 @@ import { PageHeading } from "@/components/page-heading";
 import { useAuth } from "@/features/auth/provider";
 import { analysisError } from "@/features/analyses/errors";
 import { useHydrated } from "@/lib/use-hydrated";
+import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import {
   registerAutomatically,
   type RegistrationDraft,
@@ -59,6 +60,10 @@ function RegistrationSession({ userId }: { userId: string }) {
   const pending = useRef(false);
   const controller = useRef<AbortController | null>(null);
   const router = useRouter();
+  const { markSaved, confirmDiscard } = useUnsavedChanges(
+    JSON.stringify([draft.title, draft.url]),
+    !draft.sourceId,
+  );
   useEffect(() => () => controller.current?.abort(), []);
   function save(next: RegistrationDraft) {
     // A late response from a hidden/unmounted route must not overwrite a new run.
@@ -72,6 +77,8 @@ function RegistrationSession({ userId }: { userId: string }) {
     }
   }
   function reset() {
+    if (!confirmDiscard()) return;
+    markSaved(JSON.stringify(["", ""]));
     try {
       sessionStorage.removeItem(storageKey);
     } catch {

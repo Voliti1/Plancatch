@@ -246,6 +246,7 @@ test("new registration does not retain unsubmitted inputs after dashboard naviga
   await mockApi(page);
   await fill(page);
   await page.getByRole("checkbox").check();
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("link", { name: "← 대시보드" }).click();
   await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
@@ -483,6 +484,7 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
         ),
       });
     const before = page.url();
+    page.once("dialog", (dialog) => dialog.accept());
     await button.click();
     await expect(page).not.toHaveURL(before);
     await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("");
@@ -663,7 +665,9 @@ test("source library uses the shared sidebar registration entry for URL and text
   await login(page);
   await page.getByRole("link", { name: "원본 자료", exact: true }).click();
   await expect(page.getByRole("link", { name: "＋ 자료 등록" })).toHaveCount(0);
-  await page.getByRole("link", { name: "새 일정 등록하기", exact: true }).click();
+  await page
+    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .click();
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
