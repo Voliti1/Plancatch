@@ -272,7 +272,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           </p>
           {data.status === "ready" ? (
             <ReviewEditor
-              key={`${data.id}-${data.revision}`}
+              key={data.id}
               analysis={data}
               now={now}
               onUpdated={(result, message) => {
