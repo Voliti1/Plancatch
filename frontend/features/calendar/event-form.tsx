@@ -5,6 +5,11 @@ import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { useHydrated } from "@/lib/use-hydrated";
 import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
+import {
+  OverlapWarning,
+  OverlapScope,
+  useOverlapCheck,
+} from "./overlap-warning";
 import type { Task } from "@/types/task";
 import type {
   EditableEventStatus,
@@ -43,6 +48,7 @@ export function EventForm({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const pending = useRef(false);
+  const overlap = useOverlapCheck();
   const { markSaved, confirmDiscard } = useUnsavedChanges(
     JSON.stringify([start, end, status]),
   );
@@ -69,6 +75,20 @@ export function EventForm({
     pending.current = true;
     setBusy(true);
     try {
+      if (
+        status === "approved" &&
+        (!initial ||
+          initial.status !== status ||
+          Date.parse(start_at) !== Date.parse(initial.start_at) ||
+          Date.parse(end_at) !== Date.parse(initial.end_at)) &&
+        !(await overlap.check({
+          start_at,
+          end_at,
+          placement_task_id: task.id,
+          ...(initial ? { exclude_event_id: initial.id } : {}),
+        }))
+      )
+        return;
       await onSave({ start_at, end_at, status });
       markSaved();
     } catch (error) {
@@ -79,7 +99,12 @@ export function EventForm({
     }
   }
   return (
-    <form className="event-form" onSubmit={submit} noValidate>
+    <form
+      className="event-form"
+      onSubmit={submit}
+      onChangeCapture={overlap.clear}
+      noValidate
+    >
       <h3>{initial ? "배치 시간 수정" : "캘린더에 배치"}</h3>
       <fieldset disabled={busy || !hydrated}>
         <div className="form-grid">
@@ -119,9 +144,10 @@ export function EventForm({
           </label>
         )}
         <p className="small muted">
-          한국 시간 기준입니다. 일정의 가능 기간은 바꾸지 않습니다. 시간
-          겹침이나 마감일 충돌은 자동으로 검사하지 않습니다.
+          한국 시간 기준입니다. 일정의 가능 기간은 바꾸지 않습니다.
         </p>
+        <OverlapScope />
+        <OverlapWarning check={overlap} busy={busy || blocked} />
         {error && <ErrorNotice message={error} />}
         <div className="form-actions">
           <button
@@ -134,7 +160,13 @@ export function EventForm({
             닫기
           </button>
           <button type="submit" disabled={blocked}>
-            {busy ? "저장 중…" : initial ? "배치 변경 저장" : "캘린더에 배치"}
+            {busy
+              ? overlap.checking
+                ? "겹침 확인 중…"
+                : "저장 중…"
+              : initial
+                ? "배치 변경 저장"
+                : "캘린더에 배치"}
           </button>
         </div>
       </fieldset>
