@@ -37,6 +37,11 @@ export async function mockApi(
     const path = url.pathname.replace("/test-api", "");
     const method = request.method();
     if (
+      path === "/api/integrations/google-calendar/auto-sync/deletions" &&
+      method === "GET"
+    )
+      return route.fulfill({ json: { entries: [], has_more: false } });
+    if (
       path === "/api/integrations/google-calendar/auto-sync" &&
       method === "GET"
     )

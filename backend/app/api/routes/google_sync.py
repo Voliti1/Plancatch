@@ -1,9 +1,10 @@
 """Owned automatic synchronization status and an explicit recovery action."""
 import uuid
+from datetime import timedelta
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Response
-from sqlalchemy import select
+from fastapi import APIRouter, HTTPException, Query, Response
+from sqlalchemy import and_, exists, or_, select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.google_calendar import SAFE_HEADERS
@@ -40,12 +41,7 @@ def owned(db, user_id, kind, item_id):
     return local, row
 
 
-@router.get("")
-def status(current_user: CurrentUser, db: DatabaseSession, response: Response,
-           kind: Literal["deadline", "task", "event"], item_id: uuid.UUID):
-    response.headers.update(SAFE_HEADERS)
-    local, row = owned(db, current_user.id, kind, item_id)
-    connection = db.get(GoogleCalendarConnection, current_user.id)
+def delivery_state(row, connection):
     if connection is None:
         return {"state": "not_connected", "note": "Google 계정을 연결하면 이후 등록·수정·삭제가 자동 반영됩니다.", "retryable": False}
     if row and row.connection_binding != transport.binding(connection):
@@ -57,6 +53,49 @@ def status(current_user: CurrentUser, db: DatabaseSession, response: Response,
         return {"state": "failed", "note": MESSAGES.get(row.error_code, "Google 반영을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."), "retryable": True}
     if row and row.deleted_at:
         return {"state": "deleted", "note": "Google 캘린더에서도 삭제되었습니다.", "retryable": False}
+
+
+@router.get("/deletions")
+def list_deletions(current_user: CurrentUser, db: DatabaseSession, response: Response,
+                   limit: int = Query(20, ge=1, le=50), offset: int = Query(0, ge=0)):
+    response.headers.update(SAFE_HEADERS)
+    missing = or_(*[
+        and_(GoogleExport.kind == kind, ~exists().where(
+            model.id == GoogleExport.item_id, model.user_id == current_user.id))
+        for kind, model in (("deadline", Deadline), ("task", Task), ("event", ScheduledEvent))
+    ])
+    completed = and_(GoogleExport.deleted_at.is_not(None),
+                     GoogleExport.sync_pending.is_(False), GoogleExport.error_code.is_(None))
+    rows = list(db.scalars(select(GoogleExport).where(
+        GoogleExport.user_id == current_user.id, missing,
+        or_(~completed, GoogleExport.deleted_at >= sync.now() - timedelta(hours=24)),
+    ).order_by(completed,
+               GoogleExport.deleted_at.desc(), GoogleExport.created_at.desc(), GoogleExport.id)
+      .offset(offset).limit(limit + 1)))
+    connection = db.get(GoogleCalendarConnection, current_user.id)
+    entries = []
+    for row in rows[:limit]:
+        if row.deleted_at and not row.sync_pending and not row.error_code:
+            state = {"state": "deleted", "note": "Google 캘린더에서도 삭제되었습니다.", "retryable": False}
+        else:
+            state = delivery_state(row, connection) or {
+                "state": "ready", "note": "Google 캘린더 삭제를 다시 요청해 주세요.", "retryable": True}
+            if state["state"] == "pending":
+                state = {**state, "note": "Google 캘린더에서 삭제하고 있습니다."}
+        entries.append({"kind": row.kind, "item_id": row.item_id,
+                        "title": row.payload["summary"], **state})
+    return {"entries": entries, "has_more": len(rows) > limit}
+
+
+@router.get("")
+def status(current_user: CurrentUser, db: DatabaseSession, response: Response,
+           kind: Literal["deadline", "task", "event"], item_id: uuid.UUID):
+    response.headers.update(SAFE_HEADERS)
+    local, row = owned(db, current_user.id, kind, item_id)
+    connection = db.get(GoogleCalendarConnection, current_user.id)
+    state = delivery_state(row, connection)
+    if state is not None:
+        return state
     if row and local is None:
         return {"state": "ready", "note": "플랜캐치에서 이미 삭제한 일정입니다. 지금 동기화하면 Google 사본도 삭제합니다.", "retryable": True}
     if row and row.status == "sent":
