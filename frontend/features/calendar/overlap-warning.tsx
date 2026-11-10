@@ -13,6 +13,8 @@ export type OverlapInput = {
   exclude_task_id?: string;
   exclude_event_id?: string;
   placement_task_id?: string;
+  exclude_occurrence_task_id?: string;
+  exclude_occurrence_start?: string;
 };
 type Result = {
   conflicts: {
@@ -133,7 +135,7 @@ export function OverlapWarning({
             {result.conflicts.map((item) => (
               <li key={`${item.kind}:${item.id}:${item.start_at}`}>
                 <Link
-                  href={`/tasks/${encodeURIComponent(item.task_id)}`}
+                  href={`/tasks/${encodeURIComponent(item.task_id)}${item.is_recurring ? `?${new URLSearchParams({ occurrence: item.start_at })}` : ""}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >

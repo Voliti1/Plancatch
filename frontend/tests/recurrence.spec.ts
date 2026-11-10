@@ -16,7 +16,7 @@ test("direct repeat registration, series editing and removal of recurrence", asy
   await page.getByLabel("반복 종료", { exact: true }).selectOption("count");
   await page.getByLabel("반복 횟수 (첫 일정 포함)", { exact: true }).fill("5");
   await expect(
-    page.getByText("수정·삭제는 반복 일정 전체에 적용됩니다.", {
+    page.getByText("이번 일정만 수정·삭제할 수 있습니다.", {
       exact: false,
     }),
   ).toBeVisible();

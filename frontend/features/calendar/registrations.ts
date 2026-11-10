@@ -10,6 +10,8 @@ export interface CalendarRegistration {
   is_confirmed: boolean;
   is_completed: boolean;
   is_recurring?: boolean;
+  series_id?: string | null;
+  original_start?: string | null;
 }
 export function readRegistrations(
   start: string,
@@ -31,5 +33,8 @@ export function registrationOnDay(item: CalendarRegistration, day: string) {
     : start >= first && start < last;
 }
 export function registrationHref(item: CalendarRegistration) {
-  return `/${item.kind === "deadline" ? "deadlines" : "tasks"}/${encodeURIComponent(item.id)}`;
+  const href = `/${item.kind === "deadline" ? "deadlines" : "tasks"}/${encodeURIComponent(item.id)}`;
+  return item.is_recurring
+    ? `${href}?${new URLSearchParams({ occurrence: item.original_start ?? item.start_at })}`
+    : href;
 }

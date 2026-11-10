@@ -357,12 +357,12 @@ def read_google_events(
             task = tasks.get(row.item_id) if row and item.recurring_event_id else None
             if (row and task and task.recurrence and item.start_at and item.end_at
                     and item.title == row.payload["summary"]
-                    and google_rule(task.recurrence) == row.payload.get("recurrence")
+                    and google_rule(task.recurrence, task.excluded_starts) == row.payload.get("recurrence")
                     and task.earliest_start and task.latest_end
                     and _utc(task.earliest_start) == datetime.fromisoformat(row.payload["start"]["dateTime"])
                     and _utc(task.latest_end) == datetime.fromisoformat(row.payload["end"]["dateTime"])
                     and (item.start_at, item.end_at) in occurrences(task.earliest_start, task.latest_end,
-                        task.recurrence, item.start_at, item.end_at)):
+                        task.recurrence, item.start_at, item.end_at, excluded=task.excluded_starts)):
                 item.local_kind, item.local_item_id = row.kind, row.item_id
                 continue
             if (row and item.start_at and item.end_at and item.title == row.payload["summary"]

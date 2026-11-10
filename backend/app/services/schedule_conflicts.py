@@ -62,9 +62,12 @@ def preview(db, user_id, request, *, now=None):
                 "proposed_end_at":proposed[index][1],"is_recurring":recurring})
 
     for task in rows[:MAX_ROWS]:
-        dates = occurrences(task.earliest_start, task.latest_end, task.recurrence, first, last, MAX_OCCURRENCES)
+        dates = occurrences(task.earliest_start, task.latest_end, task.recurrence, first, last,
+                            MAX_OCCURRENCES, excluded=task.excluded_starts)
         limited = limited or len(dates) == MAX_OCCURRENCES
         for at, finish in dates:
+            if task.id == request.exclude_occurrence_task_id and at == request.exclude_occurrence_start:
+                continue
             add("task", task.id, task.id, task.title, at, finish, bool(task.recurrence))
     for event, title in blocks[:MAX_ROWS]:
         add("event", event.id, event.task_id, title, utc(event.start_at), utc(event.end_at))

@@ -71,6 +71,7 @@ class TaskUpdate(TaskTimes):
     earliest_start: AwareDatetime | None = None
     latest_end: AwareDatetime | None = None
     is_completed: bool | None = None
+    reset_occurrences: bool = False
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "TaskUpdate":
@@ -88,6 +89,9 @@ class TaskResponse(BaseModel):
     title: str
     description: str | None
     recurrence: Recurrence | None = None
+    series_id: uuid.UUID | None = None
+    original_start: datetime | None = None
+    exception_count: int = 0
     google_reminders: GoogleReminders | None = None
     estimated_minutes: int | None
     priority: int
@@ -98,3 +102,11 @@ class TaskResponse(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+
+
+class OccurrenceUpdate(TaskUpdate):
+    @model_validator(mode="after")
+    def single_only(self):
+        if self.model_fields_set & {"recurrence", "reset_occurrences", "schedule_type", "deadline_id"}:
+            raise ValueError("이번 일정의 제목·시간·메모·소요시간·우선순위·알림만 수정할 수 있습니다.")
+        return self

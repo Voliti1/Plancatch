@@ -104,7 +104,7 @@ def enqueue_task(db, user_id, task_id, *, force=False):
     if item and not events and item.schedule_type == "fixed" and item.earliest_start and item.latest_end:
         desired = payload(item.title, item.earliest_start, item.latest_end, item.google_reminders)
         if desired and item.recurrence:
-            desired["recurrence"] = google_rule(item.recurrence)
+            desired["recurrence"] = google_rule(item.recurrence, item.excluded_starts)
     enqueue(db, user_id, "task", task_id, desired, task_id, force=force)
     known = {event.id for event in events}
     for event in events:

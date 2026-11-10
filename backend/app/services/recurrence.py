@@ -26,7 +26,7 @@ def validate(rule, schedule_type, start, end):
         raise ValueError("반복 종료일은 첫 일정 날짜 이후로 설정해 주세요.")
 
 
-def google_rule(rule):
+def google_rule(rule, excluded=()):
     if not rule:
         return []
     value = Recurrence.model_validate(rule)
@@ -36,7 +36,11 @@ def google_rule(rule):
     if value.until is not None:
         last = datetime.combine(value.until, time(23, 59, 59), SEOUL).astimezone(UTC)
         parts.append("UNTIL=" + last.strftime("%Y%m%dT%H%M%SZ"))
-    return ["RRULE:" + ";".join(parts)]
+    lines = ["RRULE:" + ";".join(parts)]
+    if excluded:
+        dates = sorted({utc(datetime.fromisoformat(at)).strftime("%Y%m%dT%H%M%SZ") for at in excluded})
+        lines.append("EXDATE:" + ",".join(dates))
+    return lines
 
 
 def same_google_rule(first, second):
@@ -44,9 +48,32 @@ def same_google_rule(first, second):
     def normalized(lines):
         if not lines:
             return {}
-        if not isinstance(lines, list) or len(lines) != 1 or not isinstance(lines[0], str):
+        if not isinstance(lines, list) or not lines or not all(isinstance(line, str) for line in lines):
             raise ValueError
-        prefix, content = lines[0].upper().split(":", 1)
+        rules = [line for line in lines if line.upper().startswith("RRULE:")]
+        if len(rules) != 1:
+            raise ValueError
+        excluded = set()
+        for line in lines:
+            if line in rules:
+                continue
+            prefix, dates = line.upper().split(":", 1)
+            options = prefix.split(";")
+            if options[0] != "EXDATE" or len(options) != len(set(options)):
+                raise ValueError
+            parameters = dict(option.split("=", 1) for option in options[1:])
+            if len(parameters) != len(options) - 1 or set(parameters) - {"VALUE", "TZID"}:
+                raise ValueError
+            if parameters.get("VALUE", "DATE-TIME") != "DATE-TIME" or parameters.get("TZID", "UTC") not in {"UTC", "ASIA/SEOUL"}:
+                raise ValueError
+            for value in dates.split(","):
+                zone = SEOUL if parameters.get("TZID") == "ASIA/SEOUL" else UTC
+                if value.endswith("Z"):
+                    zone, value = UTC, value[:-1]
+                elif "TZID" not in parameters:
+                    raise ValueError
+                excluded.add(datetime.strptime(value, "%Y%m%dT%H%M%S").replace(tzinfo=zone).astimezone(UTC).isoformat())
+        prefix, content = rules[0].upper().split(":", 1)
         if prefix != "RRULE":
             raise ValueError
         values = {}
@@ -59,19 +86,20 @@ def same_google_rule(first, second):
             del values["INTERVAL"]
         if values.get("WKST") == "MO":
             del values["WKST"]
-        return values
+        return values, excluded
     try:
         return normalized(first) == normalized(second)
     except (TypeError, ValueError):
         return False
 
 
-def occurrences(start, end, rule, first, last, limit=1001):
+def occurrences(start, end, rule, first, last, limit=1001, *, excluded=()):
     """Half-open overlap range; monthly 29/30/31 skips nonexistent dates."""
     start, end, first, last = map(utc, (start, end, first, last))
     if not rule:
         return [(start, end)] if start < last and end > first else []
     value = Recurrence.model_validate(rule)
+    excluded = {utc(datetime.fromisoformat(at)) for at in excluded or ()}
     anchor = start.astimezone(SEOUL)
     duration = end - start
     step = value.interval * (7 if value.frequency == "weekly" else 1)
@@ -106,7 +134,7 @@ def occurrences(start, end, rule, first, last, limit=1001):
         if at >= last or (value.until and at.astimezone(SEOUL).date() > value.until):
             break
         seen += 1
-        if finish > first:
+        if finish > first and at not in excluded:
             result.append((at, finish))
         index += 1
     return result

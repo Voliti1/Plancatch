@@ -73,6 +73,14 @@ export function TaskDetail({ id }: { id: string }) {
                 </span>
               </div>
               <h2>{data.title}</h2>
+              {data.series_id && (
+                <p className="notice">
+                  반복 일정에서 개별 변경한 일정입니다.{" "}
+                  <Link href={`/tasks/${encodeURIComponent(data.series_id)}`}>
+                    전체 반복 설정 보기 →
+                  </Link>
+                </p>
+              )}
               {editing ? (
                 <TaskForm
                   initial={data}
@@ -167,6 +175,12 @@ export function TaskDetail({ id }: { id: string }) {
                   <p className="small">
                     반복: {recurrenceSummary(data.recurrence)}
                   </p>
+                  {data.recurrence && (
+                    <p className="small muted">
+                      개별 변경·삭제 {data.exception_count ?? 0}회. 종료일을
+                      앞당기면 그 이후의 개별 변경도 함께 제외됩니다.
+                    </p>
+                  )}
                   <p className="small">
                     구글 캘린더 알림: {reminderSummary(data.google_reminders)}
                   </p>

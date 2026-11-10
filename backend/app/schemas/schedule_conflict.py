@@ -23,6 +23,8 @@ class ConflictCheck(BaseModel):
     exclude_task_id: uuid.UUID | None = None
     exclude_event_id: uuid.UUID | None = None
     placement_task_id: uuid.UUID | None = None
+    exclude_occurrence_task_id: uuid.UUID | None = None
+    exclude_occurrence_start: AwareDatetime | None = None
 
     @field_validator("start_at", "end_at")
     @classmethod
@@ -34,6 +36,8 @@ class ConflictCheck(BaseModel):
 
     @model_validator(mode="after")
     def window(self):
+        if bool(self.exclude_occurrence_task_id) != bool(self.exclude_occurrence_start):
+            raise ValueError("개별 일정의 원래 날짜와 반복 일정을 함께 지정해 주세요.")
         if self.start_at >= self.end_at:
             raise ValueError("종료 일시는 시작 일시보다 늦게 설정해 주세요.")
         validate(self.recurrence, "fixed", self.start_at, self.end_at)
