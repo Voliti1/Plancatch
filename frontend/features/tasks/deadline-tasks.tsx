@@ -6,7 +6,13 @@ import { Pagination } from "@/components/pagination";
 import { useResource } from "@/lib/api/use-resource";
 import { tasksApi } from "./api";
 import { TaskRows } from "./task-rows";
-export function DeadlineTasks({ deadlineId }: { deadlineId: string }) {
+export function DeadlineTasks({
+  deadlineId,
+  onUpdated,
+}: {
+  deadlineId: string;
+  onUpdated?: () => void;
+}) {
   const [page, setPage] = useState(0);
   return (
     <section className="card form-card deadline-tasks">
@@ -24,6 +30,7 @@ export function DeadlineTasks({ deadlineId }: { deadlineId: string }) {
         deadlineId={deadlineId}
         page={page}
         onPage={setPage}
+        onUpdated={onUpdated}
       />
     </section>
   );
@@ -32,10 +39,12 @@ function DeadlineTaskPage({
   deadlineId,
   page,
   onPage,
+  onUpdated,
 }: {
   deadlineId: string;
   page: number;
   onPage: (page: number) => void;
+  onUpdated?: () => void;
 }) {
   const loader = useCallback(
     () => tasksApi.list({ deadline_id: deadlineId, offset: page * 50 }),
@@ -47,7 +56,13 @@ function DeadlineTaskPage({
   return (
     <>
       {data?.length ? (
-        <TaskRows tasks={data} onUpdated={reload} />
+        <TaskRows
+          tasks={data}
+          onUpdated={() => {
+            reload();
+            onUpdated?.();
+          }}
+        />
       ) : (
         <Empty title="연결된 작업이 없습니다">
           이 마감일을 준비할 첫 작업을 등록해 보세요.
