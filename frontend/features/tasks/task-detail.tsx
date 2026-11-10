@@ -12,6 +12,7 @@ import { TaskForm } from "./task-form";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 import "./schedule-overview.css";
 import { reminderSummary } from "@/features/google-calendar/reminder-settings";
+import { recurrenceSummary } from "./recurrence-settings";
 export function TaskDetail({ id }: { id: string }) {
   const loader = useCallback(() => tasksApi.get(id), [id]);
   const { data, error, loading, reload } = useResource(loader);
@@ -164,6 +165,9 @@ export function TaskDetail({ id }: { id: string }) {
                     </p>
                   </details>
                   <p className="small">
+                    반복: {recurrenceSummary(data.recurrence)}
+                  </p>
+                  <p className="small">
                     구글 캘린더 알림: {reminderSummary(data.google_reminders)}
                   </p>
                   <p className="muted small schedule-window-note">
@@ -200,6 +204,8 @@ export function TaskDetail({ id }: { id: string }) {
                 <div>
                   <h2>일정 삭제</h2>
                   <p className="muted">
+                    {data.recurrence &&
+                      "이 반복 일정 전체와 Google에 연결된 반복 일정이 삭제됩니다. "}
                     삭제한 일정은 복구할 수 없습니다. 연결된 마감일은
                     유지됩니다.
                   </p>

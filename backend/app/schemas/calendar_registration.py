@@ -15,6 +15,7 @@ class CalendarRegistration(BaseModel):
     end_at: datetime | None = None
     is_confirmed: bool = True
     is_completed: bool = False
+    is_recurring: bool = False
 
 
 class CalendarRegistrationsPage(BaseModel):

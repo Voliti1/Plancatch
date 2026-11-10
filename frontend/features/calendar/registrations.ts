@@ -9,6 +9,7 @@ export interface CalendarRegistration {
   end_at: string | null;
   is_confirmed: boolean;
   is_completed: boolean;
+  is_recurring?: boolean;
 }
 export function readRegistrations(
   start: string,

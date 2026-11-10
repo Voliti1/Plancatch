@@ -3,6 +3,8 @@ from typing import Literal
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
 
+from app.schemas.recurrence import Recurrence
+
 
 class NaturalScheduleRequest(BaseModel):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
@@ -17,3 +19,4 @@ class NaturalScheduleDraft(BaseModel):
     reference_at: AwareDatetime
     timezone: Literal["Asia/Seoul"] = "Asia/Seoul"
     notices: list[str]
+    recurrence: Recurrence | None = None

@@ -59,7 +59,9 @@ def create_event(
     db: DatabaseSession,
 ) -> ScheduledEvent:
     sync.lock_owner(db, current_user.id)
-    get_owned_task(payload.task_id, current_user.id, db)
+    task = get_owned_task(payload.task_id, current_user.id, db)
+    if task.recurrence:
+        raise HTTPException(409, "반복 일정은 일정 상세에서 전체 반복 시간을 수정해 주세요.")
     values = payload.model_dump()
     values["start_at"] = utc(payload.start_at)
     values["end_at"] = utc(payload.end_at)

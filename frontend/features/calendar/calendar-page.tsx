@@ -124,7 +124,7 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
     <div className="registered-day-events">
       <ul className="calendar-agenda">
         {entries.slice(page * 20, (page + 1) * 20).map((item) => (
-          <li key={`${item.kind}:${item.id}`}>
+          <li key={`${item.kind}:${item.id}:${item.start_at}`}>
             <Link
               href={registrationHref(item)}
               className="registered-event-title"
@@ -256,7 +256,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           day,
           bars: [
             ...saved.map((item) => ({
-              key: `${item.kind}:${item.id}`,
+              key: `${item.kind}:${item.id}:${item.start_at}`,
               title: item.title,
               kind: item.kind,
             })),
@@ -278,7 +278,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
   const timelineEntries = useMemo<TimetableEvent[]>(
     () => [
       ...registered.map((item) => ({
-        id: `${item.kind}:${item.id}`,
+        id: `${item.kind}:${item.id}:${item.start_at}`,
         title: item.title,
         kind:
           item.kind === "deadline" ? ("deadline" as const) : ("task" as const),

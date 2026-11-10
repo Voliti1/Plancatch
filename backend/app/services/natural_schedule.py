@@ -3,6 +3,8 @@ import re
 from datetime import date, datetime, time, timedelta, timezone
 
 from app.schemas.natural_schedule import NaturalScheduleDraft
+from app.schemas.recurrence import Recurrence
+from app.services.recurrence import occurrences
 
 SEOUL = timezone(timedelta(hours=9), "Asia/Seoul")
 DATE = re.compile(
@@ -45,6 +47,30 @@ def has_time_range(text: str, times: list[re.Match[str]]) -> bool:
 def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft:
     reference = (now or datetime.now(SEOUL)).astimezone(SEOUL)
     today = reference.date()
+    fixed_date = any(match["month"] for match in DATE.finditer(text))
+    implicit_date = False
+    recurrence = None
+    marker = re.search(r"매\s*일|매\s*주|격\s*주|매\s*월", text)
+    if marker:
+        word = re.sub(r"\s", "", marker.group())
+        recurrence = Recurrence(frequency={"매일": "daily", "매주": "weekly", "격주": "weekly", "매월": "monthly"}[word],
+                                interval=2 if word == "격주" else 1)
+        text = text[:marker.start()] + " " + text[marker.end():]
+        if recurrence.frequency == "monthly" and not DATE.search(text):
+            day_match = re.search(r"(?<!\d)(\d{1,2})\s*일(?!\s*(?:뒤|후))", text)
+            if day_match and 1 <= int(day_match[1]) <= 31:
+                for offset in range(13):
+                    month_index = today.year * 12 + today.month - 1 + offset
+                    try:
+                        candidate = date(month_index // 12, month_index % 12 + 1, int(day_match[1]))
+                    except ValueError:
+                        continue
+                    if candidate >= today:
+                        text = text[:day_match.start()] + candidate.strftime("%Y-%m-%d") + text[day_match.end():]
+                        break
+        if not DATE.search(text):
+            text = "오늘 " + text
+            implicit_date = True
     notices: list[str] = []
     spans: list[tuple[int, int]] = []
     dates: list[date | None] = []
@@ -62,7 +88,7 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
                  if not any(c.start() <= m.start() and c.end() >= m.end() for c in clocks)]
     duration_spans = [m.span() for m in durations]
     date_matches = list(DATE.finditer(text))
-    infer_date = bool(clocks) and not date_matches and not offsets
+    infer_date = bool(clocks) and (not date_matches or implicit_date) and not offsets
     is_range = has_time_range(text, clocks)
     relative_range = has_time_range(text, offsets)
     time_count = len(clocks) + len(offsets)
@@ -71,6 +97,8 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
         kind = "deadline" if time_count == 1 and not durations else "task"
     else:
         kind = "deadline" if re.search(r"마감|기한|제출|완료(?:해|하|해야)|까지", text) else "task"
+    if recurrence:
+        kind = "task"
     for m in date_matches:
         spans.append(m.span())
         try:
@@ -129,6 +157,9 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
                 notices.append("오전·오후 표시가 없는 시간은 24시간 기준입니다. 시간을 확인해 주세요.")
 
     duration = None
+    if recurrence and not durations and not is_range:
+        duration = 60
+        notices.append("종료 시간이 없어 1시간 일정으로 제안했습니다. 필요하면 수정해 주세요.")
     if durations:
         duration = minutes_in(durations[0])
         spans.extend(duration_spans)
@@ -146,7 +177,7 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
             notices.append("시간 표기를 확인해 주세요. 예: 오후 3시, 18:00.")
             blocked = True
     if re.search(r"매일|매주|매월|매년|격주|반복", text):
-        notices.append("반복 일정은 아직 지원하지 않습니다. 한 번 등록할 날짜를 직접 선택해 주세요.")
+        notices.append("반복 주기를 직접 선택해 주세요. 매일·매주·매월 반복을 지원합니다.")
         blocked = True
     if (len(date_matches) > (2 if is_range else 1) or len(clocks) > 2
             or (len(clocks) == 2 and not is_range) or len(durations) > 1):
@@ -256,7 +287,17 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
     if kind == "task" and end is None:
         notices.append("종료 시간을 직접 입력해 주세요.")
     moment = end if kind == "deadline" else start
+    if recurrence and start and end and start < reference and not fixed_date:
+        try:
+            choices = occurrences(start, end, recurrence,
+                reference + (end - start), reference + timedelta(days=370), limit=1)
+            start, end = choices[0] if choices else (None, None)
+            moment = start
+        except OverflowError:
+            start = end = None
+    if recurrence:
+        notices.append("반복 일정 전체를 등록합니다. 반복 주기와 종료 조건을 확인해 주세요.")
     if moment and moment < reference:
         notices.append("지금보다 이전 시각입니다. 날짜와 시간을 확인해 주세요.")
     return NaturalScheduleDraft(kind=kind, title=title, start_at=start, end_at=end,
-                                reference_at=reference, notices=list(dict.fromkeys(notices)))
+                                reference_at=reference, notices=list(dict.fromkeys(notices)), recurrence=recurrence)

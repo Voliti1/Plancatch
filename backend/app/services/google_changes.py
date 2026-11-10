@@ -27,12 +27,12 @@ def prevent_local_delete(db, user_id, kind, item_id):
         raise HTTPException(409, "Google 전송 상태를 먼저 확인하고 상세 화면에서 Google 삭제를 완료해 주세요.")
 
 
-def personal(item):
-    # Never issue meeting notifications or modify a recurring/imported event.
+def personal(item, *, allow_recurrence=False):
+    # Only our verified series masters are eligible; never an instance or meeting.
     organizer = item.get("organizer") or {}
     if not isinstance(organizer, dict):
         return False
-    return not (item.get("attendees") or item.get("recurrence") or item.get("recurringEventId")) and (
+    return not (item.get("attendees") or (item.get("recurrence") and not allow_recurrence) or item.get("recurringEventId")) and (
         item.get("eventType", "default") == "default"
         and organizer.get("self", True) is True
     )
@@ -48,7 +48,7 @@ def read_copy(token, row):
     status, item = transport.request(token, "GET", row.google_event_id)
     if status in {404, 410} or item.get("status") == "cancelled":
         return None
-    if not personal(item) or not transport.matches(item, row.google_event_id, row.id, row.payload):
+    if not personal(item, allow_recurrence=bool(row.payload.get("recurrence"))) or not transport.matches(item, row.google_event_id, row.id, row.payload):
         raise transport.ExportError(409, "conflict")
     etag = item.get("etag")
     if not isinstance(etag, str) or not 1 <= len(etag) <= 512 or any(c in etag for c in "\r\n"):
@@ -63,7 +63,7 @@ def change_once(token, row, intent):
         if intent["action"] == "delete":
             return True
         raise transport.ExportError(409, "conflict")
-    if not personal(item):
+    if not personal(item, allow_recurrence=bool(row.payload.get("recurrence") or intent["payload"].get("recurrence"))):
         raise transport.ExportError(409, "conflict")
     if intent["action"] == "update" and (
         properties(item).get("plancatchChange") == intent["id"]
@@ -78,6 +78,8 @@ def change_once(token, row, intent):
         body = {**intent["payload"], "extendedProperties": {"private": {
             **properties(item), "plancatchChange": intent["id"],
         }}}
+        if row.payload.get("recurrence") and not intent["payload"].get("recurrence"):
+            body["recurrence"] = []
         _, updated = transport.request(token, "PATCH", row.google_event_id, body, etag=intent["etag"])
         if (not transport.matches(updated, row.google_event_id, row.id, intent["payload"])
                 or properties(updated).get("plancatchChange") != intent["id"]):

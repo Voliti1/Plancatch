@@ -28,6 +28,7 @@ from app.services import google_changes as changes
 from app.services import google_events
 from app.services import google_export as transport
 from app.services.google_reminders import provider_value
+from app.services.recurrence import google_rule
 
 router = APIRouter(prefix=google.PREFIX + "/exports", tags=["google-calendar"])
 
@@ -137,6 +138,8 @@ def payload_for(db, user_id, target):
     reminders = provider_value(task.google_reminders if target.kind == "event" else item.google_reminders)
     if reminders is not None:
         result["reminders"] = reminders
+    if target.kind == "task" and item.recurrence:
+        result["recurrence"] = google_rule(item.recurrence)
     return result, task_id
 
 
