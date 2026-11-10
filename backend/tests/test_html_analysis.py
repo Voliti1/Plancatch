@@ -44,7 +44,8 @@ def test_reported_date_uses_exact_html_proof_without_model_generated_quotes():
     assert result.deadlines[0].evidence_text in text and result.warnings == []
 
 
-@pytest.mark.parametrize("url", [URL, URL.replace("/jobs/view", "/jobs/relay/view") + "&view_type=list#seq=0"])
+@pytest.mark.parametrize("url", [URL, URL.replace("/jobs/view", "/jobs/relay/view") + "&view_type=list#seq=0",
+                                 URL.replace("/jobs/view", "/jobs/relay/pop-view") + "&t_ref=main"])
 def test_route_worker_and_idempotent_registration_make_zero_ai_calls(monkeypatch, url):
     forbid_ai(monkeypatch)
     source_id, headers = source_ready(url=url)

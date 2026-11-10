@@ -532,8 +532,9 @@ def public_job_canonical(url: str, body: bytes, content_type: str) -> str | None
     This is a bounded site adapter, not a generic canonical/iframe crawler. The
     original document must already pass parse_page's login gate before calling.
     """
+    from app.services.saramin_period import is_job_url
     source = urlsplit(url)
-    if (source.hostname != "www.saramin.co.kr" or source.path != "/zf_user/jobs/relay/view"
+    if (not is_job_url(url) or source.path not in {"/zf_user/jobs/relay/view", "/zf_user/jobs/relay/pop-view"}
             or content_type.split(";", 1)[0].strip().lower() not in {"text/html", "application/xhtml+xml"}):
         return None
     try:

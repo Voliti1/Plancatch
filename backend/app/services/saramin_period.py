@@ -18,7 +18,7 @@ def is_job_url(url: str) -> bool:
         parts = urlsplit(url)
         ids = parse_qs(parts.query, keep_blank_values=True, max_num_fields=100).get("rec_idx", [])
         return (parts.scheme in {"http", "https"} and parts.hostname in {"www.saramin.co.kr", "saramin.co.kr"}
-                and parts.path in {"/zf_user/jobs/view", "/zf_user/jobs/relay/view"}
+                and parts.path in {"/zf_user/jobs/view", "/zf_user/jobs/relay/view", "/zf_user/jobs/relay/pop-view"}
                 and parts.port in {None, 80, 443} and parts.username is None and parts.password is None
                 and len(ids) == 1 and re.fullmatch(r"[0-9]{1,20}", ids[0]) is not None
                 and not any(ord(char) < 32 for char in url))
