@@ -23,6 +23,7 @@ class PreviewInput(BaseModel):
     )
     chunk_minutes: int = Field(default=60, strict=True, ge=15, le=240)
     include_google: bool = Field(default=True, strict=True)
+    replace_existing: bool = Field(default=False, strict=True)
 
     @field_validator("weekdays", mode="before")
     @classmethod

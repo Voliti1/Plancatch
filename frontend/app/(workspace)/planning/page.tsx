@@ -2,12 +2,15 @@ import { AutoSchedulePage } from "@/features/calendar/auto-schedule-page";
 export default async function Page({
   searchParams,
 }: {
-  searchParams: Promise<{ plan?: string | string[] }>;
+  searchParams: Promise<{ plan?: string | string[]; mode?: string }>;
 }) {
-  const { plan } = await searchParams;
+  const { plan, mode } = await searchParams;
   return (
     <AutoSchedulePage
-      key={typeof plan === "string" ? plan : "new"}
+      key={
+        typeof plan === "string" ? plan : mode === "replan" ? "replan" : "new"
+      }
+      initialReplace={mode === "replan"}
       initialPlanId={typeof plan === "string" ? plan : undefined}
     />
   );

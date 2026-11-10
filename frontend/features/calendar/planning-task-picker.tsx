@@ -27,10 +27,12 @@ export function PlanningTaskPicker({
   selected,
   onChange,
   onEdit,
+  replaceExisting = false,
 }: {
   selected: string[];
   onChange: (ids: string[]) => void;
   onEdit: () => void;
+  replaceExisting?: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
@@ -62,10 +64,10 @@ export function PlanningTaskPicker({
     useCallback(
       (signal: AbortSignal) =>
         api<Page>(
-          `/api/scheduling/tasks?${new URLSearchParams({ q: query })}`,
+          `/api/scheduling/tasks?${new URLSearchParams({ q: query, ...(replaceExisting ? { replace_existing: "true" } : {}) })}`,
           { signal },
         ),
-      [query],
+      [query, replaceExisting],
     ),
   );
   const close = () => setOpen(false);
@@ -186,8 +188,9 @@ export function PlanningTaskPicker({
               <>
                 {!sorted.length && (
                   <p className="notice">
-                    검색 결과가 없습니다. 다른 제목을 입력하거나 유동 작업을
-                    등록해 주세요.
+                    {replaceExisting
+                      ? "재배치할 할 일이 없습니다. 검색어를 바꾸거나 아직 시작하지 않은 확정 배치가 있는 유동 할 일을 확인해 주세요."
+                      : "검색 결과가 없습니다. 다른 제목을 입력하거나 유동 작업을 등록해 주세요."}
                   </p>
                 )}
                 {Array.from(groups, ([date, items]) => (
@@ -260,7 +263,7 @@ export function PlanningTaskPicker({
                           tasks.data?.next_offset ??
                           100;
                         const next = await api<Page>(
-                          `/api/scheduling/tasks?${new URLSearchParams({ q: key, offset: String(offset) })}`,
+                          `/api/scheduling/tasks?${new URLSearchParams({ q: key, offset: String(offset), ...(replaceExisting ? { replace_existing: "true" } : {}) })}`,
                           { signal: controller.signal },
                         );
                         if (

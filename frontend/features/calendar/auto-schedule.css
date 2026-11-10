@@ -172,6 +172,21 @@
 .planning-result {
   scroll-margin-top: 24px;
 }
+.planning-replacement {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 16px;
+  margin: 20px 0;
+}
+.planning-replacement ul {
+  max-height: 240px;
+  overflow: auto;
+  padding-left: 20px;
+}
+.planning-replacement li {
+  margin: 8px 0;
+  overflow-wrap: anywhere;
+}
 .auto-schedule .notice,
 .auto-schedule .success {
   overflow-wrap: anywhere;

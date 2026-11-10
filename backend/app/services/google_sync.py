@@ -158,6 +158,24 @@ def process_row(db, identity):
         return
     # A fixed task and its explicit placements cannot both exist as Google copies.
     if row.task_id and row.desired_payload is not None and row.status == "pending":
+        if row.kind == "event":
+            # Replanning removes old local blocks atomically, but Google changes
+            # are asynchronous. A new copy waits for obsolete copies to be
+            # acknowledged as deleted, including ones with a lost response.
+            obsolete = db.scalar(select(GoogleExport).where(
+                GoogleExport.user_id == row.user_id,
+                GoogleExport.task_id == row.task_id,
+                GoogleExport.kind == "event", GoogleExport.id != row.id,
+                GoogleExport.connection_binding == row.connection_binding,
+                GoogleExport.deleted_at.is_(None), GoogleExport.desired_payload.is_(None),
+            ).order_by(GoogleExport.sync_pending, GoogleExport.created_at).limit(1))
+            if obsolete is not None:
+                if obsolete.sync_pending:
+                    row.retry_at = now() + timedelta(seconds=15)
+                else:
+                    failure(row, "conflict")
+                db.commit()
+                return
         other = db.scalar(select(GoogleExport).where(GoogleExport.user_id == row.user_id,
             GoogleExport.task_id == row.task_id, GoogleExport.kind == ("event" if row.kind == "task" else "task"),
             GoogleExport.deleted_at.is_(None), GoogleExport.connection_binding == row.connection_binding).limit(1))
