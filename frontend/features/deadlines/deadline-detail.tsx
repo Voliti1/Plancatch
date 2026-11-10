@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { deadlinesApi } from "./api";
 import { DeadlineForm } from "./deadline-form";
 import { DeadlineTimes } from "./deadline-times";
+import { DeadlineReadiness } from "./deadline-readiness";
 import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
 import { formatSeoul } from "@/lib/date/seoul";
@@ -20,6 +21,7 @@ export function DeadlineDetail({ id }: { id: string }) {
   const [confirm, setConfirm] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [workVersion, setWorkVersion] = useState(0);
   if (loading) return <Loading />;
   if (error) return <ErrorNotice message={error} retry={reload} />;
   if (!data) return null;
@@ -56,13 +58,20 @@ export function DeadlineDetail({ id }: { id: string }) {
           </div>
         )}
       </section>
+      <DeadlineReadiness
+        key={`${id}-${data.updated_at}-${workVersion}`}
+        id={id}
+      />
       <GoogleExportPanel
         key={`${id}-${data.updated_at}`}
         kind="deadline"
         itemId={id}
         disabled={deleting}
       />
-      <DeadlineTasks deadlineId={id} />
+      <DeadlineTasks
+        deadlineId={id}
+        onUpdated={() => setWorkVersion((v) => v + 1)}
+      />
       <section className="card danger-zone">
         <div>
           <h2>마감일 삭제</h2>

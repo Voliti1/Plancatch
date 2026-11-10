@@ -11,6 +11,7 @@ from app.models.analysis import Analysis
 from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.deadline import DeadlineCreate, DeadlineResponse, DeadlineUpdate
+from app.schemas.deadline_readiness import DeadlineReadiness
 from app.services import google_sync as sync
 from app.services.deadline_safety import calculate_safe_due_at
 
@@ -159,6 +160,19 @@ def update_deadline(
     db.commit()
     db.refresh(deadline)
     return deadline
+
+
+@router.get("/{deadline_id}/readiness", response_model=DeadlineReadiness)
+def read_deadline_readiness(
+    deadline_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession,
+    response: Response,
+) -> DeadlineReadiness:
+    """Assess only owned local work; this GET never changes schedules or tokens."""
+    from app.services.deadline_readiness import assess
+
+    response.headers["Cache-Control"] = "no-store"
+    deadline = get_owned_deadline(deadline_id, current_user.id, db)
+    return assess(db, current_user.id, deadline)
 
 
 @router.delete("/{deadline_id}", status_code=status.HTTP_204_NO_CONTENT)
