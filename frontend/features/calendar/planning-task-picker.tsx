@@ -172,7 +172,16 @@ export function PlanningTaskPicker({
             {tasks.loading || waiting ? (
               <Loading />
             ) : tasks.error ? (
-              <ErrorNotice message={tasks.error} retry={tasks.reload} />
+              <>
+                <ErrorNotice message={tasks.error} />
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={tasks.reload}
+                >
+                  다시 시도
+                </button>
+              </>
             ) : (
               <>
                 {!sorted.length && (

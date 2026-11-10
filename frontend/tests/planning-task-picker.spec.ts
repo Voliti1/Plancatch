@@ -24,6 +24,32 @@ const rows = [
   row("ga", "가 준비", "2026-11-11T05:00:00Z"),
   row("early", "오전 준비", "2026-11-11T00:00:00Z"),
 ];
+test("retrying a failed title search never submits a selected planning task", async ({
+  page,
+}) => {
+  await setup(page);
+  const search = page.getByRole("combobox", { name: "할 일 제목 검색" });
+  await search.click();
+  const panel = page.getByRole("dialog", { name: "배치할 할 일 선택" });
+  await panel.getByRole("checkbox", { name: /가 준비/ }).check();
+  let failed = false;
+  let writes = 0;
+  page.on("request", (r) => {
+    if (r.method() !== "GET") writes++;
+  });
+  await page.route("**/test-api/api/scheduling/tasks?*", (r) => {
+    if (!failed) {
+      failed = true;
+      return r.fulfill({ status: 503, json: { detail: "일시적인 조회 오류" } });
+    }
+    return r.fulfill({ json: { entries: [rows[3]], has_more: false } });
+  });
+  await search.fill("가");
+  await expect(panel.getByRole("alert")).toBeVisible();
+  await panel.getByRole("button", { name: "다시 시도", exact: true }).click();
+  await expect(panel.getByRole("checkbox", { name: /가 준비/ })).toBeChecked();
+  expect(writes).toBe(0);
+});
 async function setup(page: Page) {
   await mockApi(page);
   await login(page);
