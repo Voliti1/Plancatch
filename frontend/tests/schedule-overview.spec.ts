@@ -136,7 +136,7 @@ test("manual registration, simple detail editing and completion are reflected on
     ),
   ).toBeTruthy();
   await page.getByRole("button", { name: "일정 수정", exact: true }).click();
-  await expect(page.getByLabel("우선순위", { exact: true })).toBeHidden();
+  await expect(page.getByLabel("우선순위", { exact: true })).toHaveValue("3");
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 회의 시간 변경");

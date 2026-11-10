@@ -90,6 +90,9 @@ test("manual registration replaces the sidebar task entry and saves through the 
   await expect(page.getByLabel("연결할 마감일", { exact: true })).toBeHidden();
   await page.getByLabel("시작 일시", { exact: true }).fill("2026-11-06T09:00");
   await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
+  await page
+    .getByLabel("우선순위", { exact: true })
+    .selectOption({ label: "높음" });
   await page.screenshot({
     path: test.info().outputPath("manual-schedule-registration.png"),
     fullPage: true,
@@ -110,7 +113,7 @@ test("manual registration replaces the sidebar task entry and saves through the 
     deadline_id: null,
     description: null,
     estimated_minutes: null,
-    priority: 3,
+    priority: 4,
     schedule_type: "fixed",
     earliest_start: "2026-11-06T00:00:00.000Z",
     latest_end: "2026-11-06T01:00:00.000Z",

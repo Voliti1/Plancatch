@@ -76,12 +76,12 @@ test("a deadline only asks for its end, can change kind, and saves the confirmed
     end_at: "2026-11-06T15:00:00+09:00",
   });
   await page
-    .getByLabel("일정 설명 (선택)", { exact: true })
+    .getByLabel("일정 설명", { exact: true })
     .fill("금요일 오후 3시 보고서 제출");
 
   const preview = page.getByRole("region", { name: "일정 입력", exact: true });
   await expect(preview.getByLabel("시작 일시", { exact: true })).toHaveCount(0);
-  await expect(preview.getByLabel("종료 일시", { exact: true })).toHaveValue(
+  await expect(preview.getByLabel("마감 일시", { exact: true })).toHaveValue(
     "2026-11-06T15:00",
   );
   await preview.getByRole("button", { name: "할 일", exact: true }).click();
@@ -110,9 +110,7 @@ test("unresolved dates can be completed manually; editing the sentence removes i
     end_at: null,
     notices: ["날짜를 직접 선택해 주세요."],
   });
-  await page
-    .getByLabel("일정 설명 (선택)", { exact: true })
-    .fill("나중에 회의");
+  await page.getByLabel("일정 설명", { exact: true }).fill("나중에 회의");
 
   const preview = page.getByRole("region", { name: "일정 입력", exact: true });
   await expect(preview).toContainText("날짜를 직접 선택해 주세요.");
@@ -120,9 +118,9 @@ test("unresolved dates can be completed manually; editing the sentence removes i
   await expect(preview).toContainText("시작 일시와 종료 일시를 입력해 주세요.");
   expect(writes).toHaveLength(0);
   await page
-    .getByLabel("일정 설명 (선택)", { exact: true })
+    .getByLabel("일정 설명", { exact: true })
     .fill("모레 오후 5시 면접");
-  await expect(preview.getByLabel("일정명", { exact: true })).toHaveValue("");
+  await expect(preview).toHaveCount(0);
   await expect(page.getByRole("status")).toContainText("읽는 중");
   await expect(page.getByRole("status")).toHaveCount(0);
 
@@ -146,14 +144,14 @@ test("preview errors keep the sentence, retry safely, and tabs support keyboard 
       json: { detail: "잠시 후 다시 시도해 주세요." },
     }),
   );
-  await page.getByLabel("일정 설명 (선택)", { exact: true }).fill("내일 회의");
+  await page.getByLabel("일정 설명", { exact: true }).fill("내일 회의");
 
   await expect(
     page.locator(".natural-registration").getByRole("alert"),
   ).toContainText("다시 시도");
-  await expect(
-    page.getByLabel("일정 설명 (선택)", { exact: true }),
-  ).toHaveValue("내일 회의");
+  await expect(page.getByLabel("일정 설명", { exact: true })).toHaveValue(
+    "내일 회의",
+  );
   const natural = page.getByRole("tab", {
     name: "수동 일정 등록",
     exact: true,
@@ -172,9 +170,9 @@ test("preview errors keep the sentence, retry safely, and tabs support keyboard 
     .getByRole("tab", { name: "자료로 등록", exact: true })
     .press("ArrowRight");
   await expect(natural).toBeFocused();
-  await expect(
-    page.getByLabel("일정 설명 (선택)", { exact: true }),
-  ).toHaveValue("내일 회의");
+  await expect(page.getByLabel("일정 설명", { exact: true })).toHaveValue(
+    "내일 회의",
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -198,7 +196,7 @@ test("a late preview cannot restore an old registration after the sidebar opens 
     request.url().endsWith("/api/schedules/interpret"),
   );
   await page
-    .getByLabel("일정 설명 (선택)", { exact: true })
+    .getByLabel("일정 설명", { exact: true })
     .fill("내일 오후 3시 회의");
 
   await sent;
@@ -214,11 +212,10 @@ test("a late preview cannot restore an old registration after the sidebar opens 
     page.getByRole("tab", { name: "자료로 등록", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
-  await expect(
-    page.getByLabel("일정 설명 (선택)", { exact: true }),
-  ).toHaveValue("");
+  await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("");
+  await page.getByRole("tab", { name: "문장으로 등록", exact: true }).click();
+  await expect(page.getByLabel("일정 설명", { exact: true })).toHaveValue("");
   await expect(
     page.getByRole("region", { name: "일정 입력", exact: true }),
-  ).toBeVisible();
-  await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("");
+  ).toHaveCount(0);
 });
