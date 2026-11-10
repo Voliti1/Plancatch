@@ -7,11 +7,11 @@ import { api, errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { formatSeoul, seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
-import type { Task } from "@/types/task";
 import { tasksApi } from "@/features/tasks/api";
 import { TaskPlacements } from "./task-placements";
 import type { SavedState } from "./plan-history";
 import { addDays, todaySeoul, utcMidnight } from "./dates";
+import { PlanningTaskPicker } from "./planning-task-picker";
 import "./auto-schedule.css";
 
 type Block = {
@@ -53,21 +53,6 @@ export function AutoSchedulePage({
 }: {
   initialPlanId?: string;
 }) {
-  const [search, setSearch] = useState("");
-  const [query, setQuery] = useState("");
-  useEffect(() => {
-    const timer = setTimeout(() => setQuery(search), 250);
-    return () => clearTimeout(timer);
-  }, [search]);
-  const load = useCallback(
-    (signal: AbortSignal) =>
-      api<{ entries: Task[]; has_more: boolean }>(
-        `/api/scheduling/tasks?${new URLSearchParams({ q: query })}`,
-        { signal },
-      ),
-    [query],
-  );
-  const tasks = useResource(load);
   const restore = useResource(
     useCallback(
       (signal: AbortSignal) =>
@@ -168,82 +153,15 @@ export function AutoSchedulePage({
             선택하세요. 소요시간을 입력하면 자동 배치할 수 있습니다. 확정된
             시간과 완료한 할 일은 옮기지 않습니다.
           </p>
-          <label>
-            할 일 제목 검색
-            <input
-              type="search"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </label>
-          <p className="small">
-            {selected.length}개 선택{" "}
-            <button
-              type="button"
-              className="text-button"
-              onClick={() => {
-                setSelected([]);
-                setPlan(null);
-                setIgnoreRestored(true);
-              }}
-            >
-              선택 해제
-            </button>
-          </p>
-          {tasks.loading ? (
-            <Loading />
-          ) : tasks.error ? (
-            <ErrorNotice message={tasks.error} retry={tasks.reload} />
-          ) : (
-            <>
-              {!tasks.data?.entries.length && (
-                <p className="notice">
-                  배치할 할 일이 없습니다. 시간 미정인 유동 작업을 등록하거나
-                  제목 검색을 변경해 주세요.
-                </p>
-              )}
-              {tasks.data?.has_more && (
-                <p className="notice">
-                  첫 100개를 표시합니다. 제목으로 검색해 범위를 줄여 주세요.
-                </p>
-              )}
-              <ul className="planning-tasks">
-                {tasks.data?.entries.map((t) => (
-                  <li key={t.id}>
-                    <label className="checkbox-row">
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(t.id)}
-                        onChange={(e) =>
-                          setSelected((ids) =>
-                            e.target.checked
-                              ? [...ids, t.id]
-                              : ids.filter((id) => id !== t.id),
-                          )
-                        }
-                      />
-                      <span>
-                        {t.title}
-                        <small>
-                          {t.estimated_minutes
-                            ? `${t.estimated_minutes}분`
-                            : "소요시간 입력 필요"}{" "}
-                          · 우선순위 {t.priority}
-                        </small>
-                      </span>
-                    </label>
-                    <Link
-                      href={`/tasks/${encodeURIComponent(t.id)}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      설정 ↗
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </>
-          )}
+          <PlanningTaskPicker
+            selected={selected}
+            onChange={setSelected}
+            onEdit={() => {
+              setPlan(null);
+              setIgnoreRestored(true);
+              setError("");
+            }}
+          />
           <h2>2. 작업 가능한 시간</h2>
           <div className="form-grid">
             <label>
