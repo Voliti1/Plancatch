@@ -39,13 +39,18 @@ def test_plan_table_upgrade_preserves_tasks_and_can_retain_approval_receipts(pg)
             id=task_id, user_id=owner, title="기존 할 일", estimated_minutes=60
         )
     )
-    before = {c["name"]: c for c in inspect(pg).get_columns("tasks", schema=schema)}
+    def columns():
+        # SQLAlchemy type objects compare by identity; compare their physical SQL form.
+        return {
+            c["name"]: {**c, "type": str(c["type"])}
+            for c in inspect(pg).get_columns("tasks", schema=schema)
+        }
+
+    before = columns()
     with Operations.context(MigrationContext.configure(pg)):
         migration.upgrade()
     assert pg.scalar(select(Task.title).where(Task.id == task_id)) == "기존 할 일"
-    assert before == {
-        c["name"]: c for c in inspect(pg).get_columns("tasks", schema=schema)
-    }
+    assert before == columns()
     pg.execute(
         SchedulePlan.__table__.insert().values(
             id=plan_id,
