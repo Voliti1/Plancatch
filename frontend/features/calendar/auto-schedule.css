@@ -11,8 +11,44 @@
 }
 .auto-schedule .checkbox-row {
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 10px;
+}
+.planning-heading-actions,
+.planning-history-tools,
+.planning-history-pagination {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.planning-history-tools {
+  justify-content: space-between;
+}
+.planning-history-tools label {
+  min-width: min(100%, 200px);
+}
+.planning-history-pagination {
+  justify-content: center;
+  margin-top: 24px;
+}
+.planning-history-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.planning-history-list > li {
+  border-top: 1px solid var(--line);
+  padding: 24px 0;
+}
+.planning-history-list h2 {
+  overflow-wrap: anywhere;
+  margin-top: 12px;
+}
+.planning-history .planning-state-approved {
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 .auto-schedule .checkbox-row input {
   width: auto;

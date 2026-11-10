@@ -57,7 +57,7 @@ function plan() {
         },
       ],
     },
-    expires_at: "2026-11-10T03:15:00Z",
+    expires_at: "2099-11-10T03:15:00Z",
     approved_at: null as string | null,
     approved_event_ids: [] as string[],
   };

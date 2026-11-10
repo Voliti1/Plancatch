@@ -393,13 +393,7 @@ def preview(db, owner, request):
             )
     details.update(unplaced=skipped, tasks=summaries)
     plan.blocks, plan.details = blocks, details
-    db.execute(
-        delete(SchedulePlan).where(
-            SchedulePlan.user_id == owner,
-            SchedulePlan.approved_at.is_(None),
-            SchedulePlan.expires_at < moment,
-        )
-    )
+    # Keep recent expired previews visible in history; the same 30-record cap applies.
     old_ids = list(
         db.scalars(
             select(SchedulePlan.id)

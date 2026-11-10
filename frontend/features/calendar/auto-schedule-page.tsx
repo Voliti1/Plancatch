@@ -10,6 +10,7 @@ import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { Task } from "@/types/task";
 import { tasksApi } from "@/features/tasks/api";
 import { TaskPlacements } from "./task-placements";
+import type { SavedState } from "./plan-history";
 import { addDays, todaySeoul, utcMidnight } from "./dates";
 import "./auto-schedule.css";
 
@@ -41,6 +42,7 @@ type Plan = {
   expires_at: string;
   approved_at: string | null;
   approved_event_ids: string[];
+  saved_state?: SavedState | null;
 };
 const days = ["월", "화", "수", "목", "금", "토", "일"];
 const clock = (minutes: number) =>
@@ -106,9 +108,14 @@ export function AutoSchedulePage({
         title="자동 배치"
         description="시간이 정해지지 않은 할 일을 빈 시간에 나누어 넣고, 확인 후 저장하세요."
         action={
-          <Link className="button secondary" href="/sources/new?mode=manual">
-            할 일 등록
-          </Link>
+          <div className="planning-heading-actions">
+            <Link className="button secondary" href="/planning/history">
+              배치 기록
+            </Link>
+            <Link className="button secondary" href="/sources/new?mode=manual">
+              할 일 등록
+            </Link>
+          </div>
         }
       />
       <form
@@ -373,10 +380,22 @@ function PlanEditor({
     ),
   );
   const pending = useRef(false);
+  const [moment, setMoment] = useState(Date.now);
+  useEffect(() => {
+    const timer = setInterval(() => setMoment(Date.now()), 30000);
+    return () => clearInterval(timer);
+  }, []);
+  const expired = !plan.approved_at && Date.parse(plan.expires_at) <= moment;
   const { markSaved } = useUnsavedChanges(JSON.stringify([draft, selected]));
   return (
     <section className="card planning-result" aria-label="자동 배치 미리보기">
-      <h2>{plan.approved_at ? "배치 저장 완료" : "3. 미리보기 확인"}</h2>
+      <h2>
+        {plan.approved_at
+          ? "배치 저장 완료"
+          : expired
+            ? "유효 시간이 지난 미리보기"
+            : "3. 미리보기 확인"}
+      </h2>
       <p className="small muted">
         {formatSeoul(plan.request.start_at)} ~{" "}
         {formatSeoul(plan.request.end_at)} ·{" "}
@@ -395,6 +414,10 @@ function PlanEditor({
             승인한 시간 {plan.blocks.length}개를 저장했습니다. 구글 계정이
             연결되어 있으면 자동 반영됩니다.
           </p>
+          <p className="small muted">
+            아래 시간은 승인 당시 기록입니다. 이후 변경·삭제된 실제 시간은
+            ‘저장한 배치 관리’에서 확인하세요.
+          </p>
           <Link className="button" href="/calendar">
             캘린더 보기
           </Link>
@@ -404,6 +427,12 @@ function PlanEditor({
           아직 캘린더에는 저장되지 않았습니다. 시작 시간을 옮기거나 할 일을
           제외한 뒤 승인하세요. 소요시간은 유지되며, 승인 직전에 일정과 마감일을
           다시 확인합니다.
+        </p>
+      )}
+      {expired && (
+        <p className="notice">
+          이 미리보기는 유효 시간이 지나 조회만 가능합니다. 새 미리보기를 만들어
+          주세요.
         </p>
       )}
       {!plan.blocks.length && (
@@ -423,7 +452,7 @@ function PlanEditor({
                 <input
                   type="checkbox"
                   checked={selected.includes(id)}
-                  disabled={busy}
+                  disabled={busy || expired}
                   onChange={(e) =>
                     setSelected((ids) =>
                       e.target.checked
@@ -452,6 +481,7 @@ function PlanEditor({
                       disabled={
                         busy ||
                         Boolean(plan.approved_at) ||
+                        expired ||
                         !selected.includes(id)
                       }
                       onChange={(e) => {
@@ -499,7 +529,9 @@ function PlanEditor({
           {error && <ErrorNotice message={error} />}
           <div className="form-actions">
             <button
-              disabled={busy || plan.details.blocked || !selected.length}
+              disabled={
+                busy || expired || plan.details.blocked || !selected.length
+              }
               onClick={async () => {
                 if (pending.current) return;
                 pending.current = true;
@@ -559,6 +591,8 @@ function PlanEditor({
         </div>
       )}
       <p className="small">
+        <Link href="/planning/history">전체 배치 기록 →</Link>
+        {" · "}
         <Link href={`/planning?${new URLSearchParams({ plan: plan.id })}`}>
           이 미리보기 다시 열기 →
         </Link>
@@ -573,6 +607,7 @@ function PlanEditor({
             관리할 할 일
             <select
               value={managing}
+              aria-label="관리할 할 일"
               onChange={(e) => setManaging(e.target.value)}
             >
               <option value="">선택해 주세요</option>
