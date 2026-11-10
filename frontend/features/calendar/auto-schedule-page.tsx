@@ -296,7 +296,21 @@ export function AutoSchedulePage({
       {!ignoreRestored && restore.error && (
         <ErrorNotice message={restore.error} retry={restore.reload} />
       )}
-      {shown && <PlanEditor key={shown.id} plan={shown} onApproved={setPlan} />}
+      {shown && (
+        <PlanEditor
+          key={shown.id}
+          plan={shown}
+          onApproved={setPlan}
+          onReplan={() => {
+            setReplace(true);
+            setSelected([]);
+            setPlan(null);
+            setIgnoreRestored(true);
+            setError("");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -304,9 +318,11 @@ export function AutoSchedulePage({
 function PlanEditor({
   plan,
   onApproved,
+  onReplan,
 }: {
   plan: Plan;
   onApproved: (plan: Plan) => void;
+  onReplan: () => void;
 }) {
   const [draft, setDraft] = useState(() =>
     plan.blocks.map((b) => ({ ...b, local: toSeoulInput(b.start_at) })),
@@ -397,9 +413,9 @@ function PlanEditor({
           <Link className="button" href="/calendar">
             캘린더 보기
           </Link>
-          <Link className="button secondary" href="/planning?mode=replan">
+          <button type="button" className="secondary" onClick={onReplan}>
             다시 배치하기
-          </Link>
+          </button>
         </>
       ) : (
         <p className="notice">

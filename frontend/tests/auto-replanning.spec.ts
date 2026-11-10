@@ -149,9 +149,14 @@ test("replacement compares old and new times and only explicit approval sends a 
   expect(previews).toBe(1);
   expect(approvals).toBe(1);
   expect(legacyWrites).toBe(0);
+  await result
+    .getByRole("button", { name: "다시 배치하기", exact: true })
+    .click();
+  await expect(result).toHaveCount(0);
+  await expect(page.locator(".planning-picker > p")).toContainText("0개 선택");
   await expect(
-    result.getByRole("link", { name: "다시 배치하기", exact: true }),
-  ).toHaveAttribute("href", "/planning?mode=replan");
+    page.getByRole("button", { name: "기존 배치 다시 짜기", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,

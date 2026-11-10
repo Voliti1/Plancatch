@@ -188,8 +188,9 @@ export function PlanningTaskPicker({
               <>
                 {!sorted.length && (
                   <p className="notice">
-                    검색 결과가 없습니다. 다른 제목을 입력하거나 유동 작업을
-                    등록해 주세요.
+                    {replaceExisting
+                      ? "재배치할 할 일이 없습니다. 검색어를 바꾸거나 아직 시작하지 않은 확정 배치가 있는 유동 할 일을 확인해 주세요."
+                      : "검색 결과가 없습니다. 다른 제목을 입력하거나 유동 작업을 등록해 주세요."}
                   </p>
                 )}
                 {Array.from(groups, ([date, items]) => (
