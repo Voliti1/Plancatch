@@ -26,7 +26,8 @@ def day_session(monkeypatch):
     class Clock(datetime):
         @classmethod
         def now(cls, tz=None):
-            return moment[0].astimezone(tz) if tz else moment[0].replace(tzinfo=None)
+            value = moment[0].astimezone(tz) if tz else moment[0].replace(tzinfo=None)
+            return cls.fromtimestamp(value.timestamp(), tz=value.tzinfo)
 
     monkeypatch.setattr(security, "datetime", Clock)
     monkeypatch.setattr(jwt.api_jwt, "datetime", Clock)
