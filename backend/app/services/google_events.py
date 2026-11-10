@@ -2,6 +2,7 @@
 
 import json
 from datetime import UTC, date, datetime
+from time import monotonic
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, build_opener
@@ -12,6 +13,11 @@ from app.services import google_calendar as google
 
 EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 MAX_BYTES = 1024 * 1024
+PAGE_SIZE = 250
+MAX_PAGES = 8
+MAX_ITEMS = 2000
+MAX_SECONDS = 12
+MAX_PAGE_TOKEN = 4096
 
 
 class GoogleEventsError(Exception):
@@ -72,20 +78,25 @@ def refresh_access(config, refresh):
     return token, rotated
 
 
-def _fetch(token, start, end):
-    query = urlencode(
-        {
-            "timeMin": start.isoformat(),
-            "timeMax": end.isoformat(),
-            "singleEvents": "true",
-            "orderBy": "startTime",
-            "maxResults": 250,
-            "timeZone": "Asia/Seoul",
-            "showDeleted": "false",
-            "maxAttendees": 1,
-            "fields": "nextPageToken,items(id,summary,status,start,end,recurringEventId,transparency,attendees(self,responseStatus))",
-        }
-    )
+def _fetch(token, start, end, page_token=None, timeout=10):
+    if page_token is not None and (
+        not isinstance(page_token, str) or not 1 <= len(page_token) <= MAX_PAGE_TOKEN
+    ):
+        raise GoogleEventsError()
+    params = {
+        "timeMin": start.isoformat(),
+        "timeMax": end.isoformat(),
+        "singleEvents": "true",
+        "orderBy": "startTime",
+        "maxResults": PAGE_SIZE,
+        "timeZone": "Asia/Seoul",
+        "showDeleted": "false",
+        "maxAttendees": 1,
+        "fields": "nextPageToken,items(id,summary,status,start,end,recurringEventId,transparency,attendees(self,responseStatus))",
+    }
+    if page_token is not None:
+        params["pageToken"] = page_token
+    query = urlencode(params)
     request = Request(
         EVENTS_URL + "?" + query,
         headers={"Authorization": "Bearer " + token, "Accept": "application/json"},
@@ -93,7 +104,7 @@ def _fetch(token, start, end):
     try:
         try:
             with build_opener(google.NoRedirect()).open(
-                request, timeout=10
+                request, timeout=min(10, timeout)
             ) as response:
                 status, raw = response.status, response.read(MAX_BYTES + 1)
         except HTTPError as error:
@@ -145,11 +156,7 @@ def _time(value):
     return parsed.astimezone(UTC)
 
 
-def list_primary(token, start, end) -> GoogleEventsPage:
-    payload = _fetch(token, start, end)
-    items = payload.get("items", [])
-    if not isinstance(items, list) or len(items) > 250:
-        raise GoogleEventsError()
+def _parse_items(items):
     events, skipped = [], 0
     for item in items:
         if isinstance(item, dict) and item.get("status") == "cancelled":
@@ -168,7 +175,11 @@ def list_primary(token, start, end) -> GoogleEventsPage:
             if not isinstance(attendees, list):
                 attendees = []  # Unknown participation metadata is conservatively busy.
             values["busy"] = item.get("transparency") != "transparent" and not any(
-                isinstance(person, dict) and person.get("self") is True and person.get("responseStatus") == "declined" for person in attendees)
+                isinstance(person, dict)
+                and person.get("self") is True
+                and person.get("responseStatus") == "declined"
+                for person in attendees
+            )
             master = item.get("recurringEventId")
             if master is not None:
                 if not isinstance(master, str) or not 1 <= len(master) <= 1024:
@@ -189,10 +200,69 @@ def list_primary(token, start, end) -> GoogleEventsPage:
                     raise ValueError
                 values.update(start_at=begin, end_at=finish)
             events.append(GoogleEventView(**values))
-        except (KeyError, TypeError, ValueError, AttributeError, ZoneInfoNotFoundError):
+        except (
+            KeyError,
+            TypeError,
+            ValueError,
+            AttributeError,
+            OverflowError,
+            ZoneInfoNotFoundError,
+        ):
             skipped += 1
+    return events, skipped
+
+
+def list_primary(token, start, end) -> GoogleEventsPage:
+    """Follow only provider cursors, keeping bounded partial reads conservative."""
+    begun = monotonic()
+    events, skipped, count = [], 0, 0
+    identities, cursors = set(), set()
+    cursor = None
+    has_more = True
+    for page_index in range(MAX_PAGES):
+        remaining = MAX_SECONDS - (monotonic() - begun)
+        if remaining <= 0:
+            break
+        try:
+            payload = _fetch(token, start, end, cursor, min(10, remaining))
+            items = payload.get("items", [])
+            if not isinstance(items, list) or len(items) > PAGE_SIZE:
+                raise GoogleEventsError()
+        except GoogleEventsError as error:
+            # Expired/revoked access still uses the existing reconnect path.
+            if page_index == 0 or error.status == 409:
+                raise
+            break
+        available = MAX_ITEMS - count
+        parsed, unreadable = _parse_items(items[:available])
+        skipped += unreadable
+        for event in parsed:
+            if event.id in identities:
+                # Do not silently claim a stable full scan after inconsistent
+                # overlapping pages; retain the first view and report a gap.
+                skipped += 1
+                continue
+            identities.add(event.id)
+            events.append(event)
+        count += min(len(items), available)
+        if len(items) > available:
+            break
+        next_cursor = payload.get("nextPageToken")
+        if next_cursor is None or next_cursor == "":
+            has_more = False
+            break
+        if (
+            not isinstance(next_cursor, str)
+            or len(next_cursor) > MAX_PAGE_TOKEN
+            or next_cursor in cursors
+        ):
+            break
+        if count >= MAX_ITEMS:
+            break
+        cursors.add(next_cursor)
+        cursor = next_cursor
     return GoogleEventsPage(
         events=events,
-        has_more=bool(payload.get("nextPageToken")),
+        has_more=has_more,
         skipped_count=skipped,
     )
