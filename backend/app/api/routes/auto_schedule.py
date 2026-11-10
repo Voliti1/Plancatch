@@ -1,16 +1,18 @@
 """Owned automatic planning previews and explicit atomic approval."""
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
-from fastapi import APIRouter, Query, Response
-from sqlalchemy import exists, select
+from fastapi import APIRouter, HTTPException, Query, Response
+from pydantic import AwareDatetime
+from sqlalchemy import and_, exists, or_, select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
-from app.models import ScheduledEvent, Task
+from app.models import ScheduledEvent, SchedulePlan, Task
 from app.schemas.schedule_plan import ApprovalInput, PreviewInput
 from app.schemas.task import TaskResponse
 from app.services import auto_schedule as service
+from app.services import schedule_history as history
 
 router = APIRouter(prefix="/api/scheduling", tags=["scheduling"])
 
@@ -56,6 +58,59 @@ def preview(
     return service.preview(db, current_user.id, payload)
 
 
+@router.get("/plans")
+def list_plans(
+    current_user: CurrentUser,
+    db: DatabaseSession,
+    response: Response,
+    state: Literal["all", "pending", "approved", "expired"] = "all",
+    limit: Annotated[int, Query(ge=1, le=20)] = 10,
+    before_at: AwareDatetime | None = None,
+    before_id: uuid.UUID | None = None,
+):
+    response.headers["Cache-Control"] = "no-store"
+    if (before_at is None) != (before_id is None):
+        raise HTTPException(422, "목록의 다음 위치를 확인해 주세요.")
+    moment = history.now()
+    query = select(SchedulePlan).where(SchedulePlan.user_id == current_user.id)
+    if state == "approved":
+        query = query.where(SchedulePlan.approved_at.is_not(None))
+    elif state in {"pending", "expired"}:
+        query = query.where(
+            SchedulePlan.approved_at.is_(None),
+            SchedulePlan.expires_at > moment
+            if state == "pending"
+            else SchedulePlan.expires_at <= moment,
+        )
+    if before_at is not None:
+        # Convert first so invalid extreme timezone offsets fail with a public 422.
+        try:
+            cursor_at = service.utc(before_at)
+        except (ValueError, OverflowError):
+            raise HTTPException(422, "목록의 다음 위치를 확인해 주세요.") from None
+        query = query.where(
+            or_(
+                SchedulePlan.created_at < cursor_at,
+                and_(SchedulePlan.created_at == cursor_at, SchedulePlan.id < before_id),
+            )
+        )
+    rows = list(
+        db.scalars(
+            query.order_by(
+                SchedulePlan.created_at.desc(), SchedulePlan.id.desc()
+            ).limit(limit + 1)
+        )
+    )
+    entries = history.summaries(db, current_user.id, rows[:limit])
+    last = rows[limit - 1] if len(rows) > limit else None
+    return {
+        "entries": entries,
+        "next_cursor": {"created_at": service.stamp(last.created_at), "id": last.id}
+        if last
+        else None,
+    }
+
+
 @router.get("/plans/{plan_id}")
 def read_plan(
     plan_id: uuid.UUID,
@@ -64,7 +119,11 @@ def read_plan(
     response: Response,
 ):
     response.headers["Cache-Control"] = "no-store"
-    return service.plan_response(service.owned_plan(db, current_user.id, plan_id))
+    plan = service.owned_plan(db, current_user.id, plan_id)
+    return {
+        **service.plan_response(plan),
+        "saved_state": history.summaries(db, current_user.id, [plan])[0]["saved_state"],
+    }
 
 
 @router.post("/plans/{plan_id}/approve")
