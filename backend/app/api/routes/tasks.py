@@ -13,6 +13,7 @@ from app.models.scheduled_event import ScheduledEvent
 from app.models.task import Task
 from app.schemas.task import ScheduleType, TaskCreate, TaskResponse, TaskUpdate
 from app.services import google_sync as sync
+from app.services.recurrence import validate as validate_recurrence
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -29,7 +30,9 @@ def create_task(payload: TaskCreate, current_user: CurrentUser, db: DatabaseSess
     sync.lock_owner(db, current_user.id)
     if payload.deadline_id is not None:
         get_owned_deadline(payload.deadline_id, current_user.id, db)
-    task = Task(user_id=current_user.id, **payload.model_dump())
+    values = payload.model_dump()
+    values["recurrence"] = payload.recurrence.model_dump(mode="json") if payload.recurrence else None
+    task = Task(user_id=current_user.id, **values)
     if task.is_completed:
         task.completed_at = datetime.now(UTC)
     db.add(task)
@@ -81,6 +84,16 @@ def update_task(
         get_owned_deadline(changes["deadline_id"], current_user.id, db)
     start = changes.get("earliest_start", task.earliest_start)
     end = changes.get("latest_end", task.latest_end)
+    rule = changes.get("recurrence", task.recurrence)
+    try:
+        validate_recurrence(rule, changes.get("schedule_type", task.schedule_type), start, end)
+    except ValueError as error:
+        raise HTTPException(422, str(error)) from None
+    if rule and db.scalar(select(ScheduledEvent.id).where(
+        ScheduledEvent.task_id == task.id, ScheduledEvent.user_id == current_user.id).limit(1)):
+        raise HTTPException(409, "이미 시간 배치가 있는 할 일은 반복 일정으로 바꿀 수 없습니다.")
+    if "recurrence" in changes:
+        changes["recurrence"] = payload.recurrence.model_dump(mode="json") if payload.recurrence else None
     if start is not None and end is not None:
         # SQLite test databases return naive timestamps; PostgreSQL preserves UTC offsets.
         start = start.replace(tzinfo=UTC) if start.tzinfo is None else start

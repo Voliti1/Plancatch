@@ -172,6 +172,7 @@ export function NaturalSchedule({
         <p className="small muted">
           시각 하나는 마감일로, 시작·종료 시각이나 시작 시각과 소요시간은 할
           일로 제안합니다. 날짜만 있는 마감일은 23:59로 제안합니다.
+          매일·매주·격주·매월 일정은 반복되는 할 일로 제안합니다.
         </p>
         {reading && (
           <p className="small muted" role="status">

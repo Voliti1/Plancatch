@@ -9,6 +9,7 @@ from urllib.request import Request, build_opener
 from app.services import google_calendar as google
 from app.services.google_events import EVENTS_URL
 from app.services.google_reminders import matches as reminders_match
+from app.services.recurrence import same_google_rule
 
 
 class ExportError(Exception):
@@ -86,6 +87,7 @@ def matches(item, event_id, export_id, payload):
             and item["extendedProperties"]["private"]["plancatchExport"]
             == str(export_id)
             and item["summary"] == payload["summary"]
+            and same_google_rule(item.get("recurrence"), payload.get("recurrence"))
             and reminders_match(item.get("reminders"), payload)
             and all(
                 datetime.fromisoformat(item[key]["dateTime"].replace("Z", "+00:00"))

@@ -15,6 +15,7 @@ from sqlalchemy import delete, select, update
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models.google_calendar import GoogleCalendarConnection, GoogleOAuthRequest
 from app.models.google_export import GoogleExport
+from app.models.task import Task
 from app.models.user import User
 from app.schemas.google_calendar import (
     GoogleConnectionStatus,
@@ -26,6 +27,7 @@ from app.services import google_calendar as google
 from app.services import google_events
 from app.services.google_completion import completion_response
 from app.services.google_export import binding as export_binding
+from app.services.recurrence import google_rule, occurrences
 
 router = APIRouter(prefix=google.PREFIX, tags=["google-calendar"])
 logger = logging.getLogger(__name__)
@@ -344,10 +346,25 @@ def read_google_events(
             GoogleExport.user_id == current_user.id, GoogleExport.status == "sent",
             GoogleExport.deleted_at.is_(None),
             GoogleExport.connection_binding == bound,
-            GoogleExport.google_event_id.in_([item.id for item in page.events]),
+            GoogleExport.google_event_id.in_([item.recurring_event_id or item.id for item in page.events]),
+        ))}
+        tasks = {task.id: task for task in db.scalars(select(Task).where(
+            Task.user_id == current_user.id,
+            Task.id.in_([row.item_id for row in exports.values() if row.kind == "task"]),
         ))}
         for item in page.events:
-            row = exports.get(item.id)
+            row = exports.get(item.recurring_event_id or item.id)
+            task = tasks.get(row.item_id) if row and item.recurring_event_id else None
+            if (row and task and task.recurrence and item.start_at and item.end_at
+                    and item.title == row.payload["summary"]
+                    and google_rule(task.recurrence) == row.payload.get("recurrence")
+                    and task.earliest_start and task.latest_end
+                    and _utc(task.earliest_start) == datetime.fromisoformat(row.payload["start"]["dateTime"])
+                    and _utc(task.latest_end) == datetime.fromisoformat(row.payload["end"]["dateTime"])
+                    and (item.start_at, item.end_at) in occurrences(task.earliest_start, task.latest_end,
+                        task.recurrence, item.start_at, item.end_at)):
+                item.local_kind, item.local_item_id = row.kind, row.item_id
+                continue
             if (row and item.start_at and item.end_at and item.title == row.payload["summary"]
                     and item.start_at == datetime.fromisoformat(row.payload["start"]["dateTime"])
                     and item.end_at == datetime.fromisoformat(row.payload["end"]["dateTime"])):

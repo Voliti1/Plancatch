@@ -82,7 +82,7 @@ def _fetch(token, start, end):
             "maxResults": 250,
             "timeZone": "Asia/Seoul",
             "showDeleted": "false",
-            "fields": "nextPageToken,items(id,summary,status,start,end)",
+            "fields": "nextPageToken,items(id,summary,status,start,end,recurringEventId)",
         }
     )
     request = Request(
@@ -163,6 +163,11 @@ def list_primary(token, start, end) -> GoogleEventsPage:
             ):
                 raise ValueError
             values = {"id": event_id, "title": title[:500] or "(제목 없음)"}
+            master = item.get("recurringEventId")
+            if master is not None:
+                if not isinstance(master, str) or not 1 <= len(master) <= 1024:
+                    raise ValueError
+                values["recurring_event_id"] = master
             first, last = item["start"], item["end"]
             if "date" in first and "date" in last:
                 begin, finish = (

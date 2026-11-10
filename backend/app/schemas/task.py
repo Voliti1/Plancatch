@@ -14,6 +14,8 @@ from pydantic import (
 )
 
 from app.schemas.google_reminders import GoogleReminders, default_reminders
+from app.schemas.recurrence import Recurrence
+from app.services.recurrence import validate as validate_recurrence
 
 ScheduleType = Literal["fixed", "flexible"]
 
@@ -34,6 +36,7 @@ class TaskCreate(TaskTimes):
     deadline_id: uuid.UUID | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
+    recurrence: Recurrence | None = None
     google_reminders: GoogleReminders = Field(default_factory=default_reminders)
     estimated_minutes: int | None = Field(default=None, gt=0, le=2147483647)
     priority: int = Field(default=3, ge=1, le=5)
@@ -44,6 +47,7 @@ class TaskCreate(TaskTimes):
 
     @model_validator(mode="after")
     def validate_window(self) -> "TaskCreate":
+        validate_recurrence(self.recurrence, self.schedule_type, self.earliest_start, self.latest_end)
         if (
             self.earliest_start is not None
             and self.latest_end is not None
@@ -59,6 +63,7 @@ class TaskUpdate(TaskTimes):
     deadline_id: uuid.UUID | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
+    recurrence: Recurrence | None = None
     google_reminders: GoogleReminders | None = None
     estimated_minutes: int | None = Field(default=None, gt=0, le=2147483647)
     priority: int | None = Field(default=None, ge=1, le=5)
@@ -82,6 +87,7 @@ class TaskResponse(BaseModel):
     deadline_id: uuid.UUID | None
     title: str
     description: str | None
+    recurrence: Recurrence | None = None
     google_reminders: GoogleReminders | None = None
     estimated_minutes: int | None
     priority: int

@@ -1,6 +1,8 @@
 import type { GoogleReminderSettings } from "./google-reminders";
+import type { Recurrence } from "@/features/tasks/recurrence-settings";
 export type ScheduleType = "fixed" | "flexible";
 export interface TaskInput {
+  recurrence?: Recurrence | null;
   google_reminders?: GoogleReminderSettings | null;
   deadline_id: string | null;
   title: string;

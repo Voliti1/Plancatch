@@ -1,10 +1,12 @@
 """Show existing source deadlines and fixed manual schedules without DB writes."""
 
 from datetime import timedelta
+from heapq import nsmallest
+from itertools import chain
 
 from fastapi import APIRouter, HTTPException, Response
 from pydantic import AwareDatetime
-from sqlalchemy import exists, select
+from sqlalchemy import exists, or_, select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.scheduled_events import utc
@@ -15,6 +17,7 @@ from app.schemas.calendar_registration import (
     CalendarRegistration,
     CalendarRegistrationsPage,
 )
+from app.services.recurrence import occurrences
 
 router = APIRouter(prefix="/api/calendar/registrations", tags=["calendar"])
 MAX_PER_KIND = 1000
@@ -51,7 +54,7 @@ def list_registrations(
     )
     tasks = list(
         db.execute(
-            select(Task.id, Task.title, Task.earliest_start, Task.latest_end, Task.is_completed)
+            select(Task.id, Task.title, Task.earliest_start, Task.latest_end, Task.is_completed, Task.recurrence)
             .where(
                 Task.user_id == current_user.id,
                 Task.schedule_type == "fixed",
@@ -59,7 +62,7 @@ def list_registrations(
                 Task.latest_end.is_not(None),
                 Task.latest_end > Task.earliest_start,
                 Task.earliest_start < last,
-                Task.latest_end > first,
+                or_(Task.latest_end > first, Task.recurrence.is_not(None)),
                 ~placed,
             )
             .order_by(Task.earliest_start, Task.id)
@@ -76,19 +79,22 @@ def list_registrations(
         )
         for d in deadlines[:MAX_PER_KIND]
     ]
-    entries += [
+    task_entries = (
         CalendarRegistration(
             id=t.id,
             kind="fixed_task",
             title=t.title,
-            start_at=utc(t.earliest_start),
-            end_at=utc(t.latest_end),
+            start_at=start,
+            end_at=end,
             is_completed=t.is_completed,
+            is_recurring=bool(t.recurrence),
         )
         for t in tasks[:MAX_PER_KIND]
-    ]
-    entries.sort(key=lambda item: (item.start_at, item.kind, str(item.id)))
+        for start, end in occurrences(t.earliest_start, t.latest_end, t.recurrence, first, last, MAX_PER_KIND * 2 + 1)
+    )
+    entries = nsmallest(MAX_PER_KIND * 2 + 1, chain(entries, task_entries),
+                       key=lambda item: (item.start_at, item.kind, str(item.id)))
     return CalendarRegistrationsPage(
-        entries=entries,
-        has_more=len(deadlines) > MAX_PER_KIND or len(tasks) > MAX_PER_KIND,
+        entries=entries[:MAX_PER_KIND * 2],
+        has_more=len(entries) > MAX_PER_KIND * 2 or len(deadlines) > MAX_PER_KIND or len(tasks) > MAX_PER_KIND,
     )

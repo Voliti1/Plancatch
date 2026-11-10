@@ -7,6 +7,11 @@ import { useResource } from "@/lib/api/use-resource";
 import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
+import {
+  RecurrenceSettings,
+  validateRecurrence,
+  type Recurrence,
+} from "./recurrence-settings";
 import type { ScheduleType, Task, TaskInput } from "@/types/task";
 import type { DeadlineInput } from "@/types/api";
 import type { NaturalScheduleDraft } from "@/types/natural-schedule";
@@ -81,6 +86,9 @@ export function TaskForm({
   const options = useResource(loadDeadlineOptions);
   const [title, setTitle] = useState(initial?.title ?? draft?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
+  const [recurrence, setRecurrence] = useState<Recurrence | null>(
+    initial?.recurrence ?? draft?.recurrence ?? null,
+  );
   const [deadline, setDeadline] = useState(
     initial?.deadline_id ?? deadlineId ?? "",
   );
@@ -123,6 +131,7 @@ export function TaskForm({
       end,
       completed,
       reminders,
+      recurrence,
     ]),
   );
   function cancel() {
@@ -174,6 +183,9 @@ export function TaskForm({
       }
       if (requireTimes && (!start || !end))
         throw new Error("시작 일시와 종료 일시를 입력해 주세요.");
+      if (scheduleType === "fixed") validateRecurrence(recurrence, start, end);
+      if (scheduleType === "fixed" && recurrence?.until === "")
+        throw new Error("반복 종료일을 선택해 주세요.");
       const estimated = minutes === "" ? null : Number(minutes);
       if (
         estimated !== null &&
@@ -201,6 +213,9 @@ export function TaskForm({
             : "최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.",
         );
       await onSave({
+        ...(recurrence || initial?.recurrence
+          ? { recurrence: scheduleType === "fixed" ? recurrence : null }
+          : {}),
         ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
         deadline_id: deadline || null,
@@ -513,6 +528,19 @@ export function TaskForm({
             {descriptionField}
             {completion}
           </>
+        )}
+        {!isDeadline && scheduleType === "fixed" && (
+          <RecurrenceSettings
+            value={recurrence}
+            onChange={(value) => {
+              onUserEdit?.();
+              setError("");
+              setRecurrence(value);
+            }}
+          />
+        )}
+        {initial?.recurrence && (
+          <p className="notice">변경 사항은 이 반복 일정 전체에 적용됩니다.</p>
         )}
         <ReminderSettings
           allowPreserve={Boolean(initial) && initial?.google_reminders == null}

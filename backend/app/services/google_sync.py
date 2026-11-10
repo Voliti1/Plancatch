@@ -20,6 +20,7 @@ from app.services import google_changes as changes
 from app.services import google_events
 from app.services import google_export as transport
 from app.services.google_reminders import provider_value
+from app.services.recurrence import google_rule
 
 logger = logging.getLogger(__name__)
 
@@ -102,6 +103,8 @@ def enqueue_task(db, user_id, task_id, *, force=False):
     desired = None
     if item and not events and item.schedule_type == "fixed" and item.earliest_start and item.latest_end:
         desired = payload(item.title, item.earliest_start, item.latest_end, item.google_reminders)
+        if desired and item.recurrence:
+            desired["recurrence"] = google_rule(item.recurrence)
     enqueue(db, user_id, "task", task_id, desired, task_id, force=force)
     known = {event.id for event in events}
     for event in events:

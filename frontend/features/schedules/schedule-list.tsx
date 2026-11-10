@@ -28,6 +28,7 @@ import {
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import "./schedule-list.css";
 import { DeletionSync } from "./deletion-sync";
+import { recurrenceSummary } from "@/features/tasks/recurrence-settings";
 
 function ScheduleRows({
   entries,
@@ -75,6 +76,12 @@ function ScheduleRows({
                   {entry.item.schedule_type === "flexible" && (
                     <span className="small muted">
                       가능 기간 · 실제 배치 시간은 상세에서 확인하세요.
+                    </span>
+                  )}
+                  {entry.item.recurrence && (
+                    <span className="small muted">
+                      {recurrenceSummary(entry.item.recurrence)} · 삭제 시 전체
+                      반복 삭제
                     </span>
                   )}
                 </>

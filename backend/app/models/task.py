@@ -52,6 +52,7 @@ class Task(Base):
     )
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recurrence: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     google_reminders: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True, default=new_default)
     estimated_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     priority: Mapped[int] = mapped_column(

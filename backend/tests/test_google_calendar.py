@@ -521,7 +521,8 @@ def test_provider_parses_refresh_lifetime_without_returning_access_token(
     assert 3590 < (expiry - datetime.now(UTC)).total_seconds() <= 3600
 
 
-@pytest.mark.parametrize("raw", [b"[]", b"not-json", b"x" * (google.MAX_RESPONSE + 1)])
+@pytest.mark.parametrize("raw", [b"[]", b"not-json", b"x" * (google.MAX_RESPONSE + 1)],
+                         ids=["wrong-shape", "invalid-json", "oversized"])
 def test_provider_rejects_malformed_or_oversized_body(monkeypatch, raw):
     class FakeResponse:
         status = 200

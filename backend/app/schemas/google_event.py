@@ -10,6 +10,7 @@ from pydantic import BaseModel
 class GoogleEventView(BaseModel):
     id: str
     title: str
+    recurring_event_id: str | None = None
     start_at: datetime | None = None
     end_at: datetime | None = None
     start_date: date | None = None
