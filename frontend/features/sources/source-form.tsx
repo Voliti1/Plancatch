@@ -136,6 +136,11 @@ export function SourceForm({
             </li>
           </ol>
         </div>
+        {embedded && (
+          <p className="small muted source-registration-guide">
+            파일, URL, 텍스트 중 하나를 추가해 주세요.
+          </p>
+        )}
         <fieldset disabled={busy || !hydrated}>
           <label>
             일정 제목 (선택)

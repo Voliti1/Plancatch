@@ -75,7 +75,7 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
     .getByRole("button", { name: "마감일", exact: true })
     .click();
   await page.getByLabel("일정명", { exact: true }).fill("최종 발표");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-10-01T09:30");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-10-01T09:30");
   const sent = page.waitForRequest(
     (r) => r.method() === "POST" && r.url().endsWith("/api/deadlines"),
   );

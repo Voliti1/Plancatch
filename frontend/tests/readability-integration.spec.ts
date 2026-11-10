@@ -47,8 +47,8 @@ test("larger typography aligns detail cards and keeps calendar and compact regis
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.goto("/sources/new?mode=manual");
-  const sentence = page.getByLabel("일정 설명 (선택)", { exact: true });
+  await page.goto("/sources/new?mode=natural");
+  const sentence = page.getByLabel("일정 설명", { exact: true });
   await expect(sentence).toBeVisible();
   expect((await sentence.boundingBox())!.height).toBeLessThanOrEqual(90);
   expect(
