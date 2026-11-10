@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.routes.analyses import router as analyses_router
 from app.api.routes.auth import router as auth_router
+from app.api.routes.auto_schedule import router as auto_schedule_router
 from app.api.routes.calendar_registrations import (
     router as calendar_registrations_router,
 )
@@ -24,6 +25,7 @@ from app.api.routes.tasks import router as tasks_router
 api_router = APIRouter()
 api_router.include_router(health_router)
 api_router.include_router(auth_router)
+api_router.include_router(auto_schedule_router)
 api_router.include_router(sources_router)
 api_router.include_router(images_router)
 api_router.include_router(analyses_router)

@@ -1,0 +1,100 @@
+.auto-schedule {
+  max-width: 1100px;
+  width: 100%;
+}
+.auto-schedule .card {
+  margin-bottom: 24px;
+  padding: clamp(18px, 3vw, 30px);
+}
+.auto-schedule fieldset {
+  min-width: 0;
+}
+.auto-schedule .checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.auto-schedule .checkbox-row input {
+  width: auto;
+  flex-shrink: 0;
+}
+.auto-schedule h2 {
+  margin: 0 0 16px;
+}
+.auto-schedule h2:not(:first-child) {
+  margin-top: 24px;
+}
+.planning-tasks {
+  list-style: none;
+  padding: 0;
+  margin: 12px 0 24px;
+  max-height: 340px;
+  overflow: auto;
+}
+.planning-tasks li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+}
+.planning-tasks label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.planning-tasks small {
+  display: block;
+  font-weight: 400;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.planning-tasks a {
+  flex-shrink: 0;
+}
+.planning-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin: 16px 0;
+}
+.planning-days label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.planning-task-blocks {
+  border-top: 1px solid var(--line);
+  margin-top: 20px;
+  padding-top: 20px;
+}
+.planning-task-blocks strong {
+  overflow-wrap: anywhere;
+}
+.planning-block {
+  margin-top: 12px;
+}
+.planning-unplaced {
+  border-top: 1px solid var(--line);
+  margin-top: 24px;
+  padding-top: 20px;
+}
+.planning-unplaced li {
+  margin: 10px 0;
+  overflow-wrap: anywhere;
+}
+.planning-result {
+  scroll-margin-top: 24px;
+}
+.auto-schedule .notice,
+.auto-schedule .success {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .planning-block {
+    grid-template-columns: 1fr;
+  }
+  .planning-days {
+    gap: 12px;
+  }
+}

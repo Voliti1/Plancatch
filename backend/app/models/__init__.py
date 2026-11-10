@@ -4,6 +4,7 @@ from app.models.analysis import Analysis
 from app.models.deadline import Deadline
 from app.models.google_calendar import GoogleCalendarConnection, GoogleOAuthRequest
 from app.models.google_export import GoogleExport
+from app.models.schedule_plan import SchedulePlan
 from app.models.scheduled_event import ScheduledEvent
 from app.models.source import Source
 from app.models.task import Task
@@ -15,6 +16,7 @@ __all__ = [
     "GoogleCalendarConnection",
     "GoogleExport",
     "GoogleOAuthRequest",
+    "SchedulePlan",
     "ScheduledEvent",
     "Source",
     "Task",
