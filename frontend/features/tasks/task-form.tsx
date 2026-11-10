@@ -8,6 +8,11 @@ import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import {
+  OverlapWarning,
+  OverlapScope,
+  useOverlapCheck,
+} from "@/features/calendar/overlap-warning";
+import {
   RecurrenceSettings,
   validateRecurrence,
   type Recurrence,
@@ -118,6 +123,7 @@ export function TaskForm({
   const endTooEarly =
     canChooseKind && !isDeadline && Boolean(start && end && end < start);
   const submitting = useRef(false);
+  const overlap = useOverlapCheck();
   const { markSaved, confirmDiscard } = useUnsavedChanges(
     JSON.stringify([
       registrationKind,
@@ -212,6 +218,27 @@ export function TaskForm({
             ? invalidTimeRange
             : "최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.",
         );
+      const checkTimes =
+        !initial ||
+        initial.schedule_type !== scheduleType ||
+        Date.parse(initial.earliest_start ?? "") !==
+          Date.parse(earliest ?? "") ||
+        Date.parse(initial.latest_end ?? "") !== Date.parse(latest ?? "") ||
+        JSON.stringify(initial.recurrence ?? null) !==
+          JSON.stringify(recurrence ?? null);
+      if (
+        scheduleType === "fixed" &&
+        earliest &&
+        latest &&
+        checkTimes &&
+        !(await overlap.check({
+          start_at: earliest,
+          end_at: latest,
+          recurrence,
+          ...(initial ? { exclude_task_id: initial.id } : {}),
+        }))
+      )
+        return;
       await onSave({
         ...(recurrence || initial?.recurrence
           ? { recurrence: scheduleType === "fixed" ? recurrence : null }
@@ -385,7 +412,10 @@ export function TaskForm({
     <form
       className={simple ? "calendar-task-form" : undefined}
       onSubmit={submit}
-      onChangeCapture={onUserEdit}
+      onChangeCapture={() => {
+        overlap.clear();
+        onUserEdit?.();
+      }}
       noValidate={simple}
     >
       {canChooseKind && (
@@ -552,6 +582,12 @@ export function TaskForm({
             setReminders(value);
           }}
         />
+        {!isDeadline && scheduleType === "fixed" && (
+          <>
+            <OverlapScope />
+            <OverlapWarning check={overlap} busy={busy || disabled} />
+          </>
+        )}
         {error && !(endTooEarly && error === invalidTimeRange) && (
           <ErrorNotice message={error} />
         )}
@@ -561,7 +597,9 @@ export function TaskForm({
           </button>
           <button type="submit" disabled={submitDisabled}>
             {busy
-              ? "저장 중…"
+              ? overlap.checking
+                ? "겹침 확인 중…"
+                : "저장 중…"
               : initial
                 ? "변경 사항 저장"
                 : isDeadline

@@ -1,0 +1,28 @@
+.overlap-warning {
+  border: 1px solid #c68a16;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 16px 0;
+  background: var(--bg);
+  overflow-wrap: anywhere;
+}
+.overlap-warning h3 {
+  margin-top: 0;
+}
+.overlap-warning ul {
+  padding-left: 20px;
+}
+.overlap-warning li {
+  margin: 12px 0;
+}
+.overlap-warning li span {
+  display: block;
+}
+.overlap-warning .form-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.overlap-warning h3:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}

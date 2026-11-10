@@ -36,6 +36,18 @@ export async function mockApi(
     const url = new URL(request.url());
     const path = url.pathname.replace("/test-api", "");
     const method = request.method();
+    if (path === "/api/schedules/conflicts" && method === "POST")
+      return route.fulfill({
+        json: {
+          conflicts: [],
+          truncated: false,
+          coverage_limited: false,
+          is_recurring: false,
+          scope: "local",
+          checked_from: "2026-11-10T00:00:00Z",
+          checked_until: "2026-11-11T00:00:00Z",
+        },
+      });
     if (path === "/api/integrations/google-calendar/status" && method === "GET")
       return route.fulfill({
         json: {
