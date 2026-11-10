@@ -59,7 +59,7 @@ test("creating without safety sends null and a past deadline can be configured w
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 지난 공식 마감");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2020-01-01T09:00");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2020-01-01T09:00");
   const sent = page.waitForRequest(
     (r) => r.method() === "POST" && r.url().endsWith("/api/deadlines"),
   );

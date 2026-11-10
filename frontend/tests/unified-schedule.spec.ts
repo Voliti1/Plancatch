@@ -24,6 +24,108 @@ const task = {
   earliest_start: "2026-11-02T06:00:00Z",
   latest_end: "2026-11-02T07:00:00Z",
 };
+
+test("deleted Google copies keep their status after reload and retry without deleting locally twice", async ({
+  page,
+}) => {
+  await mockApi(page, [], { tasks: [task] });
+  await login(page);
+  await page.clock.install();
+  let locallyDeleted = false;
+  let state: "pending" | "failed" | "deleted" = "pending";
+  let retryPosts = 0;
+  let localDeletes = 0;
+  let release!: () => void;
+  const waiting = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/test-api/api/tasks/same-id", async (route) => {
+    if (route.request().method() !== "DELETE") return route.fallback();
+    locallyDeleted = true;
+    localDeletes++;
+    return route.fallback();
+  });
+  await page.route(
+    "**/test-api/api/integrations/google-calendar/auto-sync/deletions?**",
+    (route) =>
+      route.fulfill({
+        json: {
+          entries: locallyDeleted
+            ? [
+                {
+                  kind: "task",
+                  item_id: task.id,
+                  title: task.title,
+                  state,
+                  note:
+                    state === "failed"
+                      ? "연결을 확인한 뒤 다시 시도해 주세요."
+                      : "Google 삭제 상태",
+                  retryable: state === "failed",
+                },
+              ]
+            : [],
+          has_more: false,
+        },
+      }),
+  );
+  await page.route(
+    "**/test-api/api/integrations/google-calendar/auto-sync",
+    async (route) => {
+      if (route.request().method() !== "POST") return route.fallback();
+      retryPosts++;
+      expect(route.request().postDataJSON()).toEqual({
+        kind: "task",
+        item_id: task.id,
+      });
+      await waiting;
+      state = "pending";
+      return route.fulfill({ status: 202, json: { state: "pending" } });
+    },
+  );
+  await page.goto("/deadlines");
+  await page.getByRole("button", { name: "삭제 모드", exact: true }).click();
+  await page
+    .getByRole("checkbox", { name: "지원 회의 선택", exact: true })
+    .click();
+  await page.getByRole("button", { name: "삭제", exact: true }).click();
+  await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
+  const panel = page.getByRole("region", {
+    name: "Google 캘린더 삭제 상태",
+    exact: true,
+  });
+  await expect(panel).toContainText("삭제 중");
+  await expect(page.locator(".schedule-rows")).toHaveCount(0);
+  state = "failed";
+  await page.reload();
+  await expect(panel).toContainText("삭제 확인 필요");
+  await expect(panel).toContainText("연결을 확인한 뒤");
+  await panel.screenshot({
+    path: test.info().outputPath("google-delete-failed.png"),
+  });
+  const retry = panel.getByRole("button", {
+    name: "지원 회의 Google 삭제 다시 시도",
+    exact: true,
+  });
+  await retry.evaluate((button: HTMLButtonElement) => {
+    button.click();
+    button.click();
+  });
+  await expect(retry).toBeDisabled();
+  expect(retryPosts).toBe(1);
+  release();
+  await expect(panel).toContainText("삭제 중");
+  state = "deleted";
+  await page.clock.fastForward(2600);
+  await expect(panel).toContainText("삭제 완료");
+  expect(localDeletes).toBe(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+});
+
 test("unified title search, native type chips, distinct deletion keys and task details", async ({
   page,
 }) => {

@@ -3,6 +3,25 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.google-deletion-rows {
+  list-style: none;
+  padding: 0;
+  margin: 20px 0;
+}
+.google-deletion-rows li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.google-deletion-rows li > div {
+  flex: 1 1 200px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .schedule-list-header {
   justify-content: flex-start;
   gap: 20px;

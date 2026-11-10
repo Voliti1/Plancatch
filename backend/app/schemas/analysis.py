@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.schemas.google_reminders import GoogleReminders, default_reminders
 from app.services.saramin_period import read_period
 
 
@@ -110,6 +111,10 @@ class ReviewRequest(BaseModel):
 class DecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: int = Field(ge=1)
+
+
+class ApprovalRequest(DecisionRequest):
+    google_reminders: GoogleReminders = Field(default_factory=default_reminders)
 
 
 class AutoRegistrationRequest(DecisionRequest):

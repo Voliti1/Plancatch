@@ -1,5 +1,6 @@
 "use client";
 import { useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
@@ -19,6 +20,11 @@ import {
   newReminderSettings,
   type GoogleReminderSettings,
 } from "@/types/google-reminders";
+
+const DEFAULT_TASK_MINUTES = 60;
+const MAX_ESTIMATED_MINUTES = 2147483647;
+const priorityNames = ["매우 낮음", "낮음", "보통", "높음", "매우 높음"];
+const invalidTimeRange = "종료 일시는 시작 일시보다 늦게 설정해 주세요.";
 
 function optionalUtc(value: string, original: string | null): string | null {
   if (!value) return null;
@@ -40,6 +46,7 @@ export function TaskForm({
   submitDisabled = false,
   onUserEdit,
   cancelPreservesInput = false,
+  reminderNotice,
   variant = "task",
 }: {
   initial?: Task;
@@ -53,6 +60,7 @@ export function TaskForm({
   submitDisabled?: boolean;
   onUserEdit?: () => void;
   cancelPreservesInput?: boolean;
+  reminderNotice?: ReactNode;
   variant?: "task" | "calendar";
 }) {
   const simple = variant === "calendar";
@@ -62,6 +70,9 @@ export function TaskForm({
   const canChooseKind = simple && !initial && Boolean(onSaveDeadline);
   const isDeadline = canChooseKind && registrationKind === "deadline";
   const requireTimes = simple && !initial;
+  const titleLabelId = useId();
+  const timeHelpId = useId();
+  const timeErrorId = useId();
   const hydrated = useHydrated();
   const descriptionId = useId();
   const deadlineLabelId = useId();
@@ -96,6 +107,8 @@ export function TaskForm({
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const endTooEarly =
+    canChooseKind && !isDeadline && Boolean(start && end && end < start);
   const submitting = useRef(false);
   const { markSaved, confirmDiscard } = useUnsavedChanges(
     JSON.stringify([
@@ -116,6 +129,22 @@ export function TaskForm({
     if (cancelPreservesInput || confirmDiscard()) onCancel();
   }
 
+  function updateTaskEnd(startValue: string, minutesValue: string) {
+    if (!simple || isDeadline || !startValue) return;
+    const duration =
+      minutesValue === "" ? DEFAULT_TASK_MINUTES : Number(minutesValue);
+    if (
+      !Number.isInteger(duration) ||
+      duration < 1 ||
+      duration > MAX_ESTIMATED_MINUTES
+    )
+      return;
+    // Calculate on the displayed Seoul clock, regardless of the browser's zone.
+    const endTime = new Date(Date.parse(`${startValue}Z`) + duration * 60_000);
+    if (endTime.getUTCFullYear() >= 1 && endTime.getUTCFullYear() <= 9999)
+      setEnd(endTime.toISOString().slice(0, 16));
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (submitting.current || submitDisabled) return;
@@ -129,7 +158,7 @@ export function TaskForm({
           simple ? "일정명을 입력해 주세요." : "작업명을 입력해 주세요.",
         );
       if (isDeadline && onSaveDeadline) {
-        if (!end) throw new Error("종료 일시를 입력해 주세요.");
+        if (!end) throw new Error("마감 일시를 입력해 주세요.");
         await onSaveDeadline({
           ...(reminders ? { google_reminders: reminders } : {}),
           title: title.trim(),
@@ -150,7 +179,7 @@ export function TaskForm({
         estimated !== null &&
         (!Number.isInteger(estimated) ||
           estimated <= 0 ||
-          estimated > 2147483647)
+          estimated > MAX_ESTIMATED_MINUTES)
       )
         throw new Error("예상 소요시간은 1분 이상의 정수로 입력해 주세요.");
       if (deadline && !options.data?.some((item) => item.id === deadline))
@@ -168,7 +197,7 @@ export function TaskForm({
       if (earliest && latest && new Date(earliest) >= new Date(latest))
         throw new Error(
           simple
-            ? "종료 일시는 시작 일시보다 늦게 설정해 주세요."
+            ? invalidTimeRange
             : "최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.",
         );
       await onSave({
@@ -192,6 +221,43 @@ export function TaskForm({
     }
   }
 
+  const durationAndPriority = (
+    <div className="form-grid">
+      <label>
+        예상 소요시간 (분, 선택)
+        <input
+          name="estimated_minutes"
+          type="number"
+          min={1}
+          max={MAX_ESTIMATED_MINUTES}
+          step={1}
+          inputMode={canChooseKind ? "numeric" : undefined}
+          value={minutes}
+          onChange={(event) => {
+            const value = event.target.value;
+            setMinutes(value);
+            if (!event.target.validity.badInput) updateTaskEnd(start, value);
+          }}
+          placeholder="예: 60"
+        />
+      </label>
+      <label>
+        <span id={priorityLabelId}>우선순위</span>
+        <select
+          name="priority"
+          aria-labelledby={priorityLabelId}
+          value={priority}
+          onChange={(event) => setPriority(Number(event.target.value))}
+        >
+          {[1, 2, 3, 4, 5].map((value) => (
+            <option key={value} value={value}>
+              {canChooseKind ? priorityNames[value - 1] : value}
+            </option>
+          ))}
+        </select>
+      </label>
+    </div>
+  );
   const settings = (
     <>
       <label>
@@ -215,36 +281,7 @@ export function TaskForm({
           ))}
         </select>
       </label>
-      <div className="form-grid">
-        <label>
-          예상 소요시간 (분, 선택)
-          <input
-            name="estimated_minutes"
-            type="number"
-            min={1}
-            max={2147483647}
-            step={1}
-            value={minutes}
-            onChange={(event) => setMinutes(event.target.value)}
-            placeholder="예: 60"
-          />
-        </label>
-        <label>
-          <span id={priorityLabelId}>우선순위</span>
-          <select
-            name="priority"
-            aria-labelledby={priorityLabelId}
-            value={priority}
-            onChange={(event) => setPriority(Number(event.target.value))}
-          >
-            {[1, 2, 3, 4, 5].map((value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      {!simple && durationAndPriority}
       <label>
         <span id={typeLabelId}>작업 유형</span>
         <select
@@ -270,19 +307,34 @@ export function TaskForm({
             name="earliest_start"
             type="datetime-local"
             value={start}
-            onChange={(event) => setStart(event.target.value)}
+            onChange={(event) => {
+              const value = event.target.value;
+              setStart(value);
+              updateTaskEnd(value, minutes);
+            }}
             required={requireTimes}
+            aria-describedby={canChooseKind ? timeHelpId : undefined}
           />
         </label>
       )}
       <label>
-        {simple ? "종료 일시" : "최종 완료 일시 (한국 시간, 선택)"}
+        {isDeadline
+          ? "마감 일시"
+          : simple
+            ? "종료 일시"
+            : "최종 완료 일시 (한국 시간, 선택)"}
         <input
           name="latest_end"
           type="datetime-local"
           value={end}
           onChange={(event) => setEnd(event.target.value)}
           required={requireTimes}
+          aria-invalid={endTooEarly || undefined}
+          aria-describedby={
+            canChooseKind
+              ? `${timeHelpId}${endTooEarly ? ` ${timeErrorId}` : ""}`
+              : undefined
+          }
         />
       </label>
     </div>
@@ -322,39 +374,47 @@ export function TaskForm({
       noValidate={simple}
     >
       {canChooseKind && (
-        <div
-          className="manual-registration-kind"
-          role="group"
-          aria-label="등록 종류"
-        >
-          <button
-            type="button"
-            className={registrationKind === "task" ? "selected" : "secondary"}
-            aria-pressed={registrationKind === "task"}
-            disabled={disabled || busy || !hydrated}
-            onClick={() => {
-              onUserEdit?.();
-              setRegistrationKind("task");
-              setError("");
-            }}
+        <div className="registration-kind-field">
+          <h3>일정 유형</h3>
+          <div
+            className="manual-registration-kind"
+            role="group"
+            aria-label="등록 종류"
           >
-            할 일
-          </button>
-          <button
-            type="button"
-            className={
-              registrationKind === "deadline" ? "selected" : "secondary"
-            }
-            aria-pressed={registrationKind === "deadline"}
-            disabled={disabled || busy || !hydrated}
-            onClick={() => {
-              onUserEdit?.();
-              setRegistrationKind("deadline");
-              setError("");
-            }}
-          >
-            마감일
-          </button>
+            <button
+              type="button"
+              className={registrationKind === "task" ? "selected" : "secondary"}
+              aria-pressed={registrationKind === "task"}
+              disabled={disabled || busy || !hydrated}
+              onClick={() => {
+                onUserEdit?.();
+                setRegistrationKind("task");
+                setError("");
+              }}
+            >
+              할 일
+            </button>
+            <button
+              type="button"
+              className={
+                registrationKind === "deadline" ? "selected" : "secondary"
+              }
+              aria-pressed={registrationKind === "deadline"}
+              disabled={disabled || busy || !hydrated}
+              onClick={() => {
+                onUserEdit?.();
+                setRegistrationKind("deadline");
+                setError("");
+              }}
+            >
+              마감일
+            </button>
+          </div>
+          <p className="small muted">
+            {isDeadline
+              ? "제출이나 신청처럼 기한이 있는 일정이에요."
+              : "시작과 종료가 있는 일정을 등록해요."}
+          </p>
         </div>
       )}
       {!isDeadline && options.loading && <Loading />}
@@ -373,24 +433,64 @@ export function TaskForm({
         }
       >
         <label>
-          {simple ? "일정명" : "작업명"}
+          <span className={canChooseKind ? "registration-label" : undefined}>
+            <span id={titleLabelId}>{simple ? "일정명" : "작업명"}</span>
+            {canChooseKind && (
+              <span className="registration-required" aria-hidden="true">
+                필수
+              </span>
+            )}
+          </span>
           <input
             name="title"
+            aria-labelledby={titleLabelId}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             required
             maxLength={255}
             placeholder={
-              simple ? "예: 팀 프로젝트 회의" : "예: 발표 자료 초안 작성"
+              isDeadline
+                ? "예: 프로젝트 보고서 제출"
+                : simple
+                  ? "예: 팀 프로젝트 회의"
+                  : "예: 발표 자료 초안 작성"
             }
           />
         </label>
         {simple ? (
           <>
+            {canChooseKind && (
+              <div className="registration-time-heading">
+                <div className="registration-label">
+                  <h3>{isDeadline ? "마감 시간" : "일정 시간"}</h3>
+                  <span className="registration-required" aria-hidden="true">
+                    필수
+                  </span>
+                </div>
+                <p id={timeHelpId} className="small muted">
+                  한국 시간 기준
+                </p>
+              </div>
+            )}
             {times}
-            <p className="muted small calendar-task-timezone">
-              한국 시간 기준{initial ? " · 시간은 비워 둘 수 있습니다." : ""}
-            </p>
+            {endTooEarly && (
+              <p
+                id={timeErrorId}
+                role="alert"
+                className="registration-time-error"
+              >
+                {invalidTimeRange}
+              </p>
+            )}
+            {!canChooseKind && (
+              <p className="muted small calendar-task-timezone">
+                한국 시간 기준{initial ? " · 시간은 비워 둘 수 있습니다." : ""}
+              </p>
+            )}
+            {!isDeadline && durationAndPriority}
+            {canChooseKind && (
+              <h3 className="registration-extras-heading">추가 설정</h3>
+            )}
             {descriptionField}
             {!isDeadline && (
               <details className="calendar-task-settings">
@@ -417,18 +517,16 @@ export function TaskForm({
         <ReminderSettings
           allowPreserve={Boolean(initial) && initial?.google_reminders == null}
           value={reminders}
+          registrationKind={canChooseKind ? registrationKind : undefined}
+          connectionNotice={reminderNotice}
           onChange={(value) => {
             onUserEdit?.();
             setReminders(value);
           }}
         />
-        {simple && isDeadline && (
-          <p className="muted small calendar-task-help">
-            입력한 종료 일시를 마감일로 저장하고 캘린더에 표시합니다. Google
-            계정이 연결되어 있으면 자동 반영됩니다.
-          </p>
+        {error && !(endTooEarly && error === invalidTimeRange) && (
+          <ErrorNotice message={error} />
         )}
-        {error && <ErrorNotice message={error} />}
         <div className="form-actions">
           <button type="button" className="secondary" onClick={cancel}>
             취소

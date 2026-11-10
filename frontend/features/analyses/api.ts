@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
 import type { Analysis, CandidateEdit } from "@/types/analysis";
+import type { GoogleReminderSettings } from "@/types/google-reminders";
 const path = (id: string) => `/api/ai-analyses/${encodeURIComponent(id)}`;
 export const analysesApi = {
   list: (sourceId: string, offset = 0, signal?: AbortSignal) =>
@@ -39,10 +40,18 @@ export const analysesApi = {
       body: JSON.stringify({ revision, candidates }),
       signal,
     }),
-  approve: (id: string, revision: number, signal?: AbortSignal) =>
+  approve: (
+    id: string,
+    revision: number,
+    reminders: GoogleReminderSettings,
+    signal?: AbortSignal,
+  ) =>
     api<Analysis>(`${path(id)}/approve`, {
       method: "POST",
-      body: JSON.stringify({ revision }),
+      body: JSON.stringify({
+        revision,
+        ...(reminders.mode === "none" ? {} : { google_reminders: reminders }),
+      }),
       signal,
     }),
   autoRegister: (

@@ -88,7 +88,7 @@ export function useListDeletion(
       setSelected((items) => items.filter((id) => !done.includes(id)));
       setConfirming(false);
       if (done.length) {
-        setMessage(`${done.length}개 항목의 삭제를 완료했습니다.`);
+        setMessage(`${done.length}개 항목을 플랜캐치에서 삭제했습니다.`);
         onDeleted();
       }
       const remaining = selected.length - done.length;

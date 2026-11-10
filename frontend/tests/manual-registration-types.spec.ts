@@ -23,20 +23,27 @@ test("manual card matches source width and type buttons sit above the shared tit
     kind.getByRole("button", { name: "할 일", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   const intro = await card
-    .getByText("문장으로 입력하거나 아래 항목을 직접 입력해 등록하세요.", {
-      exact: true,
-    })
+    .getByRole("tablist", { name: "수동 입력 방식" })
     .boundingBox();
   const menu = await kind.boundingBox(),
     title = await page.getByLabel("일정명", { exact: true }).boundingBox();
   expect(menu!.y).toBeGreaterThan(intro!.y + intro!.height);
   expect(menu!.y + menu!.height).toBeLessThan(title!.y);
   await page.getByLabel("일정명", { exact: true }).fill("[테스트] 종류 전환");
-  await page.getByLabel("시작 일시", { exact: true }).fill("2026-11-06T09:00");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
+  const start = page.getByLabel("시작 일시", { exact: true });
+  const end = page.getByLabel("종료 일시", { exact: true });
+  const minutes = page.getByLabel("예상 소요시간 (분, 선택)", { exact: true });
+  await start.fill("2026-11-06T09:00");
+  await expect(end).toHaveValue("2026-11-06T10:00");
+  await minutes.fill("90");
+  await expect(end).toHaveValue("2026-11-06T10:30");
+  await start.fill("2026-11-06T23:30");
+  await expect(end).toHaveValue("2026-11-07T01:00");
+  await minutes.fill("");
+  await expect(end).toHaveValue("2026-11-07T00:30");
+  await start.fill("2026-11-06T09:00");
+  await minutes.fill("60");
   await page.getByLabel("메모 (선택)", { exact: true }).fill("유지할 메모");
-  await page.getByText("상세 설정", { exact: true }).click();
-  await page.getByLabel("예상 소요시간 (분, 선택)", { exact: true }).fill("60");
   await page.screenshot({
     path: test.info().outputPath("manual-task-wide.png"),
     fullPage: true,
@@ -46,7 +53,7 @@ test("manual card matches source width and type buttons sit above the shared tit
   await expect(
     page.getByLabel("예상 소요시간 (분, 선택)", { exact: true }),
   ).toHaveCount(0);
-  await expect(page.getByLabel("종료 일시", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("마감 일시", { exact: true })).toHaveValue(
     "2026-11-06T10:00",
   );
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue(
@@ -76,7 +83,7 @@ test("deadline registration sends only the end time to Deadline API and appears 
   await page.goto("/sources/new?mode=manual");
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("[테스트] 제안서 마감");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T23:59");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-11-06T23:59");
   const writes: string[] = [];
   page.on("request", (r) => {
     if (r.method() === "POST" && r.url().includes("/api/"))
@@ -110,14 +117,13 @@ test("deadline requires an end time but ignores hidden task fields and failed de
 }) => {
   await page.goto("/sources/new?mode=manual");
   await page.getByLabel("일정명", { exact: true }).fill("[테스트] 종료만 필요");
-  await page.getByText("상세 설정", { exact: true }).click();
   await page.getByLabel("예상 소요시간 (분, 선택)", { exact: true }).fill("-1");
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "종료 일시를 입력해 주세요",
+    "마감 일시를 입력해 주세요",
   );
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-11-06T10:00");
   await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
   await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
   await page.route("**/test-api/api/deadlines?**", (route) =>
@@ -138,7 +144,7 @@ test("pending deadline saves lock type switches and failures preserve inputs", a
   await page.goto("/sources/new?mode=manual");
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("[테스트] 저장 실패");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-11-06T10:00");
   let release!: () => void;
   const waiting = new Promise<void>((resolve) => {
     release = resolve;
@@ -184,7 +190,7 @@ test("a late deadline save does not navigate away from a newly opened registrati
   await page.goto("/sources/new?mode=manual");
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("[테스트] 이전 마감");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-11-06T10:00");
   let release!: () => void;
   const waiting = new Promise<void>((resolve) => {
     release = resolve;

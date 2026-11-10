@@ -233,19 +233,6 @@ html.readability-preview .source-file-drop {
 html.readability-preview .source-file-drop strong {
   font-size: 20px;
 }
-html.readability-preview .schedule-registration-modes button {
-  font-size: 16px;
-  min-height: 54px;
-}
-html.readability-preview .natural-examples button {
-  min-height: 32px;
-  padding: 5px 10px;
-  font-size: 14px;
-}
-html.readability-preview .natural-sentence-input textarea {
-  padding: 10px 14px;
-  min-height: 64px;
-}
 html.readability-preview .calendar-period h2 {
   font-size: 18px;
 }
@@ -330,9 +317,6 @@ html.readability-preview footer {
   }
   html.readability-preview .source-registration-steps {
     gap: 10px;
-  }
-  html.readability-preview .schedule-registration-modes {
-    grid-template-columns: minmax(0, 1fr);
   }
   html.readability-preview .calendar-card {
     padding: 18px 10px;

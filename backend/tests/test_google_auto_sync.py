@@ -114,6 +114,55 @@ def test_registration_update_and_delete_need_no_preview_or_confirm(setup, automa
     assert rows()[0].deleted_at and not rows()[0].sync_pending
 
 
+def test_deleted_schedule_status_is_owned_paged_and_survives_retry(setup, automatic):
+    auth, _, remote, writes, calls, _, rows, drain = automatic
+    target = deadline(setup, auth)
+    item = task(setup, auth)
+    drain()
+    listing = BASE + '/deletions'
+    assert setup.client.get(listing, headers=auth).json()['entries'] == []
+    assert setup.client.delete('/api/deadlines/' + target['item_id'], headers=auth).status_code == 204
+    assert setup.client.delete('/api/tasks/' + item['id'], headers=auth).status_code == 204
+    count = len(calls)
+    result = setup.client.get(listing, headers=auth).json()
+    assert len(result['entries']) == 2 and {e['state'] for e in result['entries']} == {'pending'}
+    assert len(calls) == count  # Reading the queue never calls or changes Google.
+    assert setup.client.get(listing).status_code == 401
+    other = owner()
+    try:
+        assert setup.client.get(listing, headers=other).json()['entries'] == []
+        assert setup.client.post(BASE, headers=other, json=target).status_code == 404
+    finally:
+        with TestingSession() as db:
+            db.execute(delete(User).where(User.id == connection_user(other)))
+            db.commit()
+    assert setup.client.get(listing, headers=auth, params={'limit': 1}).json()['has_more']
+    assert len(setup.client.get(listing, headers=auth, params={'limit': 1, 'offset': 1}).json()['entries']) == 1
+    deadline_row = next(row for row in rows() if row.kind == 'deadline')
+    original = copy.deepcopy(remote[deadline_row.google_event_id])
+    remote[deadline_row.google_event_id]['summary'] = 'Google에서 바뀐 제목'
+    drain()
+    result = setup.client.get(listing, headers=auth).json()
+    failed = next(e for e in result['entries'] if e['kind'] == 'deadline')
+    assert failed['state'] == 'failed' and failed['retryable']
+    assert '직접 바뀌었거나' in failed['note']
+    assert next(e for e in result['entries'] if e['kind'] == 'task')['state'] == 'deleted'
+    remote[deadline_row.google_event_id] = original
+    assert setup.client.post(BASE, headers=auth, json=target).status_code == 202
+    drain()
+    assert remote == {} and writes.count('DELETE') == 2
+    assert {e['state'] for e in setup.client.get(listing, headers=auth).json()['entries']} == {'deleted'}
+    with TestingSession() as db:
+        for row in rows():
+            db.get(GoogleExport, row.id).deleted_at = sync.now() - timedelta(hours=25)
+        db.commit()
+    assert setup.client.get(listing, headers=auth).json()['entries'] == []
+    with TestingSession() as db:
+        db.get(GoogleExport, deadline_row.id).error_code = 'credentials_unavailable'
+        db.commit()
+    assert setup.client.get(listing, headers=auth).json()['entries'][0]['state'] == 'failed'
+
+
 def test_create_then_delete_before_delivery_never_creates_a_google_copy(setup, automatic):
     auth, _, remote, writes, _, _, rows, drain = automatic
     target = deadline(setup, auth)
@@ -244,7 +293,8 @@ def test_unconnected_crud_and_status_need_no_google_or_outbound_calls(setup, mon
     assert not calls
 
 
-def test_source_approval_queues_only_approved_deadlines_and_last_delete_cleans_source(setup, automatic):
+@pytest.mark.parametrize("use_email", [False, True])
+def test_source_approval_queues_only_approved_deadlines_and_last_delete_cleans_source(setup, automatic, use_email):
     from app.models import Analysis, Source
     from app.services.ai_analysis import content_hash
     auth, user_id, remote, writes, _, _, rows, drain = automatic
@@ -262,11 +312,18 @@ def test_source_approval_queues_only_approved_deadlines_and_last_delete_cleans_s
         db.commit()
         path = '/api/ai-analyses/' + str(analysis.id) + '/approve'
     assert rows() == []
-    approved = setup.client.post(path, headers=auth, json={'revision':1})
+    approval = {'revision': 1}
+    if use_email:
+        approval['google_reminders'] = {'mode': 'custom', 'overrides': [{'method': 'email', 'minutes': 15}]}
+    approved = setup.client.post(path, headers=auth, json=approval)
     assert approved.status_code == 200 and len(rows()) == 1
     assert setup.client.post(path, headers=auth, json={'revision':1}).json()['approved_deadline_ids'] == approved.json()['approved_deadline_ids']
     drain()
     assert writes == ['POST'] and len(remote) == 1
+    assert next(iter(remote.values()))['reminders'] == {
+        'useDefault': False,
+        'overrides': [{'method': 'email', 'minutes': 15}] if use_email else [],
+    }
     assert setup.client.delete('/api/deadlines/' + approved.json()['approved_deadline_ids'][0], headers=auth).status_code == 204
     drain()
     assert remote == {} and setup.client.get('/api/sources/' + source_id, headers=auth).status_code == 404
