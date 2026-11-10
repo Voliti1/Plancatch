@@ -81,7 +81,6 @@ export function TaskForm({
   );
   const canChooseKind = simple && !initial && Boolean(onSaveDeadline);
   const isDeadline = canChooseKind && registrationKind === "deadline";
-  const requireTimes = simple && (!initial || singleOccurrence);
   const titleLabelId = useId();
   const timeHelpId = useId();
   const timeErrorId = useId();
@@ -106,6 +105,8 @@ export function TaskForm({
   const [scheduleType, setScheduleType] = useState<ScheduleType>(
     initial?.schedule_type ?? (simple ? "fixed" : "flexible"),
   );
+  const requireTimes =
+    simple && scheduleType === "fixed" && (!initial || singleOccurrence);
   const [start, setStart] = useState(
     initial?.earliest_start || draft?.start_at
       ? toSeoulInput((initial?.earliest_start ?? draft?.start_at)!)
@@ -587,6 +588,12 @@ export function TaskForm({
         )}
         {initial?.recurrence && (
           <p className="notice">변경 사항은 이 반복 일정 전체에 적용됩니다.</p>
+        )}
+        {!isDeadline && scheduleType === "flexible" && (
+          <p className="notice">
+            시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면
+            자동 배치에서 빈 시간을 제안받을 수 있습니다.
+          </p>
         )}
         {Boolean(initial?.exception_count) && (
           <label className="checkbox-row">

@@ -190,6 +190,12 @@ export function TaskDetail({ id }: { id: string }) {
                       : "유동 작업의 가능 기간입니다. 고정 일정으로 바꾸면 입력한 시간에 캘린더에 표시됩니다."}
                   </p>
                   <div className="form-actions">
+                    {data.schedule_type === "flexible" &&
+                      !data.is_completed && (
+                        <Link className="button secondary" href="/planning">
+                          자동 배치에서 시간 정하기
+                        </Link>
+                      )}
                     <button
                       className="secondary"
                       disabled={busy || confirmDelete}
