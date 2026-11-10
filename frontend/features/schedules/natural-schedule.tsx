@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { ErrorNotice } from "@/components/feedback";
 import { api, errorMessage } from "@/lib/api/client";
 import { TaskForm } from "@/features/tasks/task-form";
@@ -11,28 +11,29 @@ import type { NaturalScheduleDraft } from "@/types/natural-schedule";
 
 export function NaturalSchedule({
   enabled = true,
-  initialDraft,
+  saving,
   deadlineId,
   onCancel,
-  onBusyChange,
+  onDirectInput,
+  reminderNotice,
   onSave,
   onSaveDeadline,
 }: {
   enabled?: boolean;
-  initialDraft?: NaturalScheduleDraft;
+  saving: boolean;
   deadlineId?: string;
   onCancel: () => void;
-  onBusyChange: (busy: boolean) => void;
+  onDirectInput: () => void;
+  reminderNotice: ReactNode;
   onSave: (payload: TaskInput) => Promise<void>;
   onSaveDeadline: (payload: DeadlineInput) => Promise<void>;
 }) {
   const textLabelId = useId();
   const [text, setText] = useState("");
   const { markSaved } = useUnsavedChanges(text);
-  const [draft, setDraft] = useState(initialDraft);
+  const [draft, setDraft] = useState<NaturalScheduleDraft>();
   const [version, setVersion] = useState(0);
   const [reading, setReading] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [retry, setRetry] = useState(0);
   const [composing, setComposing] = useState(false);
@@ -41,7 +42,7 @@ export function NaturalSchedule({
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const generation = useRef(0);
   const manualEdit = useRef(false);
-  const currentDraft = useRef(initialDraft);
+  const currentDraft = useRef<NaturalScheduleDraft | undefined>(undefined);
   const interpreted = useRef<string | null>(null);
 
   function cancelReading() {
@@ -120,40 +121,18 @@ export function NaturalSchedule({
 
   async function save<T>(payload: T, handler: (value: T) => Promise<void>) {
     cancelReading();
-    setSaving(true);
-    onBusyChange(true);
-    try {
-      await handler(payload);
-      markSaved();
-    } catch (err) {
-      setSaving(false);
-      onBusyChange(false);
-      throw err;
-    }
+    await handler(payload);
+    markSaved();
   }
 
   return (
-    <section className="card source-registration manual-registration-card natural-registration">
-      <div className="manual-registration-heading">
-        <h2>수동 일정 등록</h2>
-        <Link
-          className="text-button"
-          href="/deadlines"
-          aria-disabled={saving || undefined}
-          onClick={(event) => {
-            if (saving) event.preventDefault();
-          }}
-        >
-          등록한 일정 보기 →
-        </Link>
-      </div>
-      <p className="small muted">
-        문장으로 입력하거나 아래 항목을 직접 입력해 등록하세요.
-      </p>
+    <div className="natural-registration">
       <div className="natural-sentence-input">
-        <h3>문장으로 일정 등록</h3>
+        <p className="small muted">
+          날짜와 할 일을 한 문장으로 적으면 검토할 일정이 자동으로 표시됩니다.
+        </p>
         <label>
-          <span id={textLabelId}>일정 설명 (선택)</span>
+          <span id={textLabelId}>일정 설명</span>
           <textarea
             aria-labelledby={textLabelId}
             ref={input}
@@ -200,46 +179,53 @@ export function NaturalSchedule({
           </p>
         )}
         {error && (
-          <ErrorNotice
-            message={`${error} 아래 항목을 직접 입력해도 됩니다.`}
-            retry={() => {
-              manualEdit.current = false;
-              interpreted.current = null;
-              setReading(true);
-              setRetry((v) => v + 1);
-            }}
-          />
+          <>
+            <ErrorNotice
+              message={error}
+              retry={() => {
+                manualEdit.current = false;
+                interpreted.current = null;
+                setReading(true);
+                setError("");
+                setRetry((v) => v + 1);
+              }}
+            />
+            <button type="button" className="secondary" onClick={onDirectInput}>
+              직접 입력으로 전환
+            </button>
+          </>
         )}
       </div>
-      <div className="natural-preview" role="region" aria-label="일정 입력">
-        {draft && (
+      {draft && (
+        <section className="natural-preview" aria-label="일정 입력">
+          <h3>해석 결과 확인</h3>
           <p className="small muted">
-            문장에서 읽은 내용을 확인하고 필요한 항목을 수정해 주세요. 아직
-            등록되지 않았습니다.
+            내용을 확인하고 필요한 항목을 수정한 뒤 등록하세요.
           </p>
-        )}
-        {draft && draft.notices.length > 0 && (
-          <ul className="notice natural-notices" aria-label="확인할 내용">
-            {draft.notices.map((notice) => (
-              <li key={notice}>{notice}</li>
-            ))}
-          </ul>
-        )}
-        <TaskForm
-          key={version}
-          deadlineId={deadlineId}
-          draft={draft}
-          variant="calendar"
-          submitLabel="일정 등록"
-          disabled={saving}
-          submitDisabled={reading}
-          onUserEdit={editFields}
-          onSave={(payload) => save(payload, onSave)}
-          onSaveDeadline={(payload) => save(payload, onSaveDeadline)}
-          onCancel={onCancel}
-          cancelPreservesInput
-        />
-      </div>
-    </section>
+          {draft.notices.length > 0 && (
+            <ul className="notice natural-notices" aria-label="확인할 내용">
+              {draft.notices.map((notice) => (
+                <li key={notice}>{notice}</li>
+              ))}
+            </ul>
+          )}
+          <TaskForm
+            key={version}
+            deadlineId={deadlineId}
+            draft={draft}
+            variant="calendar"
+            submitLabel="일정 등록"
+            disabled={saving}
+            submitDisabled={reading}
+            reminderNotice={reminderNotice}
+            onUserEdit={editFields}
+            onSave={(payload) => save(payload, onSave)}
+            onSaveDeadline={(payload) => save(payload, onSaveDeadline)}
+            onCancel={onCancel}
+            cancelPreservesInput
+          />
+        </section>
+      )}
+    </div>
   );
 }

@@ -32,7 +32,7 @@ test("today is the default and uses the same short date header as week", async (
   ).toHaveText("11/2 (월)");
 });
 
-test("manual fields are always available and switching tabs keeps them without interpreting or writing", async ({
+test("direct entry opens first and preserves its draft across keyboard and registration tabs", async ({
   page,
 }) => {
   await mockApi(page);
@@ -42,14 +42,15 @@ test("manual fields are always available and switching tabs keeps them without i
     if (r.method() === "POST") calls.push(r.url());
   });
   await page.goto("/sources/new?mode=manual");
-  await expect(page.getByRole("tab")).toHaveCount(2);
+  const tabs = page.getByRole("tablist", { name: "일정 등록 방식" });
+  await expect(tabs.getByRole("tab")).toHaveCount(2);
   const widths = await page
+    .getByRole("tablist", { name: "일정 등록 방식" })
     .getByRole("tab")
     .evaluateAll((items) =>
       items.map((item) => item.getBoundingClientRect().width),
     );
   expect(Math.abs(widths[0] - widths[1])).toBeLessThanOrEqual(1);
-  const tabs = page.getByRole("tablist", { name: "일정 등록 방식" });
   expect(widths.reduce((sum, width) => sum + width, 0)).toBeGreaterThan(
     (await tabs.boundingBox())!.width * 0.9,
   );
@@ -60,6 +61,22 @@ test("manual fields are always available and switching tabs keeps them without i
     page.getByRole("button", { name: "일정 미리보기", exact: true }),
   ).toHaveCount(0);
   await page.getByLabel("일정명", { exact: true }).fill("직접 쓴 일정");
+  const direct = page.getByRole("tab", { name: "직접 입력", exact: true });
+  const sentence = page.getByRole("tab", {
+    name: "문장으로 등록",
+    exact: true,
+  });
+  await expect(direct).toHaveAttribute("aria-selected", "true");
+  await direct.press("End");
+  await expect(sentence).toBeFocused();
+  await expect(
+    page.getByRole("textbox", { name: "일정명", exact: true }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("textbox", { name: "일정 설명", exact: true }),
+  ).toBeVisible();
+  await sentence.press("ArrowLeft");
+  await expect(direct).toBeFocused();
   await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue(
@@ -73,7 +90,7 @@ test("rapid sentence edits debounce to one interpretation and never save automat
 }) => {
   await mockApi(page);
   await login(page);
-  await page.goto("/sources/new?mode=manual");
+  await page.goto("/sources/new?mode=natural");
   let interpretations = 0,
     writes = 0;
   page.on("request", (r) => {
@@ -84,7 +101,7 @@ test("rapid sentence edits debounce to one interpretation and never save automat
     interpretations++;
     return route.fulfill({ json: draft });
   });
-  const input = page.getByLabel("일정 설명 (선택)", { exact: true });
+  const input = page.getByLabel("일정 설명", { exact: true });
   await input.fill("내일");
   await input.fill("내일 오후 3시 회의");
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("회의");
@@ -101,12 +118,28 @@ test("rapid sentence edits debounce to one interpretation and never save automat
   ).toBe(true);
 });
 
-test("manual edits cancel a pending interpretation and cannot be overwritten by its late result", async ({
+test("a pending sentence and an edited preview stay separate from the direct draft", async ({
   page,
 }) => {
   await mockApi(page);
   await login(page);
   await page.goto("/sources/new?mode=manual");
+  const direct = page.getByRole("tab", { name: "직접 입력", exact: true });
+  const sentence = page.getByRole("tab", {
+    name: "문장으로 등록",
+    exact: true,
+  });
+  const directPanel = page.getByRole("tabpanel", {
+    name: "직접 입력",
+    exact: true,
+  });
+  const sentencePanel = page.getByRole("tabpanel", {
+    name: "문장으로 등록",
+    exact: true,
+  });
+  const title = directPanel.getByLabel("일정명", { exact: true });
+  await title.fill("직접 쓴 일정");
+  await sentence.click();
   let release!: () => void;
   const gate = new Promise<void>((r) => (release = r));
   await page.route("**/api/schedules/interpret", async (route) => {
@@ -116,16 +149,27 @@ test("manual edits cancel a pending interpretation and cannot be overwritten by 
   const sent = page.waitForRequest((r) =>
     r.url().endsWith("/api/schedules/interpret"),
   );
-  await page.getByLabel("일정 설명 (선택)", { exact: true }).fill("내일 회의");
+  await sentencePanel
+    .getByLabel("일정 설명", { exact: true })
+    .fill("내일 회의");
   await sent;
-  const title = page.getByLabel("일정명", { exact: true });
-  await title.fill("직접 수정한 제목");
+  await direct.click();
   release();
-  await expect(page.getByRole("status")).toHaveCount(0);
-  await expect(title).toHaveValue("직접 수정한 제목");
+  await expect(title).toHaveValue("직접 쓴 일정");
+  await sentence.click();
+  const previewTitle = sentencePanel.getByLabel("일정명", { exact: true });
+  await expect(previewTitle).toHaveValue("회의");
+  await previewTitle.fill("검토 중인 회의");
+  await direct.click();
+  await expect(title).toHaveValue("직접 쓴 일정");
   await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
-  await expect(title).toHaveValue("직접 수정한 제목");
+  await expect(title).toHaveValue("직접 쓴 일정");
+  await sentence.click();
+  await expect(previewTitle).toHaveValue("검토 중인 회의");
+  await expect(
+    sentencePanel.getByLabel("일정 설명", { exact: true }),
+  ).toHaveValue("내일 회의");
 });
 
 test("Korean composition does not interpret unfinished text", async ({
@@ -133,13 +177,13 @@ test("Korean composition does not interpret unfinished text", async ({
 }) => {
   await mockApi(page);
   await login(page);
-  await page.goto("/sources/new?mode=manual");
+  await page.goto("/sources/new?mode=natural");
   let calls = 0;
   await page.route("**/api/schedules/interpret", (route) => {
     calls++;
     return route.fulfill({ json: draft });
   });
-  const input = page.getByLabel("일정 설명 (선택)", { exact: true });
+  const input = page.getByLabel("일정 설명", { exact: true });
   await input.dispatchEvent("compositionstart");
   await input.fill("내일 회");
   await page.waitForTimeout(750);

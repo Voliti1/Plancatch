@@ -9,6 +9,9 @@ test("custom browser and email reminders save with a task and remain editable", 
   await login(page);
   await page.goto("/sources/new?mode=manual");
   await expect(
+    page.getByText(/Google 계정이 연결되어 있지 않아요/),
+  ).toBeVisible();
+  await expect(
     page.getByLabel("구글 캘린더 알림", { exact: true }),
   ).toHaveValue("none");
   await page.getByLabel("일정명", { exact: true }).fill("알림 있는 회의");
@@ -45,11 +48,19 @@ test("invalid or duplicate reminder times cannot register and deadline mode send
   page,
 }) => {
   await mockApi(page);
+  await page.route("**/api/integrations/google-calendar/status", (route) =>
+    route.fulfill({
+      json: { configured: true, connected: false, reconnect_required: true },
+    }),
+  );
   await login(page);
   await page.goto("/sources/new?mode=manual");
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("알림 없는 마감");
-  await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-15T23:59");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-11-15T23:59");
+  await expect(
+    page.getByText(/다시 연결해 권한을 허용해 주세요/),
+  ).toBeVisible();
   await page
     .getByLabel("구글 캘린더 알림", { exact: true })
     .selectOption("custom");

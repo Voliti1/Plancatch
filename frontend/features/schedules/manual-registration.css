@@ -1,76 +1,385 @@
-.manual-registration-card {
+.schedule-registration {
+  container: registration / inline-size;
   width: 100%;
   max-width: 1100px;
-  min-width: 0;
+  --registration-radius: 10px;
 }
+
+.schedule-registration .page-heading {
+  margin-bottom: 22px;
+}
+
+.readability-preview .schedule-registration h1 {
+  font-size: 28px;
+  line-height: 1.25;
+  font-weight: 700;
+  letter-spacing: -0.025em;
+}
+
+.readability-preview .schedule-registration .page-heading p {
+  font-size: 15px;
+  margin-top: 8px;
+}
+
+.readability-preview .schedule-registration h2 {
+  font-size: 20px;
+  line-height: 1.35;
+  font-weight: 650;
+}
+
+.readability-preview .schedule-registration h3 {
+  font-size: 16px;
+  font-weight: 650;
+}
+
+.readability-preview .schedule-registration .source-registration {
+  padding: clamp(18px, 4cqi, 30px);
+}
+
+.schedule-registration :is(.small, .text-button) {
+  line-height: 1.55;
+}
+
+.readability-preview .schedule-registration label {
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.readability-preview
+  .schedule-registration
+  input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
+.readability-preview .schedule-registration :is(select, textarea) {
+  min-height: 46px;
+  padding: 10px 12px;
+  border-radius: var(--registration-radius);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+.readability-preview
+  .schedule-registration
+  input:not([type="file"]):not([type="checkbox"]):not([type="radio"]),
+.readability-preview .schedule-registration select {
+  height: 46px;
+}
+
+.readability-preview .schedule-registration :is(input, textarea)::placeholder {
+  font-size: 14px;
+  color: var(--muted);
+  opacity: 1;
+}
+
+.readability-preview .schedule-registration :is(button, .button) {
+  min-height: 44px;
+  border-radius: var(--registration-radius);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.schedule-registration
+  :is(button, a, summary, input, textarea, select):focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 3px;
+}
+
+.schedule-registration-modes,
+.registration-methods {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.readability-preview
+  .schedule-registration
+  .schedule-registration-modes
+  button {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  min-height: 72px;
+  padding-inline: 14px 30px;
+  text-align: left;
+  white-space: normal;
+  font-size: 15px;
+}
+
+.schedule-registration-modes button small {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+.schedule-registration-modes button[aria-selected="true"],
+.registration-methods button[aria-selected="true"],
+.manual-registration-kind button[aria-pressed="true"] {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+  filter: none;
+}
+
+.schedule-registration-modes button[aria-selected="true"]::after,
+.manual-registration-kind button[aria-pressed="true"]::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 11px;
+  border: solid currentColor;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.schedule-registration-modes button[aria-selected="true"]::after {
+  position: absolute;
+  right: 15px;
+  top: 15px;
+}
+
+.registration-methods {
+  gap: 6px;
+  padding: 4px;
+  border-radius: var(--registration-radius);
+  background: var(--bg);
+}
+
+.readability-preview .schedule-registration .registration-methods button {
+  min-width: 0;
+  padding-inline: 6px;
+}
+
+.registration-methods button[aria-selected="true"] {
+  box-shadow: inset 0 -2px currentColor;
+}
+
+.manual-registration-heading,
+.registration-time-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 12px;
+}
+
+.manual-registration-heading a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.registration-kind-field {
+  margin-bottom: 20px;
+}
+
+.registration-kind-field h3 {
+  margin-bottom: 8px;
+}
+
 .manual-registration-kind {
   display: flex;
   gap: 8px;
-  margin: 0 0 24px;
-  padding: 5px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  width: min(100%, 320px);
-  background: var(--bg);
+  max-width: 320px;
 }
+
 .manual-registration-kind button {
   flex: 1;
-  min-width: 0;
-  min-height: 44px;
-  font-size: 14px;
 }
-.calendar-task-form .manual-deadline-time {
+
+.manual-registration-kind button[aria-pressed="true"]::before {
+  margin-right: 9px;
+}
+
+.registration-kind-field p {
+  margin: 7px 0 0;
+}
+
+.registration-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.registration-required {
+  color: var(--blue);
+  background: var(--blue-soft);
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-size: 12px;
+}
+
+.schedule-registration .registration-time-heading :is(h3, p) {
+  margin: 0;
+}
+
+.schedule-registration .calendar-task-form .manual-deadline-time {
   grid-template-columns: minmax(0, 1fr);
 }
-.manual-registration-card .manual-registration-heading {
-  margin-bottom: 8px;
+
+.registration-time-error {
+  margin: -12px 0 20px;
+  color: var(--registration-error, #a62b3a);
+  font-size: 14px;
 }
-.manual-registration-card > p {
+
+[data-theme="dark"] .schedule-registration {
+  --registration-error: #ff9ca8;
+}
+
+.schedule-registration input[aria-invalid="true"] {
+  border-color: var(--registration-error, #a62b3a);
+}
+
+.registration-extras-heading {
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.schedule-registration .calendar-task-settings {
+  border: 0;
+  margin-bottom: 12px;
+}
+
+.schedule-registration .calendar-task-settings summary {
+  min-height: 44px;
+  padding: 10px 12px;
+  border-radius: var(--registration-radius);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.schedule-registration .google-reminder-settings {
+  border: 0;
+  margin: 12px 0 20px;
+  padding: 14px;
+  background: var(--bg);
+  border-radius: var(--registration-radius);
+}
+
+.schedule-registration .registration-google-notice {
+  margin-top: 6px;
+}
+
+.registration-google-notice a {
+  color: var(--blue);
+  text-decoration: underline;
+}
+
+.natural-sentence-input > p {
   margin: 0 0 12px;
 }
-.natural-registration > h2 {
-  margin-bottom: 8px;
-}
-.natural-sentence-input {
-  margin-top: 16px;
-}
-.natural-sentence-input h3 {
-  font-size: 15px;
-  margin: 0 0 10px;
-}
+
 .natural-sentence-input label {
   margin-bottom: 10px;
 }
-.natural-sentence-input textarea {
-  min-height: 64px;
+
+.readability-preview .schedule-registration .natural-sentence-input textarea {
+  min-height: 72px;
 }
-.natural-sentence-input > p {
-  margin: 8px 0 0;
-}
+
 .natural-examples {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
+  margin-bottom: 12px;
 }
-.natural-examples button {
-  min-height: 32px;
-  padding: 5px 10px;
-  font-size: 12px;
-  font-weight: 400;
+
+.readability-preview .schedule-registration .natural-examples button {
+  min-height: 44px;
+  padding: 6px 10px;
+  white-space: normal;
 }
+
 .natural-preview {
-  margin-top: 18px;
-  padding-top: 18px;
+  margin-top: 20px;
+  padding-top: 20px;
   border-top: 1px solid var(--line);
 }
-.natural-notices {
-  padding: 16px 20px 16px 36px;
-  font-size: 13px;
-  line-height: 1.8;
+
+.schedule-registration .natural-preview > h3 {
+  margin-bottom: 4px;
 }
-@media (max-width: 520px) {
-  .schedule-registration-modes button {
-    font-size: 12px;
-    padding: 8px 5px;
+
+.natural-preview > p {
+  margin: 0 0 16px;
+}
+
+.natural-notices {
+  padding: 12px 16px 12px 32px;
+}
+
+.schedule-registration .source-registration-heading {
+  margin-bottom: 8px;
+  padding-bottom: 0;
+  border: 0;
+}
+
+.source-registration-guide {
+  margin: 0 0 20px;
+}
+
+.readability-preview .schedule-registration .source-registration-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.readability-preview .schedule-registration .source-file-drop {
+  min-height: 246px;
+  padding: 16px;
+  gap: 8px;
+  border-radius: var(--registration-radius);
+}
+
+.readability-preview .schedule-registration .source-file-drop strong {
+  font-size: 16px;
+}
+
+.schedule-registration .source-file-symbol {
+  padding: 7px 10px;
+}
+
+.schedule-registration .source-registration-fields textarea {
+  min-height: 108px;
+}
+
+@container registration (max-width: 660px) {
+  .readability-preview .schedule-registration .source-registration-grid,
+  .schedule-registration .calendar-task-form .form-grid,
+  .schedule-registration .google-reminder-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .schedule-registration .calendar-task-form .form-grid {
+    gap: 0;
+  }
+
+  .schedule-registration .google-reminder-row button {
+    justify-self: start;
+  }
+}
+
+@container registration (max-width: 420px) {
+  .readability-preview
+    .schedule-registration
+    .schedule-registration-modes
+    button {
+    padding-inline: 10px 22px;
+  }
+
+  .schedule-registration-modes button[aria-selected="true"]::after {
+    right: 9px;
+  }
+
+  .schedule-registration .form-actions > :is(button, .button) {
+    flex: 1;
   }
 }

@@ -46,10 +46,12 @@ export default async function NewSourcePage({
       };
     }
   }
+  const initialMode =
+    params.mode === "natural" && !manualDraft ? "natural" : mode;
   return (
     <ScheduleRegistration
-      key={`${entry}:${mode}:${deadlineId ?? ""}:${manualDraft?.start_at ?? ""}:${manualDraft?.end_at ?? ""}`}
-      initialMode={mode}
+      key={`${entry}:${initialMode}:${deadlineId ?? ""}:${manualDraft?.start_at ?? ""}:${manualDraft?.end_at ?? ""}`}
+      initialMode={initialMode}
       deadlineId={deadlineId}
       manualDraft={manualDraft}
     />

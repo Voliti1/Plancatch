@@ -36,6 +36,17 @@ export async function mockApi(
     const url = new URL(request.url());
     const path = url.pathname.replace("/test-api", "");
     const method = request.method();
+    if (path === "/api/integrations/google-calendar/status" && method === "GET")
+      return route.fulfill({
+        json: {
+          configured: true,
+          connected: false,
+          reconnect_required: false,
+          pending: false,
+          connected_at: null,
+          refresh_expires_at: null,
+        },
+      });
     if (
       path === "/api/integrations/google-calendar/auto-sync" &&
       method === "GET"

@@ -1,5 +1,6 @@
 "use client";
 import { useId } from "react";
+import type { ReactNode } from "react";
 import type { GoogleReminderSettings } from "@/types/google-reminders";
 import "./reminder-settings.css";
 
@@ -19,10 +20,14 @@ export function ReminderSettings({
   value,
   onChange,
   allowPreserve = false,
+  registrationKind,
+  connectionNotice,
 }: {
   value: GoogleReminderSettings | null;
   onChange: (value: GoogleReminderSettings | null) => void;
   allowPreserve?: boolean;
+  registrationKind?: "task" | "deadline";
+  connectionNotice?: ReactNode;
 }) {
   const id = useId();
   function update(
@@ -143,10 +148,11 @@ export function ReminderSettings({
         </div>
       )}
       <p id={id} className="small muted">
-        Google 계정 연결 후 반영됩니다. 할 일은 시작 시각, 마감일은 마감 시각을
-        기준으로 알려줍니다. 브라우저 알림은 Google Calendar의 알림 허용이
-        필요합니다.
+        {registrationKind
+          ? `${registrationKind === "task" ? "시작" : "마감"} 시각을 기준으로 알림을 받아요. 브라우저 알림을 받으려면 Google Calendar에서 알림을 허용해 주세요.`
+          : "Google 계정 연결 후 반영됩니다. 할 일은 시작 시각, 마감일은 마감 시각을 기준으로 알려줍니다. 브라우저 알림은 Google Calendar의 알림 허용이 필요합니다."}
       </p>
+      {connectionNotice}
     </div>
   );
 }
