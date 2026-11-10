@@ -51,6 +51,7 @@ def test_visible_period_and_timer_are_distinct_evidence_not_relative_date_arithm
 
 @pytest.mark.parametrize("url", [
     "https://www.saramin.co.kr/zf_user/jobs/relay/view?rec_idx=55170548&view_type=list#seq=0",
+    "https://www.saramin.co.kr/zf_user/jobs/relay/pop-view?rec_idx=55170548&t_ref=main&t_ref_content=platinum_plus_fix_expand",
     URL.replace("www.", ""),
 ])
 def test_official_job_url_forms(url):

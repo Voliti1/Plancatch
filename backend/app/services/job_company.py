@@ -105,6 +105,7 @@ def company_for_page(html: str, url: str | None, page: PageParser) -> str | None
         jasoseol_period,
         jobplanet_period,
         linkareer_period,
+        saramin_period,
         work24_period,
     )
     if work24_period.job_id(url):
@@ -132,8 +133,7 @@ def company_for_page(html: str, url: str | None, page: PageParser) -> str | None
                            and ("identifier" not in item or str(item["identifier"].get("value")
                                 if isinstance(item["identifier"], dict) else item["identifier"]) == identity))
     source = urlsplit(url)
-    if (source.hostname in {"www.saramin.co.kr", "saramin.co.kr"}
-            and source.path in {"/zf_user/jobs/view", "/zf_user/jobs/relay/view"}):
+    if saramin_period.is_job_url(url):
         try:
             ids = parse_qs(source.query, max_num_fields=100).get("rec_idx", [])
         except ValueError:
