@@ -72,32 +72,36 @@ def test_primary_list_timed_all_day_and_minimal_private_fields(setup, monkeypatc
     monkeypatch.setattr(
         events,
         "_fetch",
-        lambda *_: {
-            "nextPageToken": "private-page-token",
-            "items": [
-                {
-                    "id": "timed",
-                    "summary": "면접",
-                    "description": "private",
-                    "attendees": ["hidden"],
-                    "start": {"dateTime": "2026-10-21T09:00:00+09:00"},
-                    "end": {"dateTime": "2026-10-21T10:00:00+09:00"},
-                },
-                {
-                    "id": "allday",
-                    "summary": "휴가",
-                    "start": {"date": "2026-10-22"},
-                    "end": {"date": "2026-10-24"},
-                },
-                {"id": "bad", "start": {}, "end": {}},
-                {"id": "gone", "status": "cancelled"},
-            ],
-        },
+        lambda *args: (
+            {"items": []}
+            if args[3] is not None
+            else {
+                "nextPageToken": "private-page-token",
+                "items": [
+                    {
+                        "id": "timed",
+                        "summary": "면접",
+                        "description": "private",
+                        "attendees": ["hidden"],
+                        "start": {"dateTime": "2026-10-21T09:00:00+09:00"},
+                        "end": {"dateTime": "2026-10-21T10:00:00+09:00"},
+                    },
+                    {
+                        "id": "allday",
+                        "summary": "휴가",
+                        "start": {"date": "2026-10-22"},
+                        "end": {"date": "2026-10-24"},
+                    },
+                    {"id": "bad", "start": {}, "end": {}},
+                    {"id": "gone", "status": "cancelled"},
+                ],
+            }
+        ),
     )
     response = setup.client.get(BASE, params=QUERY, headers=auth)
     assert response.status_code == 200
     data = response.json()
-    assert data["has_more"] and data["skipped_count"] == 1
+    assert not data["has_more"] and data["skipped_count"] == 1
     assert [r["id"] for r in data["events"]] == ["timed", "allday"]
     assert data["events"][0]["start_at"] == "2026-10-21T00:00:00Z"
     assert data["events"][1]["end_date"] == "2026-10-24"

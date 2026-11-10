@@ -32,7 +32,7 @@ def check(auth, **extra):
 def provider(monkeypatch, payload):
     calls=[]
     monkeypatch.setattr(events,'refresh_access',lambda *_: ('synthetic-access',None))
-    monkeypatch.setattr(events,'_fetch',lambda token,start,end: calls.append((token,start,end)) or copy.deepcopy(payload))
+    monkeypatch.setattr(events,'_fetch',lambda token,start,end,*_: calls.append((token,start,end)) or copy.deepcopy(payload))
     return calls
 
 
@@ -122,7 +122,7 @@ def test_repeating_preview_reads_ninety_days_once_and_marks_provider_page_limit(
     calls=provider(monkeypatch,{'items':[timed('future',start={'dateTime':'2027-01-11T15:00:00+09:00'},end={'dateTime':'2027-01-11T16:00:00+09:00'})], 'nextPageToken':'opaque'})
     result=check(auth,recurrence={'frequency':'weekly'}).json()
     assert result['google_state']=='partial' and result['coverage_limited']
-    assert len(calls)==1 and calls[0][2]-calls[0][1]==timedelta(days=90)
+    assert len(calls)==2 and calls[0][2]-calls[0][1]==timedelta(days=90)
     assert result['conflicts'][0]['id']=='future'
 
 

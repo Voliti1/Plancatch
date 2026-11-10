@@ -470,14 +470,14 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             )}
             {google.data?.has_more && (
               <p role="status">
-                구글 일정은 첫 250건만 표시했습니다. 주간 보기로 기간을 줄여
-                주세요.
+                구글 일정을 일부만 불러왔습니다. 다시 조회하거나 주간 보기로
+                기간을 줄여 주세요.
               </p>
             )}
             {Boolean(google.data?.skipped_count) && (
               <p role="status">
-                시간 형식을 확인할 수 없는 구글 일정{" "}
-                {google.data?.skipped_count}건은 표시하지 않았습니다.
+                확인할 수 없거나 중복된 구글 일정 {google.data?.skipped_count}
+                건은 표시하지 않았습니다.
               </p>
             )}
           </div>

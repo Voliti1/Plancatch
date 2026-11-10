@@ -148,9 +148,9 @@ test("late responses stay hidden after opt-out; partial results are labelled", a
     }),
   );
   await page.getByLabel("구글 일정 함께 보기").check();
-  await expect(page.getByText(/구글 일정은 첫 250건만 표시/)).toBeVisible();
+  await expect(page.getByText(/구글 일정을 일부만 불러왔습니다/)).toBeVisible();
   await expect(
-    page.getByText(/시간 형식을 확인할 수 없는 구글 일정 2건/),
+    page.getByText(/확인할 수 없거나 중복된 구글 일정 2건/),
   ).toBeVisible();
 });
 
