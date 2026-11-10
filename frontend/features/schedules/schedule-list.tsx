@@ -27,7 +27,7 @@ import {
 } from "./schedule-list-api";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import "./schedule-list.css";
-import { DeletionSync } from "./deletion-sync";
+import { DeletionSyncDialog } from "./deletion-sync-dialog";
 import { recurrenceSummary } from "@/features/tasks/recurrence-settings";
 
 function ScheduleRows({
@@ -170,7 +170,6 @@ export function ScheduleList() {
         deletion={deletion}
         consequence="마지막 연결 마감일을 삭제하면 원본 자료와 검토 기록도 함께 삭제됩니다. 연결된 Google 사본도 자동 삭제하며 다른 할 일은 유지합니다."
       />
-      <DeletionSync refreshKey={version} disabled={deletion.busy} />
       <section className="card" aria-label="일정 목록">
         <div className="section-header schedule-list-header">
           <h2>일정 목록</h2>
@@ -207,6 +206,7 @@ export function ScheduleList() {
           }}
         />
       </section>
+      <DeletionSyncDialog refreshKey={version} disabled={deletion.busy} />
     </>
   );
 }

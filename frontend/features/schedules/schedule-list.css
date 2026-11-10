@@ -3,6 +3,62 @@
   flex-wrap: wrap;
   gap: 8px;
 }
+.google-deletion-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 24px;
+}
+html:has(.google-deletion-dialog[open]) {
+  overflow: hidden;
+}
+html:has(.google-deletion-dialog[open][data-reserve-gutter="true"]) {
+  scrollbar-gutter: stable;
+}
+.google-deletion-dialog {
+  width: min(860px, calc(100vw - 32px));
+  max-height: min(800px, calc(100dvh - 48px));
+  padding: 0;
+  margin: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 20px 70px #15254440;
+  overflow: hidden;
+}
+.google-deletion-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.google-deletion-dialog::backdrop {
+  background: #18273d80;
+}
+.google-deletion-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-shrink: 0;
+}
+.google-deletion-dialog-header h2 {
+  margin: 0;
+  min-width: 0;
+}
+.google-deletion-dialog-body {
+  padding: 20px;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.google-deletion-status h3 {
+  margin: 0;
+}
+.google-deletion-status .section-header {
+  flex-wrap: wrap;
+  gap: 12px;
+}
 .google-deletion-rows {
   list-style: none;
   padding: 0;

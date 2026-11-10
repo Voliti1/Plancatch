@@ -107,14 +107,13 @@ export function DeletionSync({
       if (active.current) setRetrying(null);
     }
   }
-  if (!data?.entries?.length && !error && page === 0) return null;
   return (
     <section
-      className="card google-deletion-status"
+      className="google-deletion-status"
       aria-label="Google 캘린더 삭제 상태"
     >
       <div className="section-header">
-        <h2>Google 캘린더 삭제 상태</h2>
+        <h3>삭제 내역</h3>
         <button
           type="button"
           className="secondary"
@@ -130,6 +129,9 @@ export function DeletionSync({
       </p>
       {loading && <Loading />}
       {error && <ErrorNotice message={error} retry={reload} />}
+      {!loading && !error && data?.entries.length === 0 && (
+        <p className="notice">표시할 삭제 내역이 없습니다.</p>
+      )}
       <ul className="google-deletion-rows">
         {data?.entries.map((item) => {
           const key = `${item.kind}:${item.item_id}`;

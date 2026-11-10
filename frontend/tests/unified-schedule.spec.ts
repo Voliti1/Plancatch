@@ -25,6 +25,139 @@ const task = {
   latest_end: "2026-11-02T07:00:00Z",
 };
 
+test("schedule list stays first and deletion status is fetched only in the bottom dialog", async ({
+  page,
+}) => {
+  await mockApi(page, [], { deadlines: [deadline], tasks: [task] });
+  await login(page);
+  let reads = 0;
+  await page.route(
+    "**/test-api/api/integrations/google-calendar/auto-sync/deletions?**",
+    (route) => {
+      reads++;
+      return route.fulfill({ json: { entries: [], has_more: false } });
+    },
+  );
+  await page.goto("/deadlines");
+  await expect(
+    page.getByRole("region", { name: "일정 목록", exact: true }),
+  ).toContainText("지원 회의");
+  await expect(
+    page.getByRole("dialog", { name: "Google 캘린더 삭제 상태", exact: true }),
+  ).toHaveCount(0);
+  expect(reads).toBe(0);
+  const opener = page.getByRole("button", {
+    name: "Google 캘린더 삭제 상태 보기",
+    exact: true,
+  });
+  expect(
+    await page
+      .getByRole("region", { name: "일정 목록", exact: true })
+      .evaluate((node) => {
+        const footer = document.querySelector(".google-deletion-footer");
+        return Boolean(
+          footer &&
+          node.compareDocumentPosition(footer) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        );
+      }),
+  ).toBe(true);
+  await page.screenshot({
+    path: test.info().outputPath("schedule-first.png"),
+    fullPage: true,
+  });
+  await opener.click();
+  const dialog = page.getByRole("dialog", {
+    name: "Google 캘린더 삭제 상태",
+    exact: true,
+  });
+  await expect(dialog).toContainText("표시할 삭제 내역이 없습니다.");
+  expect(reads).toBe(1);
+  for (let i = 0; i < 6; i++) {
+    await page.keyboard.press("Tab");
+    expect(
+      await dialog.evaluate((node) => node.contains(document.activeElement)),
+    ).toBe(true);
+  }
+  await dialog.screenshot({
+    path: test.info().outputPath("deletion-status-dialog.png"),
+  });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).not.toBeVisible();
+  await expect(opener).toBeFocused();
+  await opener.click();
+  await expect(dialog).toContainText("표시할 삭제 내역이 없습니다.");
+  expect(reads).toBe(2);
+  await page.mouse.click(2, 2);
+  await expect(dialog).not.toBeVisible();
+  await opener.click();
+  await expect(dialog).toContainText("표시할 삭제 내역이 없습니다.");
+  expect(reads).toBe(3);
+  await dialog
+    .getByRole("button", { name: "삭제 상태 창 닫기", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  await expect(opener).toBeFocused();
+});
+
+test("closing deletion status stops polling and reopening reads fresh status", async ({
+  page,
+}) => {
+  await mockApi(page, [], { tasks: [task] });
+  await login(page);
+  await page.clock.install();
+  let reads = 0,
+    state = "pending";
+  await page.route(
+    "**/test-api/api/integrations/google-calendar/auto-sync/deletions?**",
+    (route) => {
+      reads++;
+      return route.fulfill({
+        json: {
+          entries: [
+            {
+              kind: "task",
+              item_id: task.id,
+              title: task.title,
+              state,
+              note: "반영 상태",
+              retryable: false,
+            },
+          ],
+          has_more: false,
+        },
+      });
+    },
+  );
+  await page.goto("/deadlines");
+  const opener = page.getByRole("button", {
+    name: "Google 캘린더 삭제 상태 보기",
+    exact: true,
+  });
+  await opener.click();
+  const dialog = page.getByRole("dialog", {
+    name: "Google 캘린더 삭제 상태",
+    exact: true,
+  });
+  await expect(dialog).toContainText("삭제 중");
+  expect(reads).toBe(1);
+  await dialog
+    .getByRole("button", { name: "삭제 상태 창 닫기", exact: true })
+    .click();
+  await expect(dialog).not.toBeVisible();
+  await page.clock.fastForward(16000);
+  expect(reads).toBe(1);
+  state = "deleted";
+  await opener.click();
+  await expect(dialog).toContainText("삭제 완료");
+  expect(reads).toBe(2);
+});
+
 test("deleted Google copies keep their status after reload and retry without deleting locally twice", async ({
   page,
 }) => {
@@ -90,6 +223,9 @@ test("deleted Google copies keep their status after reload and retry without del
     .click();
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Google 캘린더 삭제 상태 보기", exact: true })
+    .click();
   const panel = page.getByRole("region", {
     name: "Google 캘린더 삭제 상태",
     exact: true,
@@ -98,6 +234,9 @@ test("deleted Google copies keep their status after reload and retry without del
   await expect(page.locator(".schedule-rows")).toHaveCount(0);
   state = "failed";
   await page.reload();
+  await page
+    .getByRole("button", { name: "Google 캘린더 삭제 상태 보기", exact: true })
+    .click();
   await expect(panel).toContainText("삭제 확인 필요");
   await expect(panel).toContainText("연결을 확인한 뒤");
   await panel.screenshot({
