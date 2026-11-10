@@ -82,7 +82,8 @@ def _fetch(token, start, end):
             "maxResults": 250,
             "timeZone": "Asia/Seoul",
             "showDeleted": "false",
-            "fields": "nextPageToken,items(id,summary,status,start,end,recurringEventId)",
+            "maxAttendees": 1,
+            "fields": "nextPageToken,items(id,summary,status,start,end,recurringEventId,transparency,attendees(self,responseStatus))",
         }
     )
     request = Request(
@@ -163,6 +164,11 @@ def list_primary(token, start, end) -> GoogleEventsPage:
             ):
                 raise ValueError
             values = {"id": event_id, "title": title[:500] or "(제목 없음)"}
+            attendees = item.get("attendees", [])
+            if not isinstance(attendees, list):
+                attendees = []  # Unknown participation metadata is conservatively busy.
+            values["busy"] = item.get("transparency") != "transparent" and not any(
+                isinstance(person, dict) and person.get("self") is True and person.get("responseStatus") == "declined" for person in attendees)
             master = item.get("recurringEventId")
             if master is not None:
                 if not isinstance(master, str) or not 1 <= len(master) <= 1024:

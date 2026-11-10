@@ -17,6 +17,7 @@ class GoogleEventView(BaseModel):
     end_date: date | None = None
     local_kind: Literal["deadline", "task", "event"] | None = None
     local_item_id: uuid.UUID | None = None
+    busy: bool = True
 
 
 class GoogleEventsPage(BaseModel):
