@@ -69,6 +69,7 @@ async function open(page: import("@playwright/test").Page) {
     route.fulfill({ json: { entries: [task], has_more: false } }),
   );
   await page.goto("/planning");
+  await page.getByRole("combobox", { name: "할 일 제목 검색" }).focus();
   await page.getByRole("checkbox", { name: /보고서 준비/ }).check();
   await page.getByLabel("배치 시작일", { exact: true }).fill("2026-11-16");
   await page.getByLabel("배치 종료일", { exact: true }).fill("2026-11-16");

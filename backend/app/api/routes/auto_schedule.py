@@ -5,10 +5,10 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query, Response
 from pydantic import AwareDatetime
-from sqlalchemy import and_, exists, or_, select
+from sqlalchemy import and_, case, exists, func, or_, select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
-from app.models import ScheduledEvent, SchedulePlan, Task
+from app.models import Deadline, ScheduledEvent, SchedulePlan, Task
 from app.schemas.schedule_plan import ApprovalInput, PreviewInput
 from app.schemas.task import TaskResponse
 from app.services import auto_schedule as service
@@ -23,6 +23,7 @@ def candidates(
     db: DatabaseSession,
     response: Response,
     q: Annotated[str, Query(max_length=255)] = "",
+    offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
 ):
     response.headers["Cache-Control"] = "no-store"
     active = exists().where(
@@ -30,7 +31,18 @@ def candidates(
         ScheduledEvent.user_id == current_user.id,
         ScheduledEvent.status.in_(["approved", "synced"]),
     )
-    query = select(Task).where(
+    # The earliest completion limit wins; an undated task can still have a
+    # starting window. Join only this owner's deadline, never another account's.
+    limit_at = case(
+        (Task.latest_end.is_(None), Deadline.due_at),
+        (Deadline.due_at.is_(None), Task.latest_end),
+        (Task.latest_end < Deadline.due_at, Task.latest_end),
+        else_=Deadline.due_at,
+    )
+    sort_at = func.coalesce(limit_at, Task.earliest_start)
+    query = select(Task, sort_at.label("sort_at")).outerjoin(
+        Deadline, and_(Deadline.id == Task.deadline_id, Deadline.user_id == current_user.id)
+    ).where(
         Task.user_id == current_user.id,
         Task.schedule_type == "flexible",
         Task.recurrence.is_(None),
@@ -40,10 +52,14 @@ def candidates(
     )
     if q.strip():
         query = query.where(Task.title.icontains(q.strip(), autoescape=True))
-    tasks = list(db.scalars(query.order_by(Task.created_at.desc(), Task.id).limit(101)))
+    tasks = list(db.execute(query.order_by(
+        sort_at.asc().nulls_last(), Task.title.asc(), Task.id
+    ).offset(offset).limit(101)))
     return {
-        "entries": [TaskResponse.model_validate(task) for task in tasks[:100]],
+        "entries": [{**TaskResponse.model_validate(task).model_dump(), "sort_at": service.stamp(at)}
+                    for task, at in tasks[:100]],
         "has_more": len(tasks) > 100,
+        "next_offset": offset + 100 if len(tasks) > 100 else None,
     }
 
 

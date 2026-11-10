@@ -88,6 +88,56 @@
 .planning-tasks a {
   flex-shrink: 0;
 }
+.planning-picker {
+  position: relative;
+  margin-bottom: 24px;
+}
+.planning-picker-bar {
+  position: relative;
+  display: flex;
+  gap: 8px;
+}
+.planning-picker-bar input {
+  min-width: 0;
+  flex: 1;
+}
+.planning-picker-bar button {
+  flex: 0 0 48px;
+  padding: 0;
+}
+.planning-picker-panel {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  max-height: min(380px, 55dvh);
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+  box-shadow: 0 12px 32px #0002;
+}
+.planning-picker-panel .planning-tasks {
+  max-height: none;
+  overflow: visible;
+  margin: 0;
+}
+.planning-picker-group h3 {
+  padding: 10px 0;
+  margin: 0;
+  font-size: 14px;
+  color: var(--blue);
+  border-bottom: 1px solid var(--line);
+}
+.planning-picker-panel .checkbox-row {
+  flex: 1;
+  align-self: stretch;
+  margin: 0;
+  cursor: pointer;
+}
 .planning-days {
   display: flex;
   flex-wrap: wrap;
