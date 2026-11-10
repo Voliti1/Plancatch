@@ -318,9 +318,14 @@ def read_google_events(
     response.headers.update(SAFE_HEADERS)
     if not timedelta(0) < end_before - start_from <= timedelta(days=62):
         raise HTTPException(422, "구글 일정 조회 기간은 0일 초과 62일 이하여야 합니다.")
+    return read_owned_calendar(current_user.id, db, start_from, end_before)
+
+
+def read_owned_calendar(user_id, db, start_from, end_before):
+    """One bounded read; shared with the conflict preview (internally up to 90 days)."""
     config = _config()
-    _lock_user(db, current_user.id)
-    connection = db.get(GoogleCalendarConnection, current_user.id)
+    _lock_user(db, user_id)
+    connection = db.get(GoogleCalendarConnection, user_id)
     if connection is None:
         raise HTTPException(409, "구글 계정을 먼저 연결해 주세요.")
     if google.SCOPE not in connection.scopes.split() or (
@@ -330,12 +335,12 @@ def read_google_events(
         raise HTTPException(409, "구글 계정을 다시 연결해 주세요.")
     try:
         refresh = google.decrypt(
-            config, current_user.id, "refresh", connection.refresh_token_ciphertext
+            config, user_id, "refresh", connection.refresh_token_ciphertext
         )
         token, rotated = google_events.refresh_access(config, refresh)
         if rotated is not None:
             connection.refresh_token_ciphertext = google.encrypt(
-                config, current_user.id, "refresh", rotated
+                config, user_id, "refresh", rotated
             )
         # Keep a rotated credential even if the later read fails. A read already
         # in flight may finish after disconnect, but never writes a calendar event.
@@ -343,13 +348,13 @@ def read_google_events(
         db.commit()
         page = google_events.list_primary(token, _utc(start_from), _utc(end_before))
         exports = {row.google_event_id: row for row in db.scalars(select(GoogleExport).where(
-            GoogleExport.user_id == current_user.id, GoogleExport.status == "sent",
+            GoogleExport.user_id == user_id, GoogleExport.status == "sent",
             GoogleExport.deleted_at.is_(None),
             GoogleExport.connection_binding == bound,
             GoogleExport.google_event_id.in_([item.recurring_event_id or item.id for item in page.events]),
         ))}
         tasks = {task.id: task for task in db.scalars(select(Task).where(
-            Task.user_id == current_user.id,
+            Task.user_id == user_id,
             Task.id.in_([row.item_id for row in exports.values() if row.kind == "task"]),
         ))}
         for item in page.events:
