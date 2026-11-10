@@ -17,6 +17,7 @@ MAX_BYTES = 2_000_000
 MAX_TEXT = 100_000
 MAX_JSON_LD = 100_000
 MAX_JSON_LD_BLOCKS = 16
+MAX_HTML_DEPTH = 512
 STRUCTURED_DATE_NOTICES = (
     "주의: 원문에는 마감 날짜만 있고 시간과 시간대가 없습니다. 사용자 확인이 필요합니다.",
     # Keep the old notice recognizable for already stored source snapshots.
@@ -140,8 +141,11 @@ class PageParser(HTMLParser):
 
     def handle_starttag(self, tag, attrs):
         values = dict(attrs)
+        # Flags on every stored ancestor already include its own ancestors.
+        # Reading the immediate parent avoids rescanning deep malformed trees.
+        parent = self.stack[-1] if self.stack else (None, False, False)
         if (tag == "script" and (values.get("type") or "").strip().lower() == "application/ld+json"
-                and "src" not in values and not any(skip for _, skip, _ in self.stack)
+                and "src" not in values and not parent[1]
                 and "hidden" not in values and (values.get("aria-hidden") or "").lower() != "true"
                 and not hidden_inline_style(values.get("style") or "")
                 and len(self.json_ld_blocks) < MAX_JSON_LD_BLOCKS):
@@ -152,16 +156,18 @@ class PageParser(HTMLParser):
         unrendered = (tag in {"script", "style", "template", "noscript"}
                       or "hidden" in values or (values.get("aria-hidden") or "").lower() == "true"
                       or hidden_inline_style(values.get("style") or "")
-                      or any(hidden for _, _, hidden in self.stack))
+                      or parent[2])
         if tag == "input" and (values.get("type") or "").lower() == "password" and not unrendered:
             self.password_form = True
         if (tag == "link" and "canonical" in (values.get("rel") or "").lower().split()
                 and any(name == "head" for name, _, _ in self.stack) and values.get("href")):
             self.canonical_links.append(values["href"])
         hidden = (unrendered or tag in {"nav", "footer", "header"}
-                  or any(skip for _, skip, _ in self.stack))
+                  or parent[1])
         if tag not in {"area", "base", "br", "col", "embed", "hr", "img", "input",
                        "link", "meta", "param", "source", "track", "wbr"}:
+            if len(self.stack) >= MAX_HTML_DEPTH:
+                raise ExtractionError("html_too_complex")
             self.stack.append((tag, hidden, unrendered))
 
     def handle_endtag(self, tag):

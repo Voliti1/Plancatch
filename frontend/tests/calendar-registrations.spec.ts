@@ -58,7 +58,11 @@ test("existing manual registration appears immediately as a white-title colour b
     "color",
     "rgb(255, 255, 255)",
   );
-  expect(writes).toEqual(["/test-api/api/tasks"]);
+  // The conflict check is a read-only POST; no placement write is performed.
+  expect(writes).toEqual([
+    "/test-api/api/schedules/conflicts",
+    "/test-api/api/tasks",
+  ]);
   await expect(
     page.getByRole("button", { name: "＋ 일정 등록", exact: true }),
   ).toHaveCount(0);

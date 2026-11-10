@@ -12,6 +12,24 @@ export function errorMessage(error: unknown): string {
     ? error.message
     : "요청을 처리하지 못했습니다. 다시 시도해 주세요.";
 }
+function responseDetail(body: unknown): string {
+  const fallback = "요청을 처리하지 못했습니다.";
+  if (!body || typeof body !== "object" || !("detail" in body)) return fallback;
+  const detail = body.detail;
+  if (typeof detail === "string") return detail.trim() || fallback;
+  if (!Array.isArray(detail)) return fallback;
+  const messages = detail.slice(0, 10).flatMap((item: unknown) => {
+    if (
+      !item ||
+      typeof item !== "object" ||
+      !("msg" in item) ||
+      typeof item.msg !== "string"
+    )
+      return [];
+    return item.msg.trim() ? [item.msg.trim()] : [];
+  });
+  return messages.join(" / ") || fallback;
+}
 export async function api<T>(
   path: string,
   options: RequestInit & { timeoutMs?: number } = {},
@@ -63,15 +81,7 @@ export async function api<T>(
       tokenStore.clear();
       window.dispatchEvent(new Event(SESSION_EXPIRED));
     }
-    const body: { detail?: unknown } = await response.json().catch(() => ({}));
-    const detail =
-      typeof body.detail === "string"
-        ? body.detail
-        : Array.isArray(body.detail)
-          ? body.detail
-              .map((item: { msg?: string }) => item.msg ?? "입력값 오류")
-              .join(" / ")
-          : "요청을 처리하지 못했습니다.";
+    const detail = responseDetail(await response.json().catch(() => null));
     throw new ApiError(
       response.status === 401
         ? "이메일·비밀번호 또는 로그인 세션을 확인해 주세요."
@@ -79,9 +89,17 @@ export async function api<T>(
       response.status,
     );
   }
-  return response.status === 204
-    ? (undefined as T)
-    : responseType === "blob"
-      ? (response.blob() as Promise<T>)
-      : (response.json() as Promise<T>);
+  if (response.status === 204) return undefined as T;
+  try {
+    return (await (responseType === "blob"
+      ? response.blob()
+      : response.json())) as T;
+  } catch {
+    // A successful write whose body was lost may already have committed. Keep
+    // status 0 so existing uncertainty guards do not offer a blind resubmit.
+    throw new ApiError(
+      "서버 응답을 확인하지 못했습니다. 저장 여부를 확인한 뒤 다시 시도해 주세요.",
+      0,
+    );
+  }
 }

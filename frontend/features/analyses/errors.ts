@@ -1,6 +1,8 @@
 import { ApiError, errorMessage } from "@/lib/api/client";
 
 const messages: Record<string, string> = {
+  html_too_complex:
+    "페이지 구조를 읽기 어렵습니다. 필요한 내용을 텍스트나 캡처로 등록해 주세요.",
   invalid_or_unreachable_url:
     "접근 가능한 공개 URL인지 확인해 주세요. 주소를 확인하거나 텍스트로 등록해 주세요.",
   fetch_timeout:
