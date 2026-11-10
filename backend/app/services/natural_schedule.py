@@ -1,5 +1,6 @@
 """Small, deterministic Korean schedule grammar. Never fetch, call AI or persist."""
 import re
+from calendar import monthrange
 from datetime import date, datetime, time, timedelta, timezone
 
 from app.schemas.natural_schedule import NaturalScheduleDraft
@@ -56,6 +57,18 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
         recurrence = Recurrence(frequency={"매일": "daily", "매주": "weekly", "격주": "weekly", "매월": "monthly"}[word],
                                 interval=2 if word == "격주" else 1)
         text = text[:marker.start()] + " " + text[marker.end():]
+        month_end = re.search(r"이번\s*달\s*(?:까지(?:만)?|만)", text)
+        end_date = re.search(r"(?:(\d{4})\s*(?:년\s*|[./-]\s*))?(\d{1,2})\s*(?:월\s*|[./-]\s*)(\d{1,2})\s*일?\s*까지(?:만)?", text)
+        if month_end:
+            recurrence.until = date(today.year, today.month, monthrange(today.year, today.month)[1])
+            text = text[:month_end.start()] + " " + text[month_end.end():]
+        elif end_date:
+            try:
+                recurrence.until = date(int(end_date[1] or today.year), int(end_date[2]), int(end_date[3]))
+            except ValueError:
+                raise ValueError("반복 종료 날짜를 확인해 주세요.") from None
+            text = text[:end_date.start()] + " " + text[end_date.end():]
+        fixed_date = any(match["month"] for match in DATE.finditer(text))
         if recurrence.frequency == "monthly" and not DATE.search(text):
             day_match = re.search(r"(?<!\d)(\d{1,2})\s*일(?!\s*(?:뒤|후))", text)
             if day_match and 1 <= int(day_match[1]) <= 31:
@@ -296,6 +309,9 @@ def interpret(text: str, *, now: datetime | None = None) -> NaturalScheduleDraft
         except OverflowError:
             start = end = None
     if recurrence:
+        if start and recurrence.until and start.date() > recurrence.until:
+            start = end = None
+            notices.append("첫 일정이 반복 종료일 이후입니다. 시작 날짜나 종료일을 변경해 주세요.")
         notices.append("반복 일정 전체를 등록합니다. 반복 주기와 종료 조건을 확인해 주세요.")
     if moment and moment < reference:
         notices.append("지금보다 이전 시각입니다. 날짜와 시간을 확인해 주세요.")

@@ -5,14 +5,22 @@ from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
+from pydantic import AwareDatetime
 from sqlalchemy import select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.deadlines import get_owned_deadline
 from app.models.scheduled_event import ScheduledEvent
 from app.models.task import Task
-from app.schemas.task import ScheduleType, TaskCreate, TaskResponse, TaskUpdate
+from app.schemas.task import (
+    OccurrenceUpdate,
+    ScheduleType,
+    TaskCreate,
+    TaskResponse,
+    TaskUpdate,
+)
 from app.services import google_sync as sync
+from app.services import task_occurrences as single
 from app.services.recurrence import validate as validate_recurrence
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -80,11 +88,14 @@ def update_task(
     sync.lock_owner(db, current_user.id)
     task = get_owned_task(task_id, current_user.id, db)
     changes = payload.model_dump(exclude_unset=True)
+    reset = changes.pop("reset_occurrences", False)
     if changes.get("deadline_id") is not None:
         get_owned_deadline(changes["deadline_id"], current_user.id, db)
     start = changes.get("earliest_start", task.earliest_start)
     end = changes.get("latest_end", task.latest_end)
     rule = changes.get("recurrence", task.recurrence)
+    if task.series_id and (rule or changes.get("schedule_type", task.schedule_type) != "fixed" or not start or not end):
+        raise HTTPException(422, "개별 변경한 일정은 시작·종료 시간이 있는 고정 할 일로 유지해 주세요.")
     try:
         validate_recurrence(rule, changes.get("schedule_type", task.schedule_type), start, end)
     except ValueError as error:
@@ -94,6 +105,7 @@ def update_task(
         raise HTTPException(409, "이미 시간 배치가 있는 할 일은 반복 일정으로 바꿀 수 없습니다.")
     if "recurrence" in changes:
         changes["recurrence"] = payload.recurrence.model_dump(mode="json") if payload.recurrence else None
+    single.reconcile(db, task, rule, start, end, reset)
     if start is not None and end is not None:
         # SQLite test databases return naive timestamps; PostgreSQL preserves UTC offsets.
         start = start.replace(tzinfo=UTC) if start.tzinfo is None else start
@@ -123,7 +135,38 @@ def delete_task(task_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSessi
     ).limit(1))
     if synced_event is not None:
         raise HTTPException(status_code=409, detail="Synchronize linked calendar events before deleting this task")
+    single.remove_children(db, task)
     db.delete(task)
     sync.enqueue_task(db, current_user.id, task_id)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/{task_id}/occurrences", response_model=TaskResponse)
+def read_occurrence(task_id: uuid.UUID, original_start: AwareDatetime,
+                    current_user: CurrentUser, db: DatabaseSession, response: Response):
+    response.headers["Cache-Control"] = "no-store"
+    return single.effective(db, get_owned_task(task_id, current_user.id, db), original_start)
+
+
+@router.patch("/{task_id}/occurrences", response_model=TaskResponse)
+def update_occurrence(task_id: uuid.UUID, original_start: AwareDatetime, payload: OccurrenceUpdate,
+                      current_user: CurrentUser, db: DatabaseSession):
+    sync.lock_owner(db, current_user.id)
+    task = get_owned_task(task_id, current_user.id, db)
+    try:
+        child = single.update(db, task, original_start, payload)
+    except ValueError:
+        raise HTTPException(422, "제목과 시작·종료 일시, 소요시간을 확인해 주세요.") from None
+    db.commit()
+    db.refresh(child)
+    return child
+
+
+@router.delete("/{task_id}/occurrences", status_code=204)
+def delete_occurrence(task_id: uuid.UUID, original_start: AwareDatetime,
+                      current_user: CurrentUser, db: DatabaseSession):
+    sync.lock_owner(db, current_user.id)
+    single.remove(db, get_owned_task(task_id, current_user.id, db), original_start)
+    db.commit()
+    return Response(status_code=204)

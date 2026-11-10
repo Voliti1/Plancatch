@@ -54,7 +54,8 @@ def list_registrations(
     )
     tasks = list(
         db.execute(
-            select(Task.id, Task.title, Task.earliest_start, Task.latest_end, Task.is_completed, Task.recurrence)
+            select(Task.id, Task.title, Task.earliest_start, Task.latest_end, Task.is_completed,
+                   Task.recurrence, Task.excluded_starts, Task.series_id, Task.original_start)
             .where(
                 Task.user_id == current_user.id,
                 Task.schedule_type == "fixed",
@@ -88,9 +89,12 @@ def list_registrations(
             end_at=end,
             is_completed=t.is_completed,
             is_recurring=bool(t.recurrence),
+            series_id=t.series_id,
+            original_start=t.original_start if t.series_id else start if t.recurrence else None,
         )
         for t in tasks[:MAX_PER_KIND]
-        for start, end in occurrences(t.earliest_start, t.latest_end, t.recurrence, first, last, MAX_PER_KIND * 2 + 1)
+        for start, end in occurrences(t.earliest_start, t.latest_end, t.recurrence, first, last,
+                                      MAX_PER_KIND * 2 + 1, excluded=t.excluded_starts)
     )
     entries = nsmallest(MAX_PER_KIND * 2 + 1, chain(entries, task_entries),
                        key=lambda item: (item.start_at, item.kind, str(item.id)))

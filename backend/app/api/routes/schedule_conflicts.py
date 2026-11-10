@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/schedules/conflicts", tags=["schedules"])
 @router.post("")
 def check_conflicts(payload: ConflictCheck, current_user: CurrentUser, db: DatabaseSession, response: Response):
     response.headers["Cache-Control"] = "no-store"
-    for identity in (payload.exclude_task_id, payload.placement_task_id):
+    for identity in (payload.exclude_task_id, payload.placement_task_id, payload.exclude_occurrence_task_id):
         if identity:
             get_owned_task(identity, current_user.id, db)
     if payload.exclude_event_id:

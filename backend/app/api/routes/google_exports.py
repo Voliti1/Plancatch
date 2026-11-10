@@ -139,7 +139,7 @@ def payload_for(db, user_id, target):
     if reminders is not None:
         result["reminders"] = reminders
     if target.kind == "task" and item.recurrence:
-        result["recurrence"] = google_rule(item.recurrence)
+        result["recurrence"] = google_rule(item.recurrence, item.excluded_starts)
     return result, task_id
 
 

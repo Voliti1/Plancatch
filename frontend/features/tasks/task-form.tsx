@@ -74,12 +74,14 @@ export function TaskForm({
   variant?: "task" | "calendar";
 }) {
   const simple = variant === "calendar";
+  const singleOccurrence = Boolean(initial?.series_id);
+  const [resetOccurrences, setResetOccurrences] = useState(false);
   const [registrationKind, setRegistrationKind] = useState<"task" | "deadline">(
     draft?.kind ?? "task",
   );
   const canChooseKind = simple && !initial && Boolean(onSaveDeadline);
   const isDeadline = canChooseKind && registrationKind === "deadline";
-  const requireTimes = simple && !initial;
+  const requireTimes = simple && (!initial || singleOccurrence);
   const titleLabelId = useId();
   const timeHelpId = useId();
   const timeErrorId = useId();
@@ -138,6 +140,7 @@ export function TaskForm({
       completed,
       reminders,
       recurrence,
+      resetOccurrences,
     ]),
   );
   function cancel() {
@@ -235,11 +238,23 @@ export function TaskForm({
           start_at: earliest,
           end_at: latest,
           recurrence,
-          ...(initial ? { exclude_task_id: initial.id } : {}),
+          ...(initial
+            ? singleOccurrence &&
+              initial.id === initial.series_id &&
+              initial.original_start
+              ? {
+                  exclude_occurrence_task_id: initial.series_id,
+                  exclude_occurrence_start: initial.original_start,
+                }
+              : { exclude_task_id: initial.id }
+            : {}),
         }))
       )
         return;
       await onSave({
+        ...(initial?.exception_count
+          ? { reset_occurrences: resetOccurrences }
+          : {}),
         ...(recurrence || initial?.recurrence
           ? { recurrence: scheduleType === "fixed" ? recurrence : null }
           : {}),
@@ -330,6 +345,7 @@ export function TaskForm({
           name="schedule_type"
           aria-labelledby={typeLabelId}
           value={scheduleType}
+          disabled={singleOccurrence}
           onChange={(event) =>
             setScheduleType(event.target.value as ScheduleType)
           }
@@ -559,7 +575,7 @@ export function TaskForm({
             {completion}
           </>
         )}
-        {!isDeadline && scheduleType === "fixed" && (
+        {!isDeadline && scheduleType === "fixed" && !singleOccurrence && (
           <RecurrenceSettings
             value={recurrence}
             onChange={(value) => {
@@ -571,6 +587,17 @@ export function TaskForm({
         )}
         {initial?.recurrence && (
           <p className="notice">변경 사항은 이 반복 일정 전체에 적용됩니다.</p>
+        )}
+        {Boolean(initial?.exception_count) && (
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={resetOccurrences}
+              onChange={(e) => setResetOccurrences(e.target.checked)}
+            />
+            개별 변경 초기화 — 시작·종료 시간이나 반복 주기를 바꾸려면
+            선택하세요. 개별 수정·삭제를 취소하고 전체 반복 설정으로 되돌립니다.
+          </label>
         )}
         <ReminderSettings
           allowPreserve={Boolean(initial) && initial?.google_reminders == null}

@@ -16,6 +16,8 @@ class CalendarRegistration(BaseModel):
     is_confirmed: bool = True
     is_completed: bool = False
     is_recurring: bool = False
+    series_id: uuid.UUID | None = None
+    original_start: datetime | None = None
 
 
 class CalendarRegistrationsPage(BaseModel):

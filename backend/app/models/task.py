@@ -13,6 +13,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -26,6 +27,7 @@ class Task(Base):
 
     __tablename__ = "tasks"
     __table_args__ = (
+        UniqueConstraint("series_id", "original_start", name="uq_tasks_series_occurrence"),
         CheckConstraint(
             "estimated_minutes IS NULL OR estimated_minutes > 0",
             name="ck_tasks_estimated_minutes",
@@ -53,6 +55,15 @@ class Task(Base):
     title: Mapped[str] = mapped_column(String(255))
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     recurrence: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    excluded_starts: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    series_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE", name="fk_tasks_series_id"), nullable=True, index=True)
+    original_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    @property
+    def exception_count(self):
+        return len(self.excluded_starts or [])
+
     google_reminders: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True, default=new_default)
     estimated_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     priority: Mapped[int] = mapped_column(

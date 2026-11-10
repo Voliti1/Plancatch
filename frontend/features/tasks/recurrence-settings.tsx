@@ -1,5 +1,6 @@
 "use client";
 import { useId } from "react";
+import { toSeoulInput } from "@/lib/date/seoul";
 export type Recurrence = {
   frequency: "daily" | "weekly" | "monthly";
   interval: number;
@@ -41,6 +42,9 @@ export function RecurrenceSettings({
   onChange: (value: Recurrence | null) => void;
 }) {
   const id = useId();
+  const today = toSeoulInput(new Date().toISOString()).slice(0, 10);
+  const [year, month] = today.split("-").map(Number);
+  const monthEnd = `${year}-${String(month).padStart(2, "0")}-${new Date(Date.UTC(year, month, 0)).getUTCDate()}`;
   return (
     <section className="recurrence-settings" aria-label="반복 일정 설정">
       <label>
@@ -88,19 +92,27 @@ export function RecurrenceSettings({
                   value.count != null
                     ? "count"
                     : value.until != null
-                      ? "until"
+                      ? value.until === monthEnd
+                        ? "month"
+                        : "until"
                       : "never"
                 }
                 onChange={(e) =>
                   onChange({
                     ...value,
                     count: e.target.value === "count" ? 10 : null,
-                    until: e.target.value === "until" ? "" : null,
+                    until:
+                      e.target.value === "month"
+                        ? monthEnd
+                        : e.target.value === "until"
+                          ? ""
+                          : null,
                   })
                 }
               >
                 <option value="never">종료일 없음</option>
                 <option value="until">날짜 지정</option>
+                <option value="month">이번 달까지만</option>
                 <option value="count">횟수 지정</option>
               </select>
             </label>
@@ -134,7 +146,8 @@ export function RecurrenceSettings({
           <p className="small muted">
             한국 시간 기준으로 첫 일정과 같은 시각에 반복됩니다. 매주는 같은
             요일, 매월은 같은 날짜를 사용하며 해당 날짜가 없는 달은 건너뜁니다.
-            수정·삭제는 반복 일정 전체에 적용됩니다.
+            종료일 당일에 시작하는 일정까지 포함됩니다. 캘린더에서 날짜별 일정을
+            열면 이번 일정만 수정·삭제할 수 있습니다.
           </p>
         </>
       )}

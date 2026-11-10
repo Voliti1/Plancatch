@@ -1,6 +1,38 @@
 import { api, ApiError } from "@/lib/api/client";
 import type { Task, TaskFilters, TaskInput } from "@/types/task";
 export const tasksApi = {
+  occurrence: (id: string, at: string) =>
+    api<Task>(
+      `/api/tasks/${encodeURIComponent(id)}/occurrences?${new URLSearchParams({ original_start: at })}`,
+    ),
+  updateOccurrence: (id: string, at: string, payload: TaskInput) => {
+    const allowed = new Set([
+      "title",
+      "description",
+      "earliest_start",
+      "latest_end",
+      "estimated_minutes",
+      "priority",
+      "google_reminders",
+      "is_completed",
+    ]);
+    return api<Task>(
+      `/api/tasks/${encodeURIComponent(id)}/occurrences?${new URLSearchParams({ original_start: at })}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(
+          Object.fromEntries(
+            Object.entries(payload).filter(([key]) => allowed.has(key)),
+          ),
+        ),
+      },
+    );
+  },
+  removeOccurrence: (id: string, at: string) =>
+    api<void>(
+      `/api/tasks/${encodeURIComponent(id)}/occurrences?${new URLSearchParams({ original_start: at })}`,
+      { method: "DELETE" },
+    ),
   list: (filters: TaskFilters = {}) => {
     const query = new URLSearchParams({
       limit: "50",
