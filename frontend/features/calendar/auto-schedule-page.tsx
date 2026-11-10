@@ -26,6 +26,8 @@ type Plan = {
   request: { start_at: string; end_at: string; include_google: boolean };
   blocks: Block[];
   details: {
+    replace_existing?: boolean;
+    replaced_blocks?: Block[];
     blocked: boolean;
     warnings: string[];
     google_state: string;
@@ -50,9 +52,12 @@ const clock = (minutes: number) =>
 
 export function AutoSchedulePage({
   initialPlanId,
+  initialReplace = false,
 }: {
   initialPlanId?: string;
+  initialReplace?: boolean;
 }) {
+  const [replace, setReplace] = useState(initialReplace);
   const restore = useResource(
     useCallback(
       (signal: AbortSignal) =>
@@ -132,6 +137,7 @@ export function AutoSchedulePage({
                 weekdays,
                 chunk_minutes: chunk,
                 include_google: google,
+                ...(replace ? { replace_existing: true } : {}),
               }),
             });
             if (active.current) {
@@ -148,12 +154,33 @@ export function AutoSchedulePage({
       >
         <fieldset disabled={busy}>
           <h2>1. 배치할 할 일</h2>
+          <div className="planning-days" role="group" aria-label="배치 방식">
+            {[false, true].map((value) => (
+              <button
+                key={String(value)}
+                type="button"
+                className={replace === value ? "" : "secondary"}
+                aria-pressed={replace === value}
+                onClick={() => {
+                  setReplace(value);
+                  setSelected([]);
+                  setPlan(null);
+                  setIgnoreRestored(true);
+                  setError("");
+                }}
+              >
+                {value ? "기존 배치 다시 짜기" : "새 배치 만들기"}
+              </button>
+            ))}
+          </div>
           <p className="small muted">
-            수동 일정 등록의 상세 설정에서 작업 유형을 ‘유동 작업’으로
-            선택하세요. 소요시간을 입력하면 자동 배치할 수 있습니다. 확정된
-            시간과 완료한 할 일은 옮기지 않습니다.
+            {replace
+              ? "아직 시작하지 않은 확정 배치가 있는 유동 할 일을 다시 배치합니다. 승인 전에는 기존 일정이 유지됩니다. 시작한 배치·완료한 할 일·고정·반복 일정은 제외합니다."
+              : "수동 일정 등록의 상세 설정에서 작업 유형을 ‘유동 작업’으로 선택하세요. 소요시간을 입력하면 자동 배치할 수 있습니다. 확정된 시간과 완료한 할 일은 옮기지 않습니다."}
           </p>
           <PlanningTaskPicker
+            key={String(replace)}
+            replaceExisting={replace}
             selected={selected}
             onChange={setSelected}
             onEdit={() => {
@@ -257,7 +284,11 @@ export function AutoSchedulePage({
           {error && <ErrorNotice message={error} />}
           <div className="form-actions">
             <button disabled={!selected.length || selected.length > 20}>
-              {busy ? "빈 시간을 확인하는 중…" : "배치 미리보기 만들기"}
+              {busy
+                ? "빈 시간을 확인하는 중…"
+                : replace
+                  ? "재배치 미리보기 만들기"
+                  : "배치 미리보기 만들기"}
             </button>
           </div>
         </fieldset>
@@ -326,6 +357,33 @@ function PlanEditor({
           {message}
         </p>
       ))}
+      {plan.details.replace_existing && (
+        <section className="planning-replacement" aria-label="재배치 변경 비교">
+          <h3>{plan.approved_at ? "교체 전 배치 기록" : "교체할 기존 배치"}</h3>
+          <p className="small muted">
+            {plan.approved_at
+              ? "승인 시 선택한 할 일만 새 배치로 교체했습니다."
+              : "아래 기존 시간은 아직 유지됩니다. 선택한 할 일만 승인 시 교체하며, 제외하거나 배치하지 못한 할 일은 기존 시간을 유지합니다."}
+          </p>
+          <ul>
+            {plan.details.replaced_blocks?.map((block) => (
+              <li key={block.id}>
+                <strong>{block.title}</strong> · {formatSeoul(block.start_at)} ~{" "}
+                {formatSeoul(block.end_at)}
+                {!plan.approved_at &&
+                  !selected.includes(block.task_id) &&
+                  " · 기존 시간 유지"}
+              </li>
+            ))}
+          </ul>
+          {!plan.approved_at && (
+            <p className="notice">
+              일부 할 일을 제외하면 그 할 일의 기존 시간과 겹칠 수 있습니다.
+              승인이 막히면 선택을 다시 정하고 새 미리보기를 만들어 주세요.
+            </p>
+          )}
+        </section>
+      )}
       {plan.approved_at ? (
         <>
           <p className="success" role="status">
@@ -338,6 +396,9 @@ function PlanEditor({
           </p>
           <Link className="button" href="/calendar">
             캘린더 보기
+          </Link>
+          <Link className="button secondary" href="/planning?mode=replan">
+            다시 배치하기
           </Link>
         </>
       ) : (
@@ -488,7 +549,11 @@ function PlanEditor({
                 }
               }}
             >
-              {busy ? "다시 확인하고 저장하는 중…" : "선택한 배치 승인"}
+              {busy
+                ? "다시 확인하고 저장하는 중…"
+                : plan.details.replace_existing
+                  ? "선택한 기존 배치 교체"
+                  : "선택한 배치 승인"}
             </button>
           </div>
         </>

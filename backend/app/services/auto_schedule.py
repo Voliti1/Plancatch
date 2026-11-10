@@ -175,6 +175,37 @@ def local_state(db, owner, request):
             .distinct()
         )
     )
+    originals = []
+    replacement_rows = []
+    replacement_incomplete = False
+    if request.replace_existing:
+        originals = list(
+            db.scalars(
+                select(ScheduledEvent)
+                .where(
+                    ScheduledEvent.user_id == owner,
+                    ScheduledEvent.task_id.in_(request.task_ids),
+                    ScheduledEvent.status.in_(["approved", "synced"]),
+                )
+                .order_by(ScheduledEvent.id)
+                .limit(MAX_BLOCKS + 1)
+            )
+        )
+        replacement_incomplete = len(originals) > MAX_BLOCKS
+        if not replacement_incomplete:
+            for task in tasks:
+                rows = [e for e in originals if e.task_id == task.id]
+                if (
+                    task.schedule_type == "flexible"
+                    and not task.recurrence
+                    and not task.series_id
+                    and not task.is_completed
+                    and task.estimated_minutes
+                    and rows
+                    and all(replaceable(e) for e in rows)
+                ):
+                    replacement_rows.extend(rows)
+    replacement_ids = {e.id for e in replacement_rows}
     placed = exists().where(
         ScheduledEvent.task_id == Task.id, ScheduledEvent.user_id == owner
     )
@@ -203,6 +234,7 @@ def local_state(db, owner, request):
                 ScheduledEvent.user_id == owner,
                 Task.user_id == owner,
                 ScheduledEvent.status.in_(["approved", "synced"]),
+                ScheduledEvent.id.not_in(replacement_ids),
                 ScheduledEvent.start_at < request.end_at,
                 ScheduledEvent.end_at > request.start_at,
             )
@@ -210,7 +242,9 @@ def local_state(db, owner, request):
             .limit(MAX_ROWS + 1)
         ).scalars()
     )
-    incomplete = len(fixed) > MAX_ROWS or len(events) > MAX_ROWS
+    incomplete = (
+        replacement_incomplete or len(fixed) > MAX_ROWS or len(events) > MAX_ROWS
+    )
     busy = [(utc(e.start_at), utc(e.end_at)) for e in events[:MAX_ROWS]]
     for task in fixed[:MAX_ROWS]:
         try:
@@ -269,10 +303,52 @@ def local_state(db, owner, request):
         if request.include_google
         else None,
     }
+    if request.replace_existing:
+        state["replacement_deadlines"] = [
+            {
+                "id": str(d.id),
+                "due_at": stamp(d.due_at),
+                "safe_due_at": stamp(d.safe_due_at),
+            }
+            for d in sorted(deadlines.values(), key=lambda d: str(d.id))
+        ]
+        # All selected placements, including those outside the new period, must
+        # remain identical until approval. Do not expose provider IDs in plans.
+        state["replacement_snapshot"] = [
+            {
+                "id": str(e.id),
+                "task_id": str(e.task_id),
+                "start_at": stamp(e.start_at),
+                "end_at": stamp(e.end_at),
+                "status": e.status,
+                "approved": e.is_user_approved,
+                "legacy_google": bool(e.google_event_id),
+                "updated_at": stamp(e.updated_at),
+            }
+            for e in originals
+        ]
     digest = hashlib.sha256(
         json.dumps(state, sort_keys=True, ensure_ascii=False, default=str).encode()
     ).hexdigest()
-    return tasks, deadlines, placed_ids, limits, merge(busy), incomplete, digest
+    return (
+        tasks,
+        deadlines,
+        placed_ids,
+        limits,
+        merge(busy),
+        incomplete,
+        digest,
+        replacement_rows,
+    )
+
+
+def replaceable(event):
+    return (
+        event.status == "approved"
+        and event.is_user_approved
+        and not event.google_event_id
+        and utc(event.start_at) > now()
+    )
 
 
 def plan_response(plan):
@@ -294,8 +370,8 @@ def preview(db, owner, request):
     google_busy, details, bound = external_busy(db, owner, request)
     db.expire_all()
     sync.lock_owner(db, owner)
-    tasks, deadlines, placed, limits, local_busy, incomplete, digest = local_state(
-        db, owner, request
+    tasks, deadlines, placed, limits, local_busy, incomplete, digest, replacements = (
+        local_state(db, owner, request)
     )
     if incomplete:
         details["blocked"] = True
@@ -313,20 +389,28 @@ def preview(db, owner, request):
     plan = SchedulePlan(
         id=uuid.uuid4(),
         user_id=owner,
-        request=request.model_dump(mode="json"),
+        # Old releases can still read this request. Replacement intent lives in
+        # details; their old snapshot check rejects unapproved replacement plans.
+        request=request.model_dump(mode="json", exclude={"replace_existing"}),
         snapshot_hash=digest,
         blocks=[],
         details={},
         expires_at=moment + timedelta(minutes=15),
     )
     blocks, skipped, summaries = [], [], []
+    retained = {e.id: e for e in replacements}
+    replacing = {e.task_id for e in replacements}
     for task in sorted(tasks, key=lambda t: (limits[t.id][1], -t.priority, str(t.id))):
         reason = None
         if task.schedule_type != "flexible" or task.recurrence or task.series_id:
             reason = "시간이 정해지지 않은 유동 작업만 자동 배치할 수 있습니다."
         elif task.is_completed:
             reason = "이미 완료한 할 일입니다."
-        elif task.id in placed:
+        elif request.replace_existing and task.id not in replacing:
+            reason = (
+                "아직 시작하지 않은 확정 배치가 있는 유동 할 일만 재배치할 수 있습니다."
+            )
+        elif task.id in placed and not request.replace_existing:
             reason = "이미 확정된 배치가 있는 할 일입니다."
         elif not task.estimated_minutes:
             reason = "소요시간을 입력해 주세요."
@@ -349,7 +433,19 @@ def preview(db, owner, request):
         proposed = []
         remaining = task.estimated_minutes or 0
         if not reason:
-            for left, right in free:
+            # Until each task has a complete replacement, retain other tasks'
+            # old slots. An unplaceable task never loses its original times.
+            task_free = subtract(
+                free,
+                merge(
+                    [
+                        (utc(e.start_at), utc(e.end_at))
+                        for e in retained.values()
+                        if e.task_id != task.id
+                    ]
+                ),
+            )
+            for left, right in task_free:
                 at = max(left, begin)
                 rounded = at.replace(second=0, microsecond=0)
                 if at > rounded:
@@ -381,6 +477,7 @@ def preview(db, owner, request):
             )
             continue
         free = subtract(free, merge(proposed))
+        retained = {key: e for key, e in retained.items() if e.task_id != task.id}
         for a, b in proposed:
             blocks.append(
                 {
@@ -392,6 +489,22 @@ def preview(db, owner, request):
                 }
             )
     details.update(unplaced=skipped, tasks=summaries)
+    if request.replace_existing:
+        details.update(
+            replace_existing=True,
+            replaced_blocks=[
+                {
+                    "id": str(e.id),
+                    "task_id": str(e.task_id),
+                    "title": next(t.title for t in tasks if t.id == e.task_id),
+                    "start_at": stamp(e.start_at),
+                    "end_at": stamp(e.end_at),
+                }
+                for e in sorted(
+                    replacements, key=lambda e: (utc(e.start_at), str(e.id))
+                )
+            ],
+        )
     plan.blocks, plan.details = blocks, details
     # Keep recent expired previews visible in history; the same 30-record cap applies.
     old_ids = list(
@@ -438,7 +551,9 @@ def approve(db, owner, identity, payload):
             409,
             "일정을 전부 확인하지 못했습니다. 설정을 바꾸고 다시 미리보기를 만들어 주세요.",
         )
-    request = PreviewInput.model_validate(plan.request)
+    request = PreviewInput.model_validate(
+        {**plan.request, "replace_existing": bool(plan.details.get("replace_existing"))}
+    )
     google_busy, details, bound = external_busy(db, owner, request)
     db.expire_all()
     sync.lock_owner(db, owner)
@@ -447,7 +562,9 @@ def approve(db, owner, identity, payload):
         return plan_response(plan)
     if utc(plan.expires_at) <= now():
         raise HTTPException(409, "미리보기 유효 시간이 지났습니다. 다시 만들어 주세요.")
-    tasks, _, placed, limits, busy, incomplete, digest = local_state(db, owner, request)
+    tasks, _, placed, limits, busy, incomplete, digest, replacements = local_state(
+        db, owner, request
+    )
     if digest != plan.snapshot_hash:
         raise HTTPException(
             409, "할 일이나 기존 일정이 변경됐습니다. 새 미리보기를 만들어 주세요."
@@ -474,6 +591,11 @@ def approve(db, owner, identity, payload):
         raise HTTPException(
             422, "한 할 일의 배치는 모두 함께 선택하거나 제외해 주세요."
         )
+    busy.extend(
+        (utc(e.start_at), utc(e.end_at))
+        for e in replacements
+        if str(e.task_id) not in selected
+    )
     windows = working_windows(request)
     intervals, saved = [], []
     for key, block in edited.items():
@@ -517,12 +639,23 @@ def approve(db, owner, identity, payload):
         )
         if (
             total != by_id[task_id].estimated_minutes * 60
-            or by_id[task_id].id in placed
+            or (by_id[task_id].id in placed and not request.replace_existing)
+            or (
+                request.replace_existing
+                and by_id[task_id].id not in {e.task_id for e in replacements}
+            )
         ):
             raise HTTPException(
                 409,
                 "소요시간이나 배치 상태가 달라졌습니다. 새로 미리보기를 만들어 주세요.",
             )
+    for event in replacements:
+        if str(event.task_id) in selected:
+            if not replaceable(event):
+                raise HTTPException(
+                    409, "기존 배치가 시작됐습니다. 다시 미리보기를 만들어 주세요."
+                )
+            db.delete(event)
     for block in saved:
         db.add(
             ScheduledEvent(
@@ -539,6 +672,15 @@ def approve(db, owner, identity, payload):
     for task_id in selected:
         sync.enqueue_task(db, owner, uuid.UUID(task_id))
     plan.blocks = saved
+    if request.replace_existing:
+        plan.details = {
+            **plan.details,
+            "replaced_blocks": [
+                block
+                for block in plan.details.get("replaced_blocks", [])
+                if block["task_id"] in selected
+            ],
+        }
     plan.approved_at = now()
     plan.approved_event_ids = [block["id"] for block in saved]
     db.commit()

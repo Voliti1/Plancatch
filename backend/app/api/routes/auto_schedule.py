@@ -24,6 +24,7 @@ def candidates(
     response: Response,
     q: Annotated[str, Query(max_length=255)] = "",
     offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
+    replace_existing: bool = False,
 ):
     response.headers["Cache-Control"] = "no-store"
     active = exists().where(
@@ -40,24 +41,49 @@ def candidates(
         else_=Deadline.due_at,
     )
     sort_at = func.coalesce(limit_at, Task.earliest_start)
-    query = select(Task, sort_at.label("sort_at")).outerjoin(
-        Deadline, and_(Deadline.id == Task.deadline_id, Deadline.user_id == current_user.id)
-    ).where(
-        Task.user_id == current_user.id,
-        Task.schedule_type == "flexible",
-        Task.recurrence.is_(None),
-        Task.series_id.is_(None),
-        Task.is_completed.is_(False),
-        ~active,
+    unsafe = exists().where(
+        ScheduledEvent.task_id == Task.id,
+        ScheduledEvent.user_id == current_user.id,
+        ScheduledEvent.status.in_(["approved", "synced"]),
+        or_(
+            ScheduledEvent.start_at <= service.now(),
+            ScheduledEvent.status == "synced",
+            ScheduledEvent.google_event_id.is_not(None),
+            ScheduledEvent.is_user_approved.is_(False),
+        ),
+    )
+    query = (
+        select(Task, sort_at.label("sort_at"))
+        .outerjoin(
+            Deadline,
+            and_(Deadline.id == Task.deadline_id, Deadline.user_id == current_user.id),
+        )
+        .where(
+            Task.user_id == current_user.id,
+            Task.schedule_type == "flexible",
+            Task.recurrence.is_(None),
+            Task.series_id.is_(None),
+            Task.is_completed.is_(False),
+            (active & ~unsafe) if replace_existing else ~active,
+        )
     )
     if q.strip():
         query = query.where(Task.title.icontains(q.strip(), autoescape=True))
-    tasks = list(db.execute(query.order_by(
-        sort_at.asc().nulls_last(), Task.title.asc(), Task.id
-    ).offset(offset).limit(101)))
+    tasks = list(
+        db.execute(
+            query.order_by(sort_at.asc().nulls_last(), Task.title.asc(), Task.id)
+            .offset(offset)
+            .limit(101)
+        )
+    )
     return {
-        "entries": [{**TaskResponse.model_validate(task).model_dump(), "sort_at": service.stamp(at)}
-                    for task, at in tasks[:100]],
+        "entries": [
+            {
+                **TaskResponse.model_validate(task).model_dump(),
+                "sort_at": service.stamp(at),
+            }
+            for task, at in tasks[:100]
+        ],
         "has_more": len(tasks) > 100,
         "next_offset": offset + 100 if len(tasks) > 100 else None,
     }
