@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from math import ceil
 
 from sqlalchemy import select
+from sqlalchemy.orm import load_only
 
 from app.models import ScheduledEvent, Task
 from app.schemas.deadline_readiness import DeadlineReadiness
@@ -38,6 +39,18 @@ def assess(db, owner, deadline):
     tasks = list(
         db.scalars(
             select(Task)
+            .options(
+                load_only(
+                    Task.id,
+                    Task.is_completed,
+                    Task.recurrence,
+                    Task.series_id,
+                    Task.estimated_minutes,
+                    Task.schedule_type,
+                    Task.earliest_start,
+                    Task.latest_end,
+                )
+            )
             .where(
                 Task.user_id == owner,
                 Task.deadline_id == deadline.id,
@@ -67,8 +80,12 @@ def assess(db, owner, deadline):
     )
     events = (
         list(
-            db.scalars(
-                select(ScheduledEvent)
+            db.execute(
+                select(
+                    ScheduledEvent.task_id,
+                    ScheduledEvent.start_at,
+                    ScheduledEvent.end_at,
+                )
                 .join(Task, Task.id == ScheduledEvent.task_id)
                 .where(
                     ScheduledEvent.user_id == owner,

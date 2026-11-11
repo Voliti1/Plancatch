@@ -71,6 +71,8 @@ def update(db, task, at, payload):
     # The new task stays fixed, belongs to the same owner and never becomes another series.
     if not values["earliest_start"] or not values["latest_end"]:
         raise HTTPException(422, "이번 일정의 시작·종료 일시를 모두 입력해 주세요.")
+    for field in ("earliest_start", "latest_end"):
+        values[field] = utc(values[field])  # SQLite drops the persisted UTC offset.
     preserve_reminders = values["google_reminders"] is None
     if preserve_reminders:
         values["google_reminders"] = {"mode": "none"}
@@ -81,6 +83,12 @@ def update(db, task, at, payload):
     if child is None:
         child = Task(user_id=task.user_id, series_id=task.id, original_start=at)
         db.add(child)
+    # Keep the same completion timestamp contract as normal task create/update.
+    # Inherited completed occurrences retain their existing effective timestamp.
+    if validated["is_completed"]:
+        child.completed_at = current.completed_at or datetime.now(UTC)
+    else:
+        child.completed_at = None
     for name, value in validated.items():
         setattr(child, name, value)
     exclude(task, at)

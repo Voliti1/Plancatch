@@ -55,10 +55,15 @@ def payload(title, start, end, reminders=None):
     return result
 
 
+def sync_connection(db, user_id):
+    connection = db.get(GoogleCalendarConnection, user_id)
+    return connection if connection is not None and google.SCOPE in connection.scopes.split() else None
+
+
 def enqueue(db, user_id, kind, item_id, desired, task_id=None, *, force=False):
     """Caller holds the owner lock; local change and desired state commit together."""
-    connection = db.get(GoogleCalendarConnection, user_id)
-    if connection is None or google.SCOPE not in connection.scopes.split():
+    connection = sync_connection(db, user_id)
+    if connection is None:
         return
     row = db.scalar(select(GoogleExport).where(GoogleExport.user_id == user_id,
         GoogleExport.kind == kind, GoogleExport.item_id == item_id).with_for_update())
@@ -85,6 +90,8 @@ def enqueue(db, user_id, kind, item_id, desired, task_id=None, *, force=False):
 
 def enqueue_deadline(db, user_id, item_id, *, force=False):
     db.flush()
+    if sync_connection(db, user_id) is None:
+        return
     item = db.scalar(select(Deadline).where(Deadline.id == item_id, Deadline.user_id == user_id))
     desired = None
     if item and item.is_confirmed:
@@ -97,6 +104,8 @@ def enqueue_deadline(db, user_id, item_id, *, force=False):
 
 def enqueue_task(db, user_id, task_id, *, force=False):
     db.flush()
+    if sync_connection(db, user_id) is None:
+        return
     item = db.scalar(select(Task).where(Task.id == task_id, Task.user_id == user_id))
     events = list(db.scalars(select(ScheduledEvent).where(ScheduledEvent.task_id == task_id,
         ScheduledEvent.user_id == user_id)))
