@@ -76,6 +76,7 @@ class LinkareerParser(PageParser):
         self.dl_depth = self.label_depth = self.dd_depth = self.span_depth = self.heading_depth = 0
         self.label = ""
         self.chunks, self.span, self.heading, self.fields = [], [], [], []
+        self.period_chunks = []
         self.span_classes = set()
         self.periods, self.headings = [], []
         self.overflow = False
@@ -101,6 +102,7 @@ class LinkareerParser(PageParser):
             self.label_depth, self.chunks = depth, []
         if tag == "dd" and depth == self.dl_depth + 1 and self.label == "접수기간":
             self.dd_depth, self.fields, self.label = depth, [], ""
+            self.period_chunks = []
         if self.dd_depth and tag == "span" and not self.span_depth:
             self.span_depth, self.span = depth, []
             self.span_classes = set((dict(attrs).get("class") or "").split())
@@ -114,6 +116,11 @@ class LinkareerParser(PageParser):
                 self.overflow = True
         if any(skip for _, skip, _ in self.stack):
             return
+        if self.dd_depth:
+            if sum(map(len, self.period_chunks)) + len(data) <= 500:
+                self.period_chunks.append(data)
+            else:
+                self.overflow = True
         for depth, chunks, limit in ((self.label_depth, self.chunks, 200), (self.span_depth, self.span, 200)):
             if depth:
                 if sum(map(len, chunks)) + len(data) <= limit:
@@ -135,10 +142,21 @@ class LinkareerParser(PageParser):
                 self.span_depth = 0
             if self.dd_depth >= target:
                 fields = self.fields
+                period = None
                 if (len(fields) == 4 and "start-at" in fields[0][0] and fields[0][1] == "시작일"
                         and "end-at" in fields[2][0] and fields[2][1] == "마감일"):
+                    period = (fields[1][1], fields[3][1])
+                else:
+                    # Newer pages put the complete range directly in the same
+                    # semantic dd, sometimes split by comments or inline tags.
+                    # Accept that field only, never dates elsewhere in the page.
+                    raw = " ".join("".join(self.period_chunks).split())
+                    parts = re.split(r"\s*[~～〜∼–—]\s*", raw)
+                    if len(parts) == 2 and all(visible_date(part) for part in parts):
+                        period = tuple(parts)
+                if period:
                     if len(self.periods) < 8:
-                        self.periods.append((fields[1][1], fields[3][1]))
+                        self.periods.append(period)
                     else:
                         self.overflow = True
                 else:

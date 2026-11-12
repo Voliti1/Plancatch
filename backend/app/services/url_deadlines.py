@@ -5,6 +5,7 @@ import re
 from app.services.deadline_dates import (
     DATE,
     DEFAULT_TIME_NOTICE,
+    RANGE,
     closing_choice,
     date_choice,
 )
@@ -21,6 +22,24 @@ def unique_choices(values: list[dict]) -> list[dict]:
     for value in values:
         unique.setdefault((value["raw_text"], value["due_at"]), value)
     return list(unique.values())[:30]
+
+
+def closing_context(lines: list[str], index: int) -> str:
+    """Keep a split period together without borrowing another field's dates."""
+    selected = [lines[index]]
+    for line in lines[index + 1:index + 8]:
+        token = line.strip()
+        if LABEL.search(token):
+            break
+        date_text = token.removesuffix("까지").removesuffix("부터").strip(" ~～〜∼–—")
+        match = DATE.fullmatch(date_text)
+        clock = re.match(r"^(?:오전|오후|AM\b|PM\b|\d{1,2}\s*[:：시])", token, re.IGNORECASE)
+        if token and not (match or RANGE.fullmatch(token) or clock):
+            break
+        selected.append(line)
+        if len("\n".join(selected)) >= 500:
+            break
+    return "\n".join(selected)[:500]
 
 
 def collect_review(text: str, job_text: str, period_parser=None, scoped: bool = True) -> dict:
@@ -48,12 +67,20 @@ def collect_review(text: str, job_text: str, period_parser=None, scoped: bool = 
         for index, line in enumerate(lines):
             if not LABEL.search(line):
                 continue
-            context = "\n".join(lines[index:index + 3])[:500]
+            context = closing_context(lines, index)
             open_ended |= bool(OPEN.search(context))
             # A range's opening date is not its closing date.
-            closing = context.rsplit("~", 1)[-1] if "~" in context else context
+            parts = RANGE.split(context)
+            closing = parts[-1]
+            if "기간" in line and len(parts) == 1 and not re.search(r"마감|종료", line):
+                continue  # A lone opening date cannot establish a period's end.
             if "시작일" in closing or OPEN.search(closing):
                 continue
+            if len(parts) == 2:
+                item = closing_choice(context)
+                if item:
+                    values.append(item)
+                    continue
             for match in DATE.finditer(closing):
                 item = date_choice(closing[match.start():], context)
                 if item:

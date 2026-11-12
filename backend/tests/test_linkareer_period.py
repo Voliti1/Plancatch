@@ -52,6 +52,46 @@ def test_date_fields_and_metadata_expiry_keep_fraction_and_explain_the_time_sour
     assert text.count(period.MARKER) == text.count(period.END_MARKER) == 1
 
 
+@pytest.mark.parametrize("field", [
+    "2026.10.12<!-- --> ~ <!-- -->2026.10.31",
+    "<span>2026.10.12</span> ~ <strong>2026.10.31</strong>",
+    "\n2026.10.12\n～\n2026.10.31\n",
+])
+def test_semantic_period_field_does_not_depend_on_the_old_four_span_layout(field):
+    html = markup()
+    start = html.index('<dd class="text">') + len('<dd class="text">')
+    html = html[:start] + field + html[html.index('</dd>', start):]
+    text = snapshot(html)
+    info = period.read_period(text)
+    assert info and not info["has_conflict"] and info["deadline_at"] == DUE
+    result = analyze_url(text, URL, None)
+    assert result.deadlines[0].due_at == DUE
+    assert result.warnings == [period.METADATA_TIME]
+
+
+def test_plain_range_without_metadata_defaults_only_the_closing_date_and_excludes_other_fields():
+    html = markup(metadata=None)
+    start = html.index('<dd class="text">') + len('<dd class="text">')
+    html = html[:start] + '2026.10.12 ~ 2026.10.31' + html[html.index('</dd>', start):]
+    html = html.replace('</article>', '<dl><dt>근무기간</dt><dd>2026.11.01 ~ 2026.12.31</dd></dl>'
+                        '<aside>접수기간 2030.01.01 ~ 2030.02.01</aside></article>')
+    text = snapshot(html)
+    result = analyze_url(text, URL, None)
+    assert result.deadlines[0].due_at.isoformat() == '2026-10-31T23:59:00+09:00'
+    assert len(review_data(text, URL)["choices"]) == 1
+
+
+def test_plain_period_still_rejects_conflicting_expiry_and_duplicate_fields():
+    html = markup(metadata='2026-10-30T14:59:59Z')
+    start = html.index('<dd class="text">') + len('<dd class="text">')
+    html = html[:start] + '2026.10.12 ~ 2026.10.31' + html[html.index('</dd>', start):]
+    assert analyze_url(snapshot(html), URL, None).deadlines[0].due_at is None
+    html = html.replace('2026-10-30T14:59:59Z', META).replace('</article>',
+        '<dl><dt>접수기간</dt><dd>2026.10.12 ~ 2026.11.01</dd></dl></article>')
+    assert period.read_period(snapshot(html))["has_conflict"]
+    assert analyze_url(snapshot(html), URL, None).deadlines[0].due_at is None
+
+
 def test_html_strategy_keeps_metadata_even_when_an_image_alternative_mentions_a_clock(monkeypatch):
     forbid_ai(monkeypatch)
     url = "https://linkareer.com/activity/357927"
@@ -130,9 +170,14 @@ def test_wrong_field_labels_and_snapshot_mutation():
     assert period.read_period(text.replace('마감일 (정규화): ' + DUE.isoformat(), '마감일 (정규화): 2026-10-31T00:00:00Z'))["has_conflict"]
 
 
-def test_api_title_edit_approval_retry_and_reload_preserve_the_metadata_instant(monkeypatch):
+@pytest.mark.parametrize('plain_range', [False, True])
+def test_api_title_edit_approval_retry_and_reload_preserve_the_metadata_instant(monkeypatch, plain_range):
     forbid_ai(monkeypatch)
-    source, headers = source_ready(snapshot(), URL)
+    html = markup()
+    if plain_range:
+        start = html.index('<dd class="text">') + len('<dd class="text">')
+        html = html[:start] + '2026.10.12<!-- --> ~ <!-- -->2026.10.31' + html[html.index('</dd>', start):]
+    source, headers = source_ready(snapshot(html), URL)
     response = client.post(f"/api/sources/{source}/ai-analyses", headers=headers, json={})
     assert response.status_code == 202
     path = f"/api/ai-analyses/{response.json()['id']}"
