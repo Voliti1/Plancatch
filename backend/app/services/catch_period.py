@@ -1,6 +1,6 @@
 """Visible Catch closing-period evidence, matched to same-page inert JSON-LD."""
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from urllib.parse import urljoin, urlsplit
 
 from app.services.extraction import PageParser, job_postings
@@ -9,6 +9,7 @@ MARKER = "[캐치 접수기간: 동일 공고 HTML]"
 END_MARKER = "[캐치 접수기간 끝]"
 CONFLICT = "주의: 캐치 접수기간과 공고 메타데이터의 날짜·요일·시각이 충돌합니다. 원문 확인이 필요합니다."
 UNRESOLVED = "주의: 캐치 접수기간의 연도 또는 마감 시각을 확정하지 못했습니다. 원문을 확인하고 직접 입력하세요."
+METADATA_TIME = "공고 화면에는 마감 날짜만 표시되어 있습니다. 캐치에 저장된 마감 시각을 후보로 사용하므로 기업 원문을 확인하고 필요하면 수정해 주세요."
 SEOUL = timezone(timedelta(hours=9))
 DISPLAY = re.compile(
     r"~\s*(?:(?P<year>\d{4})[./-]\s*)?(?P<month>\d{1,2})[./-](?P<day>\d{1,2})"
@@ -41,9 +42,19 @@ def same_page(reference: str, url: str) -> bool:
         return False
 
 
+def display_fields(raw: str):
+    parts = re.split(r"[~～〜∼]", raw)
+    if len(parts) != 2:
+        return None, None
+    start = parts[0].removeprefix("채용예정").strip()
+    first = DISPLAY.fullmatch("~ " + start) if start else None
+    last = DISPLAY.fullmatch("~ " + parts[1].strip())
+    return (first, last) if not start or first else (None, None)
+
+
 def resolve(raw: str, metadata: str | None) -> tuple[datetime | None, bool]:
     """No clock arithmetic, current year, title year or weekday-based year inference."""
-    display = DISPLAY.fullmatch(raw)
+    opening, display = display_fields(raw)
     if display is None or metadata is None:
         return None, False
     if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})?", metadata):
@@ -71,8 +82,24 @@ def resolve(raw: str, metadata: str | None) -> tuple[datetime | None, bool]:
         conflict = ((label_day.month, label_day.day) != (int(field["month"]), int(field["day"]))
                     or bool(field["year"] and label_day.year != int(field["year"]))
                     or bool(field["weekday"] and field["weekday"] != "월화수목금토일"[label_day.weekday()]))
+        if opening:
+            first = opening.groupdict()
+            year = int(first["year"]) if first["year"] else label_day.year - int(
+                (int(first["month"]), int(first["day"])) > (label_day.month, label_day.day))
+            begins = date(year, int(first["month"]), int(first["day"]))
+            conflict |= (begins > label_day or bool(first["weekday"]
+                         and first["weekday"] != "월화수목금토일"[begins.weekday()]))
+            if first["hour"]:
+                hour, minute_first = int(first["hour"]), int(first["minute"] or first["kminute"] or 0)
+                if hour > 24 or minute_first > 59 or hour == 24 and minute_first != 0:
+                    return None, True
+                start = datetime.combine(begins, datetime.min.time(), tzinfo=SEOUL) + timedelta(
+                    hours=hour, minutes=minute_first)
+                conflict |= start > due
         if field["hour"] is None:
-            return None, conflict  # A hidden clock must still be supplied by the user.
+            # A clock explicitly stored in this matched job's HTML is not a
+            # guessed end-of-day. Expose its origin in the review notice.
+            return (None if conflict else due), conflict
         if not midnight_label:
             conflict |= (local.hour, local.minute) != (int(field["hour"]), minute)
         return (None if conflict else due), conflict
@@ -153,10 +180,16 @@ def metadata_for(parser: CatchParser, url: str) -> tuple[str | None, bool]:
             or any(not same_page(ref, url) for ref in parser.canonical_links)):
         return None, bool(parser.canonical_links and any(not same_page(ref, url) for ref in parser.canonical_links))
     def title(value):
-        return re.sub(r"^\[[^\]\n]{1,100}\]\s*", "", " ".join(value.split()))
+        return " ".join(value.split())
+    heading = title(parser.headings[0])
     values = []
     for item in job_postings(parser.json_ld_blocks):
-        if not isinstance(item.get("title"), str) or title(item["title"]) != title(parser.headings[0]):
+        if not isinstance(item.get("title"), str):
+            continue
+        candidate = title(item["title"])
+        # Only metadata adds the company prefix. The heading can legitimately
+        # start with [11월] or [CATCH-UP], which is part of the job title.
+        if candidate != heading and re.sub(r"^\[[^\]\n]{1,100}\]\s*", "", candidate) != heading:
             continue
         refs = [item[key] for key in ("url", "@id", "mainEntityOfPage") if key in item]
         if not all(isinstance(ref.get("@id") if isinstance(ref, dict) else ref, str)
@@ -215,4 +248,5 @@ def read_period(text: str) -> dict | None:
         conflict = True
     return {"site": "catch", "source_url": value("공고 URL: "), "start_text": None,
             "end_text": raw, "deadline_at": due if not conflict else None,
-            "remaining_text": None, "has_conflict": conflict}
+            "remaining_text": None, "has_conflict": conflict,
+            "time_from_metadata": bool(due and not conflict and display_fields(raw)[1]["hour"] is None)}
