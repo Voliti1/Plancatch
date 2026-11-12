@@ -92,6 +92,21 @@ def test_plain_period_still_rejects_conflicting_expiry_and_duplicate_fields():
     assert analyze_url(snapshot(html), URL, None).deadlines[0].due_at is None
 
 
+def test_verified_closing_field_is_not_overridden_by_other_body_mentions():
+    text = snapshot(markup(extra='<p>접수기간 관련 안내: 채용 시 마감인 다른 공고와 조건이 다릅니다.</p>'))
+    assert not review_data(text, URL)['open_ended']
+    assert analyze_url(text, URL, None).deadlines[0].due_at == DUE
+
+
+def test_open_ended_plain_period_is_recognized_across_four_text_lines():
+    html = markup(metadata=None)
+    start = html.index('<dd class="text">') + len('<dd class="text">')
+    html = html[:start] + '2026.10.12<!-- --> ~ <!-- -->채용 시 마감' + html[html.index('</dd>', start):]
+    text = snapshot(html)
+    assert review_data(text, URL)['open_ended']
+    assert analyze_url(text, URL, None).deadlines[0].due_at is None
+
+
 def test_html_strategy_keeps_metadata_even_when_an_image_alternative_mentions_a_clock(monkeypatch):
     forbid_ai(monkeypatch)
     url = "https://linkareer.com/activity/357927"
