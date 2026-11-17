@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.models import Task
 from app.schemas.task import TaskCreate, TaskResponse
 from app.services import google_sync as sync
-from app.services.recurrence import occurrences, utc
+from app.services.recurrence import SEOUL, occurrences, utc
 
 MAX_EXCEPTIONS = 1000
 
@@ -30,6 +30,13 @@ def owned_instance(task, at):
         raise HTTPException(422, "확인할 수 있는 날짜 범위를 벗어났습니다.") from None
     if task.series_id or not task.recurrence or not is_instance(task, at):
         raise HTTPException(404, "이 반복 일정에 해당 날짜가 없습니다. 전체 반복 설정을 확인해 주세요.")
+    try:
+        # Membership alone uses a tiny duration; the real occurrence must also be representable.
+        finish = at + (utc(task.latest_end) - utc(task.earliest_start))
+        at.astimezone(SEOUL)
+        finish.astimezone(SEOUL)
+    except OverflowError:
+        raise HTTPException(422, "확인할 수 있는 날짜 범위를 벗어났습니다.") from None
     return at
 
 

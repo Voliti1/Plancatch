@@ -6,13 +6,17 @@ from itertools import pairwise
 
 from fastapi import HTTPException
 from sqlalchemy import delete, select
+from sqlalchemy.orm import load_only
 
-from app.models import ScheduledEvent, Task, TaskDependency
+from app.models import Deadline, ScheduledEvent, Task, TaskDependency
 from app.schemas.task_plan import validate_graph
 from app.services.google_sync import lock_owner
 from app.services.recurrence import utc
 
 MAX_EDGES = 1000
+SIMPLE_FIELDS = (Task.id, Task.user_id, Task.schedule_type, Task.recurrence, Task.series_id)
+CONTEXT_FIELDS = (*SIMPLE_FIELDS, Task.deadline_id, Task.estimated_minutes, Task.is_completed,
+                  Task.completed_at, Task.updated_at, Task.earliest_start, Task.latest_end)
 
 
 def edges(db, owner):
@@ -28,7 +32,7 @@ def revision(rows):
 
 
 def owned(db, owner, identity):
-    task = db.scalar(select(Task).where(Task.user_id == owner, Task.id == identity))
+    task = db.scalar(select(Task).options(load_only(*SIMPLE_FIELDS)).where(Task.user_id == owner, Task.id == identity))
     if not task:
         raise HTTPException(404, "할 일을 찾을 수 없습니다.")
     return task
@@ -50,7 +54,13 @@ def replace(db, owner, identity, payload):
     rows = edges(db, owner)
     if revision(rows) != payload.revision:
         raise HTTPException(409, "작업 순서가 변경됐습니다. 다시 불러온 뒤 저장해 주세요.")
-    if not simple(task) or any(not simple(owned(db, owner, parent)) for parent in payload.predecessor_ids):
+    if not simple(task):
+        raise HTTPException(422, "반복하지 않는 유동 작업끼리만 순서를 연결할 수 있습니다.")
+    parents = list(db.scalars(select(Task).options(load_only(*SIMPLE_FIELDS)).where(
+        Task.user_id == owner, Task.id.in_(payload.predecessor_ids)))) if payload.predecessor_ids else []
+    if len(parents) != len(payload.predecessor_ids):
+        raise HTTPException(404, "할 일을 찾을 수 없습니다.")
+    if any(not simple(parent) for parent in parents):
         raise HTTPException(422, "반복하지 않는 유동 작업끼리만 순서를 연결할 수 있습니다.")
     proposed = [(a, b) for a, b in rows if a != identity] + [(identity, b) for b in payload.predecessor_ids]
     if len(proposed) > MAX_EDGES:
@@ -69,7 +79,8 @@ def replace(db, owner, identity, payload):
 
 
 def order(tasks, mapping, key):
-    pending = {t.id: set(mapping.get(t.id, [])) & {t.id for t in tasks} for t in tasks}
+    ids = {t.id for t in tasks}
+    pending = {t.id: set(mapping.get(t.id, [])) & ids for t in tasks}
     by_id = {t.id: t for t in tasks}
     result = []
     while pending:
@@ -97,29 +108,45 @@ def context(db, owner, selected):
     related = [(a, b) for a, b in rows if a in closure]
     if not related:
         return {}, {}, None
-    tasks = list(db.scalars(select(Task).where(Task.user_id == owner, Task.id.in_(closure))))
+    tasks = list(db.scalars(select(Task).options(load_only(*CONTEXT_FIELDS)).where(Task.user_id == owner, Task.id.in_(closure))))
     if len(tasks) != len(closure) or any(not simple(t) for t in tasks):
         raise HTTPException(409, "작업 순서에 연결된 할 일을 확인해 주세요.")
     ids = {t.id for t in selected}
-    placed = list(db.scalars(select(ScheduledEvent).where(ScheduledEvent.user_id == owner,
+    deadline_ids = {t.deadline_id for t in tasks if t.id not in ids and t.deadline_id}
+    deadlines = {d.id: d for d in db.scalars(select(Deadline).options(load_only(
+        Deadline.id, Deadline.due_at, Deadline.safety_buffer_minutes)).where(
+        Deadline.user_id == owner, Deadline.id.in_(deadline_ids)))} if deadline_ids else {}
+    placed = list(db.scalars(select(ScheduledEvent).options(load_only(
+        ScheduledEvent.id, ScheduledEvent.task_id, ScheduledEvent.start_at, ScheduledEvent.end_at,
+        ScheduledEvent.status)).where(ScheduledEvent.user_id == owner,
         ScheduledEvent.task_id.in_(closure - ids), ScheduledEvent.status.in_(["approved", "synced"]))
         .order_by(ScheduledEvent.start_at, ScheduledEvent.id).limit(1001)))
     if len(placed) > 1000:
         raise HTTPException(409, "먼저 할 작업의 배치를 모두 확인하지 못했습니다.")
+    blocks_by_task = {}
+    for event in placed:
+        blocks_by_task.setdefault(event.task_id, []).append(event)
     finishes = {}
     for task in order(tasks, mapping, lambda t: str(t.id)):
         if task.is_completed:
             finishes[task.id] = utc(task.completed_at) if task.completed_at else datetime.now(UTC)
         elif task.id not in ids:
-            blocks = [e for e in placed if e.task_id == task.id]
+            blocks = blocks_by_task.get(task.id, [])
             parents = mapping.get(task.id, [])
+            deadline = deadlines.get(task.deadline_id)
+            begin = utc(task.earliest_start) if task.earliest_start else datetime.min.replace(tzinfo=UTC)
+            end = min(utc(task.latest_end) if task.latest_end else datetime.max.replace(tzinfo=UTC),
+                utc(deadline.safe_due_at or deadline.due_at) if deadline else datetime.max.replace(tzinfo=UTC))
             if (blocks and task.estimated_minutes and all(p in finishes for p in parents)
-                and all(utc(e.end_at) > utc(e.start_at) for e in blocks)
+                and (not task.deadline_id or deadline is not None)
+                and all(begin <= utc(e.start_at) < utc(e.end_at) <= end for e in blocks)
                 and all(utc(a.end_at) <= utc(b.start_at) for a, b in pairwise(blocks))
                 and sum((utc(e.end_at)-utc(e.start_at)).total_seconds() for e in blocks) == task.estimated_minutes * 60
                 and all(utc(blocks[0].start_at) >= finishes[p] for p in parents)):
                 finishes[task.id] = max(utc(e.end_at) for e in blocks)
     state = {"edges": sorted((str(a), str(b)) for a, b in related),
+        "deadlines": sorted([{"id": str(d.id), "due": utc(d.due_at).isoformat(),
+            "safety_minutes": d.safety_buffer_minutes} for d in deadlines.values()], key=lambda d: d['id']),
         "tasks": sorted([{"id": str(t.id), "updated": utc(t.updated_at).isoformat(),
             "completed": t.is_completed, "completed_at": utc(t.completed_at).isoformat() if t.completed_at else None,
             "minutes": t.estimated_minutes} for t in tasks], key=lambda t: t["id"]),
