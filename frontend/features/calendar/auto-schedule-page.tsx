@@ -53,11 +53,14 @@ const clock = (minutes: number) =>
 export function AutoSchedulePage({
   initialPlanId,
   initialReplace = false,
+  initialSavedAvailability = false,
 }: {
   initialPlanId?: string;
   initialReplace?: boolean;
+  initialSavedAvailability?: boolean;
 }) {
   const [replace, setReplace] = useState(initialReplace);
+  const [useSaved, setUseSaved] = useState(initialSavedAvailability);
   const restore = useResource(
     useCallback(
       (signal: AbortSignal) =>
@@ -99,6 +102,9 @@ export function AutoSchedulePage({
         description="시간이 정해지지 않은 할 일을 빈 시간에 나누어 넣고, 확인 후 저장하세요."
         action={
           <div className="planning-heading-actions">
+            <Link className="button secondary" href="/planning/availability">
+              가능 시간 설정
+            </Link>
             <Link className="button secondary" href="/planning/history">
               배치 기록
             </Link>
@@ -137,6 +143,7 @@ export function AutoSchedulePage({
                 weekdays,
                 chunk_minutes: chunk,
                 include_google: google,
+                ...(useSaved ? { use_saved_availability: true } : {}),
                 ...(replace ? { replace_existing: true } : {}),
               }),
             });
@@ -190,6 +197,20 @@ export function AutoSchedulePage({
             }}
           />
           <h2>2. 작업 가능한 시간</h2>
+          <label className="checkbox-row">
+            <input
+              type="checkbox"
+              checked={useSaved}
+              onChange={(e) => setUseSaved(e.target.checked)}
+            />
+            저장한 가능 시간과 날짜별 예외 사용
+          </label>
+          {useSaved && (
+            <p className="small muted">
+              계정에 저장한 시간으로 배치합니다. 아래 하루 시간·요일 대신 저장한
+              설정을 사용합니다. 처음에는 평일 09:00~18:00입니다.
+            </p>
+          )}
           <div className="form-grid">
             <label>
               배치 시작일
@@ -214,6 +235,7 @@ export function AutoSchedulePage({
               하루 작업 시작
               <select
                 value={begin}
+                disabled={useSaved}
                 onChange={(e) => setBegin(Number(e.target.value))}
               >
                 {Array.from({ length: 48 }, (_, i) => i * 30).map((m) => (
@@ -227,6 +249,7 @@ export function AutoSchedulePage({
               하루 작업 종료
               <select
                 value={end}
+                disabled={useSaved}
                 onChange={(e) => setEnd(Number(e.target.value))}
               >
                 {Array.from({ length: 48 }, (_, i) => (i + 1) * 30).map((m) => (
@@ -243,6 +266,7 @@ export function AutoSchedulePage({
                 <input
                   type="checkbox"
                   checked={weekdays.includes(i)}
+                  disabled={useSaved}
                   onChange={(e) =>
                     setWeekdays((current) =>
                       e.target.checked

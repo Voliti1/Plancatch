@@ -16,6 +16,7 @@ from app.models import (
     Task,
 )
 from app.schemas.schedule_plan import PreviewInput
+from app.services import availability
 from app.services import google_sync as sync
 from app.services.recurrence import SEOUL, occurrences, utc
 
@@ -80,26 +81,26 @@ def subtract(free, busy):
     return result
 
 
-def working_windows(request):
+def working_windows(request, profile=None):
     try:
         first = request.start_at.astimezone(SEOUL).date()
         last = request.end_at.astimezone(SEOUL).date()
         result = []
         for offset in range((last - first).days + 1):
             day = first + timedelta(days=offset)
-            if day.weekday() not in request.weekdays:
-                continue
             midnight = datetime.combine(day, time(), SEOUL).astimezone(UTC)
-            begin = max(
-                request.start_at,
-                midnight + timedelta(minutes=request.day_start_minutes),
-            )
-            end = min(
-                request.end_at, midnight + timedelta(minutes=request.day_end_minutes)
-            )
-            if begin < end:
-                result.append((begin, end))
-        return result
+            if request.use_saved_availability:
+                if profile is None:
+                    raise HTTPException(409, "저장한 가능 시간을 다시 확인해 주세요.")
+                windows = availability.intervals(profile, day)
+            else:
+                windows = [{"start_minutes": request.day_start_minutes, "end_minutes": request.day_end_minutes}] if day.weekday() in request.weekdays else []
+            for window in windows:
+                begin = max(request.start_at, midnight + timedelta(minutes=window["start_minutes"]))
+                end = min(request.end_at, midnight + timedelta(minutes=window["end_minutes"]))
+                if begin < end:
+                    result.append((begin, end))
+        return merge(result) if request.use_saved_availability else result
     except (ValueError, OverflowError):
         raise HTTPException(422, "작업 날짜 범위를 확인해 주세요.") from None
 
@@ -303,6 +304,8 @@ def local_state(db, owner, request):
         if request.include_google
         else None,
     }
+    if request.use_saved_availability:
+        state["availability"] = availability.read(db, owner)
     if request.replace_existing:
         state["replacement_deadlines"] = [
             {
@@ -384,14 +387,15 @@ def preview(db, owner, request):
             "구글 연결이 바뀌었습니다. 다시 미리보기를 만들어 주세요."
         )
     moment = now()
-    available = [(max(a, moment), b) for a, b in working_windows(request) if b > moment]
+    profile = availability.read(db, owner) if request.use_saved_availability else None
+    available = [(max(a, moment), b) for a, b in working_windows(request, profile) if b > moment]
     free = subtract(available, merge([*local_busy, *google_busy]))
     plan = SchedulePlan(
         id=uuid.uuid4(),
         user_id=owner,
         # Old releases can still read this request. Replacement intent lives in
         # details; their old snapshot check rejects unapproved replacement plans.
-        request=request.model_dump(mode="json", exclude={"replace_existing"}),
+        request=request.model_dump(mode="json", exclude={"replace_existing", "use_saved_availability"}),
         snapshot_hash=digest,
         blocks=[],
         details={},
@@ -489,6 +493,9 @@ def preview(db, owner, request):
                 }
             )
     details.update(unplaced=skipped, tasks=summaries)
+    if request.use_saved_availability:
+        details["use_saved_availability"] = True
+        details["availability_revision"] = profile["revision"]
     if request.replace_existing:
         details.update(
             replace_existing=True,
@@ -552,7 +559,8 @@ def approve(db, owner, identity, payload):
             "일정을 전부 확인하지 못했습니다. 설정을 바꾸고 다시 미리보기를 만들어 주세요.",
         )
     request = PreviewInput.model_validate(
-        {**plan.request, "replace_existing": bool(plan.details.get("replace_existing"))}
+        {**plan.request, "replace_existing": bool(plan.details.get("replace_existing")),
+         "use_saved_availability": bool(plan.details.get("use_saved_availability"))}
     )
     google_busy, details, bound = external_busy(db, owner, request)
     db.expire_all()
@@ -596,7 +604,7 @@ def approve(db, owner, identity, payload):
         for e in replacements
         if str(e.task_id) not in selected
     )
-    windows = working_windows(request)
+    windows = working_windows(request, availability.read(db, owner) if request.use_saved_availability else None)
     intervals, saved = [], []
     for key, block in edited.items():
         original = expected[key]
