@@ -49,6 +49,99 @@ const report = {
   truncated: false,
 };
 
+const capacity = {
+  level: "insufficient",
+  checked_until: deadline.safe_due_at,
+  includes_google: false,
+  google_state: "excluded",
+  working_minutes: 240,
+  free_minutes: 20,
+  reserved_minutes: 30,
+  known_required_minutes: 180,
+  required_minutes: 180,
+  to_schedule_minutes: 150,
+  prerequisite_count: 2,
+  incomplete: false,
+  reasons: [
+    "남은 작업량이 실제 빈 시간보다 많습니다.",
+    "선행 작업도 필요한 시간에 포함했습니다.",
+  ],
+};
+
+test("actual capacity and prerequisites replace wall-clock preparation labels", async ({
+  page,
+}) => {
+  await mockApi(page, [], { deadlines: [deadline], tasks: [task] });
+  await page.route("**/readiness-deadline/readiness", (route) =>
+    route.fulfill({ json: { ...report, capacity_risk: capacity } }),
+  );
+  await login(page);
+  await page.goto(`/deadlines/${deadline.id}`);
+  const panel = page.getByRole("region", { name: "마감 준비 상태" });
+  await expect(panel.getByText("시간 부족", { exact: true })).toBeVisible();
+  await expect(panel).toContainText("선행 작업 2개도 확인했습니다");
+  await expect(panel.getByText("3시간", { exact: true })).toBeVisible();
+  await expect(panel.getByText("20분", { exact: true })).toBeVisible();
+  await expect(
+    panel.getByRole("checkbox", { name: "구글 바쁨 일정도 포함해 확인" }),
+  ).not.toBeChecked();
+  await panel.getByText("계산 기준", { exact: true }).click();
+  await expect(panel).toContainText(
+    "다른 마감일의 미배치 작업은 선행 작업인 경우에만 포함합니다",
+  );
+  await panel.screenshot({ path: test.info().outputPath("capacity-risk.png") });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth > innerWidth,
+    ),
+  ).toBe(false);
+});
+
+test("opt-in Google partial results hide misleading free time and never keep a good badge", async ({
+  page,
+}) => {
+  await mockApi(page, [], { deadlines: [deadline], tasks: [task] });
+  const reads: boolean[] = [];
+  await page.route("**/readiness-deadline/readiness*", (route) => {
+    expect(route.request().method()).toBe("GET");
+    const google =
+      new URL(route.request().url()).searchParams.get("include_google") ===
+      "true";
+    reads.push(google);
+    return route.fulfill({
+      json: {
+        ...report,
+        capacity_risk: google
+          ? {
+              ...capacity,
+              level: "unknown",
+              includes_google: true,
+              google_state: "partial",
+              free_minutes: null,
+              reserved_minutes: null,
+              required_minutes: null,
+              to_schedule_minutes: null,
+              incomplete: true,
+              reasons: ["구글 바쁨 일정을 모두 확인하지 못했습니다."],
+            }
+          : { ...capacity, level: "feasible" },
+      },
+    });
+  });
+  await login(page);
+  await page.goto(`/deadlines/${deadline.id}`);
+  const panel = page.getByRole("region", { name: "마감 준비 상태" });
+  await expect(panel.getByText("배치 가능", { exact: true })).toBeVisible();
+  await panel
+    .getByRole("checkbox", { name: "구글 바쁨 일정도 포함해 확인" })
+    .check();
+  await expect(panel.getByText("판단 보류", { exact: true })).toBeVisible();
+  await expect(panel.getByText("배치 가능", { exact: true })).toHaveCount(0);
+  await expect(panel.getByText("20분", { exact: true })).toHaveCount(0);
+  await expect(panel).toContainText("구글 일정 확인 필요");
+  expect(reads).toEqual([false, true]);
+});
+
 test("read-only server assessment displays Korean status, safety date and work times", async ({
   page,
 }) => {

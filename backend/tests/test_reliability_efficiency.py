@@ -182,9 +182,9 @@ def test_preparation_reads_use_fixed_queries_and_skip_large_unused_fields(monkey
         with statements() as reads:
             result = deadline_readiness.assess(db, identity, deadline)
             assert result.status == "planned" and result.planned_minutes == 1800
-        assert (
-            len(reads) == 3
-        )  # Tasks, presence of placements, and projected intervals.
+        # Hours, prerequisites and the complete visible calendar add bounded reads,
+        # never a query per task or an unnecessary large-text fetch.
+        assert result.capacity_risk is not None and len(reads) <= 12
         assert not any(
             "tasks.description" in sql or "scheduled_events.sync_error" in sql
             for sql in reads

@@ -166,13 +166,13 @@ def update_deadline(
 def read_deadline_readiness(
     deadline_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession,
     response: Response,
+    include_google: bool = False,
 ) -> DeadlineReadiness:
-    """Assess only owned local work; this GET never changes schedules or tokens."""
+    """Read owned preparation; optional Google reads may refresh credentials, never events."""
     from app.services.deadline_readiness import assess
 
     response.headers["Cache-Control"] = "no-store"
-    deadline = get_owned_deadline(deadline_id, current_user.id, db)
-    return assess(db, current_user.id, deadline)
+    return assess(db, current_user.id, deadline_id, include_google=include_google)
 
 
 @router.delete("/{deadline_id}", status_code=status.HTTP_204_NO_CONTENT)
