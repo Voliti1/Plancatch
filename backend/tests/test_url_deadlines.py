@@ -70,6 +70,38 @@ def test_range_ignores_opening_date_and_open_ended_never_invents_deadline():
     assert data["open_ended"]
 
 
+@pytest.mark.parametrize("separator", ['~', '～', '∼', '–'])
+def test_split_period_field_keeps_its_end_and_inherits_only_written_year(separator):
+    text = snapshot(f'<main><dl><dt>접수기간</dt><dd>2026.11.05<!-- --> {separator} '
+                    '<!-- -->11.16</dd></dl><p>근무 시작일</p><p>2030.01.01</p></main>')
+    choices = review_data(text, URL)["choices"]
+    assert len(choices) == 1
+    assert choices[0]["due_at"] == '2026-11-16T23:59:00+09:00'
+    assert analyze_url(text, URL, None).deadlines[0].due_at.isoformat() == choices[0]["due_at"]
+
+
+def test_incomplete_period_never_promotes_an_opening_or_a_different_fields_date():
+    for content in [
+        '접수기간\n2026.11.05',
+        '접수기간\n2026.11.05\n~\n근무 시작\n2030.01.01',
+        '접수기간\n2026.11.05\n근무 시작\n2030.01.01',
+    ]:
+        data = collect_review(content, '')
+        assert data["choices"] == []
+
+
+@pytest.mark.parametrize('clock,expected', [
+    ('18:00', '2026-11-16T18:00:00+09:00'),
+    ('오후 6시', '2026-11-16T18:00:00+09:00'),
+    ('18:3', None),
+])
+def test_split_clock_is_preserved_or_kept_unresolved_instead_of_defaulted(clock, expected):
+    data = collect_review('마감일\n2026.11.16\n' + clock, '')
+    assert len(data['choices']) == 1
+    assert data['choices'][0]['due_at'] == expected
+    assert not data['choices'][0]['time_defaulted']
+
+
 def test_malformed_or_duplicate_snapshots_fail_closed():
     text = snapshot("<main>마감일 2026.11.03 23:59</main>")
     assert review_data(text + text) is None
