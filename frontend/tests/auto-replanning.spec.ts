@@ -86,6 +86,8 @@ async function open(page: Page, deepLink = false) {
   ).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("combobox", { name: "할 일 제목 검색" }).click();
   await page.getByRole("checkbox", { name: /다시 배치할 보고서/ }).check();
+  await page.getByRole("button", { name: "할 일 선택 완료" }).click();
+  await page.getByText("배치 조건", { exact: true }).click();
   await page.getByLabel("배치 시작일", { exact: true }).fill("2026-11-16");
   await page.getByLabel("배치 종료일", { exact: true }).fill("2026-11-16");
 }

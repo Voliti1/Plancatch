@@ -9,11 +9,12 @@ export default async function Page({
   }>;
 }) {
   const { plan, mode, availability } = await searchParams;
+  const useSavedAvailability = availability !== "custom";
   return (
     <AutoSchedulePage
-      key={`${typeof plan === "string" ? plan : mode === "replan" ? "replan" : "new"}:${availability === "saved" ? "saved" : "custom"}`}
+      key={`${typeof plan === "string" ? plan : mode === "replan" ? "replan" : "new"}:${useSavedAvailability ? "saved" : "custom"}`}
       initialReplace={mode === "replan"}
-      initialSavedAvailability={availability === "saved"}
+      initialSavedAvailability={useSavedAvailability}
       initialPlanId={typeof plan === "string" ? plan : undefined}
     />
   );

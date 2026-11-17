@@ -70,6 +70,7 @@ test("saved weekly hours and date exception survive navigation and enable accoun
     ),
   ).toBe(false);
   await page.getByRole("link", { name: "이 시간으로 자동 배치" }).click();
+  await page.getByText("배치 조건", { exact: true }).click();
   await expect(
     page.getByLabel("저장한 가능 시간과 날짜별 예외 사용"),
   ).toBeChecked();
@@ -168,6 +169,7 @@ test("automatic preview explicitly uses account hours when selected", async ({
   await page.getByRole("link", { name: "이 시간으로 자동 배치" }).click();
   await page.getByRole("combobox", { name: "할 일 제목 검색" }).focus();
   await page.getByRole("checkbox", { name: /가능 시간 검사/ }).check();
+  await page.getByRole("button", { name: "할 일 선택 완료" }).click();
   await page
     .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
     .click();

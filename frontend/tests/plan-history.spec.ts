@@ -201,7 +201,7 @@ test("approved history reopens receipt and current placement management without 
     .selectOption("old-task");
   await expect(result).toContainText("캘린더에 배치된 시간이 없습니다");
   await expect(
-    result.getByRole("button", { name: "선택한 배치 승인", exact: true }),
+    result.getByRole("button", { name: "캘린더에 저장", exact: true }),
   ).toHaveCount(0);
   expect(writes).toBe(0);
 });
@@ -236,7 +236,7 @@ test("expired preview can only be read and never sends an approval", async ({
     result.getByLabel("보고서 준비 1 시작", { exact: true }),
   ).toBeDisabled();
   await expect(
-    result.getByRole("button", { name: "선택한 배치 승인", exact: true }),
+    result.getByRole("button", { name: "캘린더에 저장", exact: true }),
   ).toBeDisabled();
   expect(writes).toBe(0);
   await expect(

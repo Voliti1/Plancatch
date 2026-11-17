@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Ref } from "react";
 import { PageHeading } from "@/components/page-heading";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { api, errorMessage } from "@/lib/api/client";
@@ -47,13 +47,14 @@ type Plan = {
   saved_state?: SavedState | null;
 };
 const days = ["월", "화", "수", "목", "금", "토", "일"];
+const businessDays = [0, 1, 2, 3, 4];
 const clock = (minutes: number) =>
   `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
 export function AutoSchedulePage({
   initialPlanId,
   initialReplace = false,
-  initialSavedAvailability = false,
+  initialSavedAvailability = true,
 }: {
   initialPlanId?: string;
   initialReplace?: boolean;
@@ -78,7 +79,7 @@ export function AutoSchedulePage({
   const [last, setLast] = useState(() => addDays(todaySeoul(), 13));
   const [begin, setBegin] = useState(540),
     [end, setEnd] = useState(1080);
-  const [weekdays, setWeekdays] = useState([0, 1, 2, 3, 4]);
+  const [weekdays, setWeekdays] = useState(businessDays);
   const [chunk, setChunk] = useState(60),
     [google, setGoogle] = useState(true);
   const [plan, setPlan] = useState<Plan | null>(null),
@@ -87,19 +88,33 @@ export function AutoSchedulePage({
     [error, setError] = useState("");
   const pending = useRef(false),
     active = useRef(true);
+  const conditions = useRef<HTMLDetailsElement>(null);
+  const conditionsSummary = useRef<HTMLElement>(null);
+  const previewHeading = useRef<HTMLHeadingElement>(null);
   useEffect(() => {
     active.current = true;
     return () => {
       active.current = false;
     };
   }, []);
+  useEffect(() => {
+    if (plan && !plan.approved_at) previewHeading.current?.focus();
+  }, [plan]);
   const shown = plan ?? (!ignoreRestored ? restore.data : null);
+  const weekdayLabel =
+    weekdays.length === days.length
+      ? "매일"
+      : weekdays.length === businessDays.length &&
+          businessDays.every((day) => weekdays.includes(day))
+        ? "평일"
+        : days.filter((_, day) => weekdays.includes(day)).join("·") ||
+          "요일 미선택";
   return (
     <div className="auto-schedule">
       <PageHeading
         eyebrow="AUTOMATIC PLANNING"
         title="자동 배치"
-        description="시간이 정해지지 않은 할 일을 빈 시간에 나누어 넣고, 확인 후 저장하세요."
+        description="할 일을 고르면 가능한 시간을 추천합니다. 미리보기에서 시간을 확인한 뒤 캘린더에 저장하세요."
         action={
           <div className="planning-heading-actions">
             <Link className="button secondary" href="/planning/availability">
@@ -160,7 +175,7 @@ export function AutoSchedulePage({
         }}
       >
         <fieldset disabled={busy}>
-          <h2>1. 배치할 할 일</h2>
+          <h2>배치할 할 일</h2>
           <div className="planning-days" role="group" aria-label="배치 방식">
             {[false, true].map((value) => (
               <button
@@ -182,8 +197,8 @@ export function AutoSchedulePage({
           </div>
           <p className="small muted">
             {replace
-              ? "아직 시작하지 않은 확정 배치가 있는 유동 할 일을 다시 배치합니다. 승인 전에는 기존 일정이 유지됩니다. 시작한 배치·완료한 할 일·고정·반복 일정은 제외합니다."
-              : "수동 일정 등록의 상세 설정에서 작업 유형을 ‘유동 작업’으로 선택하세요. 소요시간을 입력하면 자동 배치할 수 있습니다. 확정된 시간과 완료한 할 일은 옮기지 않습니다."}
+              ? "아직 시작하지 않은 배치를 다시 배치할 수 있습니다. 미리보기를 승인하면 기존 시간을 교체합니다."
+              : "배치할 수 있는 할 일이 보이지 않으면 유동 작업으로 등록하고 예상 소요시간을 입력하세요."}
           </p>
           <PlanningTaskPicker
             key={String(replace)}
@@ -196,115 +211,146 @@ export function AutoSchedulePage({
               setError("");
             }}
           />
-          <h2>2. 작업 가능한 시간</h2>
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={useSaved}
-              onChange={(e) => setUseSaved(e.target.checked)}
-            />
-            저장한 가능 시간과 날짜별 예외 사용
-          </label>
-          {useSaved && (
-            <p className="small muted">
-              계정에 저장한 시간으로 배치합니다. 아래 하루 시간·요일 대신 저장한
-              설정을 사용합니다. 처음에는 평일 09:00~18:00입니다.
-            </p>
-          )}
-          <div className="form-grid">
-            <label>
-              배치 시작일
-              <input
-                type="date"
-                required
-                value={first}
-                onChange={(e) => setFirst(e.target.value)}
-              />
-            </label>
-            <label>
-              배치 종료일
-              <input
-                type="date"
-                required
-                min={first}
-                value={last}
-                onChange={(e) => setLast(e.target.value)}
-              />
-            </label>
-            <label>
-              하루 작업 시작
-              <select
-                value={begin}
-                disabled={useSaved}
-                onChange={(e) => setBegin(Number(e.target.value))}
-              >
-                {Array.from({ length: 48 }, (_, i) => i * 30).map((m) => (
-                  <option key={m} value={m}>
-                    {clock(m)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              하루 작업 종료
-              <select
-                value={end}
-                disabled={useSaved}
-                onChange={(e) => setEnd(Number(e.target.value))}
-              >
-                {Array.from({ length: 48 }, (_, i) => (i + 1) * 30).map((m) => (
-                  <option key={m} value={m}>
-                    {clock(m)}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div role="group" aria-label="작업할 요일" className="planning-days">
-            {days.map((day, i) => (
-              <label key={day} className="checkbox-row">
+          <details
+            ref={conditions}
+            className="planning-conditions"
+            onInvalidCapture={(e) => {
+              e.currentTarget.open = true;
+            }}
+          >
+            <summary ref={conditionsSummary}>
+              <span className="planning-conditions-title">배치 조건</span>
+              <span className="planning-conditions-values small muted">
+                <span>
+                  {first && last ? `${first} ~ ${last}` : "배치 날짜 입력 필요"}
+                </span>
+                <span>
+                  {useSaved
+                    ? "계정의 가능 시간 사용"
+                    : `${weekdayLabel} ${clock(begin)}~${clock(end)}`}
+                </span>
+                <span>한 번에 최대 {chunk}분</span>
+                <span>
+                  {google ? "Google 바쁨 일정 피하기" : "Google 일정 제외"}
+                </span>
+              </span>
+            </summary>
+            <div className="planning-conditions-fields">
+              <label className="checkbox-row">
                 <input
                   type="checkbox"
-                  checked={weekdays.includes(i)}
-                  disabled={useSaved}
-                  onChange={(e) =>
-                    setWeekdays((current) =>
-                      e.target.checked
-                        ? [...current, i]
-                        : current.filter((d) => d !== i),
-                    )
-                  }
+                  checked={useSaved}
+                  onChange={(e) => setUseSaved(e.target.checked)}
                 />
-                {day}
+                저장한 가능 시간과 날짜별 예외 사용
               </label>
-            ))}
-          </div>
-          <label>
-            한 번에 작업할 시간
-            <select
-              value={chunk}
-              onChange={(e) => setChunk(Number(e.target.value))}
-            >
-              {[15, 30, 60, 90, 120, 180, 240].map((m) => (
-                <option key={m} value={m}>
-                  {m}분 이내
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={google}
-              onChange={(e) => setGoogle(e.target.checked)}
-            />
-            연결된 구글 기본 캘린더의 바쁨 일정도 피하기
-          </label>
-          <p className="small muted">
-            한국 시간 · 최대 31일, 할 일 20개. 안전 마감일이 있으면 그 전에
-            끝내도록 제안합니다. 빈 시간이 부족한 할 일은 일부만 배치하지 않고
-            제외합니다. 설정을 바꾸면 미리보기를 다시 만듭니다.
-          </p>
+              {useSaved && (
+                <p className="small muted">
+                  계정에 저장한 시간으로 배치합니다. 아래 하루 시간·요일 대신
+                  저장한 설정을 사용합니다. 처음에는 평일 09:00~18:00입니다.
+                </p>
+              )}
+              <div className="form-grid">
+                <label>
+                  배치 시작일
+                  <input
+                    type="date"
+                    required
+                    value={first}
+                    onChange={(e) => setFirst(e.target.value)}
+                  />
+                </label>
+                <label>
+                  배치 종료일
+                  <input
+                    type="date"
+                    required
+                    min={first}
+                    value={last}
+                    onChange={(e) => setLast(e.target.value)}
+                  />
+                </label>
+                <label>
+                  하루 작업 시작
+                  <select
+                    value={begin}
+                    disabled={useSaved}
+                    onChange={(e) => setBegin(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 48 }, (_, i) => i * 30).map((m) => (
+                      <option key={m} value={m}>
+                        {clock(m)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  하루 작업 종료
+                  <select
+                    value={end}
+                    disabled={useSaved}
+                    onChange={(e) => setEnd(Number(e.target.value))}
+                  >
+                    {Array.from({ length: 48 }, (_, i) => (i + 1) * 30).map(
+                      (m) => (
+                        <option key={m} value={m}>
+                          {clock(m)}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+              </div>
+              <div
+                role="group"
+                aria-label="작업할 요일"
+                className="planning-days"
+              >
+                {days.map((day, i) => (
+                  <label key={day} className="checkbox-row">
+                    <input
+                      type="checkbox"
+                      checked={weekdays.includes(i)}
+                      disabled={useSaved}
+                      onChange={(e) =>
+                        setWeekdays((current) =>
+                          e.target.checked
+                            ? [...current, i]
+                            : current.filter((d) => d !== i),
+                        )
+                      }
+                    />
+                    {day}
+                  </label>
+                ))}
+              </div>
+              <label>
+                한 번에 작업할 시간
+                <select
+                  value={chunk}
+                  onChange={(e) => setChunk(Number(e.target.value))}
+                >
+                  {[15, 30, 60, 90, 120, 180, 240].map((m) => (
+                    <option key={m} value={m}>
+                      {m}분 이내
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="checkbox-row">
+                <input
+                  type="checkbox"
+                  checked={google}
+                  onChange={(e) => setGoogle(e.target.checked)}
+                />
+                연결된 구글 기본 캘린더의 바쁨 일정도 피하기
+              </label>
+              <p className="small muted">
+                한국 시간 기준으로 최대 31일을 선택할 수 있습니다. 안전 마감일이
+                있으면 그 전에 끝내도록 제안합니다.
+              </p>
+            </div>
+          </details>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions">
             <button disabled={!selected.length || selected.length > 20}>
@@ -324,7 +370,12 @@ export function AutoSchedulePage({
         <PlanEditor
           key={shown.id}
           plan={shown}
+          headingRef={previewHeading}
           onApproved={setPlan}
+          onEditConditions={() => {
+            if (conditions.current) conditions.current.open = true;
+            conditionsSummary.current?.focus();
+          }}
           onReplan={() => {
             setReplace(true);
             setSelected([]);
@@ -341,11 +392,15 @@ export function AutoSchedulePage({
 
 function PlanEditor({
   plan,
+  headingRef,
   onApproved,
+  onEditConditions,
   onReplan,
 }: {
   plan: Plan;
+  headingRef: Ref<HTMLHeadingElement>;
   onApproved: (plan: Plan) => void;
+  onEditConditions: () => void;
   onReplan: () => void;
 }) {
   const [draft, setDraft] = useState(() =>
@@ -378,12 +433,12 @@ function PlanEditor({
   const { markSaved } = useUnsavedChanges(JSON.stringify([draft, selected]));
   return (
     <section className="card planning-result" aria-label="자동 배치 미리보기">
-      <h2>
+      <h2 ref={headingRef} tabIndex={-1}>
         {plan.approved_at
           ? "배치 저장 완료"
           : expired
             ? "유효 시간이 지난 미리보기"
-            : "3. 미리보기 확인"}
+            : "미리보기 확인"}
       </h2>
       <p className="small muted">
         {formatSeoul(plan.request.start_at)} ~{" "}
@@ -443,9 +498,8 @@ function PlanEditor({
         </>
       ) : (
         <p className="notice">
-          아직 캘린더에는 저장되지 않았습니다. 시작 시간을 옮기거나 할 일을
-          제외한 뒤 승인하세요. 소요시간은 유지되며, 승인 직전에 일정과 마감일을
-          다시 확인합니다.
+          아직 캘린더에는 저장되지 않았습니다. 필요한 경우 시작 시간을 바꾸거나
+          할 일을 제외한 뒤 저장하세요.
         </p>
       )}
       {expired && (
@@ -459,6 +513,11 @@ function PlanEditor({
           배치할 수 있는 빈 시간이 없습니다. 아래 제외 이유를 확인하고
           기간·소요시간을 조정해 주세요.
         </p>
+      )}
+      {!plan.approved_at && (plan.details.blocked || !plan.blocks.length) && (
+        <button type="button" className="secondary" onClick={onEditConditions}>
+          배치 조건 수정
+        </button>
       )}
       {groups.map((id) => {
         const task = plan.details.tasks.find((t) => t.id === id)!;
@@ -593,7 +652,7 @@ function PlanEditor({
                 ? "다시 확인하고 저장하는 중…"
                 : plan.details.replace_existing
                   ? "선택한 기존 배치 교체"
-                  : "선택한 배치 승인"}
+                  : "캘린더에 저장"}
             </button>
           </div>
         </>
