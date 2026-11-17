@@ -21,6 +21,7 @@ from app.api.routes.schedule_conflicts import router as schedule_conflicts_route
 from app.api.routes.scheduled_events import router as scheduled_events_router
 from app.api.routes.schedules import router as schedules_router
 from app.api.routes.sources import router as sources_router
+from app.api.routes.task_plans import router as task_plans_router
 from app.api.routes.tasks import router as tasks_router
 
 api_router = APIRouter()
@@ -33,6 +34,7 @@ api_router.include_router(images_router)
 api_router.include_router(analyses_router)
 api_router.include_router(deadlines_router)
 api_router.include_router(tasks_router)
+api_router.include_router(task_plans_router)
 api_router.include_router(scheduled_events_router)
 api_router.include_router(calendar_registrations_router)
 api_router.include_router(natural_schedules_router)
