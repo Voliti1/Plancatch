@@ -234,7 +234,78 @@ def test_pdf_native_text_keeps_heading_and_later_deadline_without_external_ai(mo
         ("2025 하반기 SK하이닉스 신입사원 채용", "2025-10-01T17:00:00+09:00", False),
         ("추가 서류 제출", "2025-10-10T23:59:00+09:00", False),
     ]
+    assert [item["evidence_page"] for item in analysis["candidates"]] == [2, 2]
     assert client.get("/api/deadlines", headers=headers).json() == []
+
+
+def test_pdf_scan_transcript_does_not_shift_native_page_numbers_or_invent_page():
+    scan = (
+        "2026년 합성 테스트 채용 공고\n"
+        "지원서 접수 마감: 2026.11.01 18:00\n"
+        "추가 서류 제출 기한: 2026.11.05 14:00"
+    )
+    result = pdf_analysis.extract_review(
+        ["", "", "추가 서류 제출 기한: 2026.11.05 14:00"],
+        scan_transcript=scan,
+    )
+    assert [item.evidence_page for item in result.deadlines] == [None, 3]
+
+
+def test_image_correction_sends_only_edited_text_and_supersedes_unapproved_review(monkeypatch):
+    mock_provider(monkeypatch, result())
+    headers = auth()
+    source = upload(headers)
+    source_path = "/api/sources/" + source["id"]
+    first = client.post(source_path + "/ai-analyses", headers=headers, json={
+        "allow_external_ai": True, "input_hash": source["image_sha256"],
+    }).json()
+    old_review = "/api/ai-analyses/" + first["id"]
+    route = old_review + "/correct-image-text"
+    corrected = "접수 마감: 2026-11-02 18:00"
+    calls = []
+
+    def respond(payload, model):
+        assert model == "test-model"
+        assert payload["contents"] == [{"role": "user", "parts": [{"text": corrected}]}]
+        calls.append(model)
+        if len(calls) == 1:
+            raise ai_analysis.AIError("ai_timeout")
+        return {"candidates": [{"finishReason": "STOP", "content": {"parts": [{
+            "text": json.dumps({"deadlines": [{
+                "title": "교정 마감", "due_at": "2026-11-02T18:00:00+09:00",
+                "evidence_text": corrected, "confidence": 0.9,
+            }], "warnings": []}),
+        }]}}]}
+
+    monkeypatch.setattr(ai_analysis, "provider_request", respond)
+    payload = {"revision": 1, "corrected_text": corrected, "allow_external_ai": True}
+    assert client.post(route, headers=auth(), json=payload).status_code == 404
+    assert client.post(route, headers=headers, json={**payload, "allow_external_ai": False}).status_code == 422
+    assert client.post(route, headers=headers, json={**payload, "revision": 2}).status_code == 409
+    assert calls == []
+
+    failed = client.post(route, headers=headers, json=payload)
+    assert failed.status_code == 202
+    assert client.get("/api/ai-analyses/" + failed.json()["id"], headers=headers).json()["status"] == "failed"
+    saved_source = client.get(source_path, headers=headers).json()
+    assert (saved_source["processing_status"], saved_source["extracted_text"]) == ("extracted", TEXT)
+
+    started = client.post(route, headers=headers, json=payload)
+    assert started.status_code == 202
+    new_review = "/api/ai-analyses/" + started.json()["id"]
+    analysis = client.get(new_review, headers=headers).json()
+    assert analysis["status"] == "ready" and analysis["input_text"] == corrected
+    assert client.post(route, headers=headers, json=payload).json()["id"] == analysis["id"]
+    assert len(calls) == 2
+    assert client.get(old_review, headers=headers).json()["input_text"] == TEXT
+    assert client.post(old_review + "/approve", headers=headers, json={"revision": 1}).status_code == 409
+    assert client.get("/api/deadlines", headers=headers).json() == []
+    candidate = analysis["candidates"][0]
+    assert candidate["evidence_text"] == corrected and not candidate["selected"]
+    edit = {key: candidate[key] for key in ("id", "title", "due_at", "description", "selected")}
+    edit["selected"] = True
+    assert client.patch(new_review, headers=headers, json={"revision": 1, "candidates": [edit]}).status_code == 200
+    assert client.post(new_review + "/approve", headers=headers, json={"revision": 2}).status_code == 200
 
 
 def test_file_upload_reuses_only_same_owner_filename_and_complete_metadata(monkeypatch):

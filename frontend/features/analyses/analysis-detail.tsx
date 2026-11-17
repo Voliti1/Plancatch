@@ -18,6 +18,7 @@ import {
 } from "./display";
 import { CandidateEvidence, ReviewEditor } from "./review-editor";
 import { ReviewSummary } from "./review-summary";
+import { ImageTextCorrection } from "./image-text-correction";
 import { PdfScanConsentPanel } from "./pdf-scan-consent-panel";
 import { PDF_SCAN_CONSENT_REQUIRED } from "@/features/settings/pdf-scan-consent";
 import { SourceImage } from "@/features/sources/source-image";
@@ -60,7 +61,10 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
   const [data, setData] = useState(initial);
   const [showSnapshot, setShowSnapshot] = useState(false);
   const snapshotId = useId();
-  const hasSnapshot = Boolean(data.input_text.trim());
+  const hasSnapshot =
+    data.status !== "processing" &&
+    Boolean(data.input_text.trim()) &&
+    data.input_text !== "파일 분석 준비 중";
   const fromHtml = isHtmlAnalysis(data.model);
   const fromPdf = isExtractedPdf(data.model);
   const needsScanConsent =
@@ -300,6 +304,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
                   {data.input_text}
                 </div>
               </>
+            )}
+            {data.status === "ready" && data.model.startsWith("image:") && (
+              <ImageTextCorrection key={data.id} analysis={data} />
             )}
           </section>
         )}

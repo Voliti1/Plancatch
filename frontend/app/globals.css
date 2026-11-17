@@ -150,11 +150,15 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
 .analysis-snapshot-toggle + .analysis-grid {
   margin-top: 12px;
 }
+.image-text-correction > summary {
+  cursor: pointer;
+  font-weight: 600;
+}
 @media (min-width: 1120px) {
   .analysis-grid.with-snapshot {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   }
-  .analysis-snapshot {
+  .analysis-snapshot:not(:has(.image-text-correction[open])) {
     position: sticky;
     top: 20px;
   }

@@ -66,11 +66,21 @@ export function SourceReview({
             throw new Error("저장한 파일 버전을 확인하지 못했습니다.");
           const history = await analysesApi.list(id, 0, requestSignal());
           signal.throwIfAborted();
-          const existing = history.find(
+          const matching = history.filter(
             (entry) =>
               entry.model.startsWith(`${item.source_type}:`) &&
               entry.input_hash === digest,
           );
+          const existing =
+            item.source_type === "image"
+              ? (matching.find((entry) => entry.status === "processing") ??
+                matching.find(
+                  (entry) =>
+                    entry.status !== "failed" &&
+                    entry.input_text === item.extracted_text,
+                ) ??
+                matching[0])
+              : matching[0];
           const redo =
             reanalyzePdf &&
             item.source_type === "pdf" &&

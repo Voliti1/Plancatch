@@ -17,6 +17,7 @@ from app.schemas.analysis import (
     ApprovalRequest,
     AutoRegistrationRequest,
     DecisionRequest,
+    ImageCorrectionRequest,
     ReviewRequest,
 )
 from app.schemas.google_reminders import GoogleReminders, default_reminders
@@ -30,6 +31,8 @@ from app.services.ai_analysis import (
     slots,
 )
 from app.services.html_analysis import HTML_MODEL, matching_period
+from app.services.image_analysis import IMAGE_CORRECTION_MODEL, process_file_analysis
+from app.services.source_images import file_hash
 from app.services.url_deadlines import URL_MODEL
 
 router = APIRouter(tags=["ai-analyses"])
@@ -143,6 +146,66 @@ def read_analysis(analysis_id: uuid.UUID, current_user: CurrentUser, db: Databas
     return owned_analysis(analysis_id, current_user.id, db, for_update=False)
 
 
+@router.post("/api/ai-analyses/{analysis_id}/correct-image-text",
+             response_model=AnalysisResponse, status_code=202)
+def correct_image_text(
+    analysis_id: uuid.UUID, payload: ImageCorrectionRequest, background_tasks: BackgroundTasks,
+    current_user: CurrentUser, db: DatabaseSession,
+) -> Analysis:
+    previous = owned_analysis(analysis_id, current_user.id, db)
+    ensure_ready(previous, payload.revision)
+    source = get_owned_source(previous.source_id, current_user.id, db)
+    if source.source_type != "image" or not previous.model.startswith("image:"):
+        raise HTTPException(422, "image_correction_requires_image")
+    if not payload.allow_external_ai:
+        raise HTTPException(422, "image_correction_consent_required")
+    if not previous.input_text.strip() or payload.corrected_text == previous.input_text.strip():
+        raise HTTPException(422, "image_correction_unchanged")
+    digest = file_hash(source.storage_key, "image")
+    if not digest or digest != previous.input_hash:
+        raise HTTPException(409, "Source changed; confirm the source again")
+    # An identical retry after a lost response must reuse the same analysis.
+    existing = db.scalar(select(Analysis).where(
+        Analysis.source_id == source.id, Analysis.user_id == current_user.id,
+        Analysis.input_hash == digest, Analysis.model == IMAGE_CORRECTION_MODEL,
+        Analysis.input_text == payload.corrected_text,
+        (Analysis.status == "processing") |
+        (Analysis.status.in_(("ready", "approved")) & (Analysis.input_text == source.extracted_text)),
+    ).order_by(Analysis.created_at.desc(), Analysis.id.desc()).limit(1))
+    if existing is not None:
+        return existing
+    if source.processing_status == "processing":
+        raise HTTPException(409, "Source analysis is already processing")
+    if source.processing_status != "extracted" or source.extracted_text != previous.input_text:
+        raise HTTPException(409, "Source changed; confirm the source again")
+    try:
+        model = configured_model()
+    except AIError as exc:
+        raise HTTPException(503, str(exc)) from exc
+    if not slots.acquire(blocking=False):
+        raise HTTPException(429, "AI capacity reached; retry later")
+    try:
+        analysis = Analysis(
+            user_id=current_user.id, source_id=source.id, input_text=payload.corrected_text,
+            input_hash=digest, model=IMAGE_CORRECTION_MODEL,
+        )
+        source.processing_status = "processing"
+        db.add(analysis)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        slots.release()
+        raise HTTPException(409, "Source analysis is already processing") from exc
+    except Exception:
+        db.rollback()
+        slots.release()
+        raise
+    background_tasks.add_task(
+        process_file_analysis, analysis.id, db.get_bind(), True, correction_model=model,
+    )
+    return analysis
+
+
 @router.post("/api/ai-analyses/{analysis_id}/recover-html", response_model=AnalysisResponse,
              status_code=202)
 def recover_html(analysis_id: uuid.UUID, background_tasks: BackgroundTasks,
@@ -198,7 +261,6 @@ def approve_analysis(analysis_id: uuid.UUID, payload: ApprovalRequest,
 def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
                               db: DatabaseSession, reminders: GoogleReminders) -> Analysis:
     source = get_owned_source(analysis.source_id, current_user.id, db)
-    from app.services.source_images import file_hash
     is_file = source.source_type in {"image", "pdf"}
     snapshot_hash = (file_hash(source.storage_key, source.source_type) if is_file
                      else content_hash(source.extracted_text or ""))
