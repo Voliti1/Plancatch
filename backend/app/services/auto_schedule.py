@@ -18,6 +18,7 @@ from app.models import (
 from app.schemas.schedule_plan import PreviewInput
 from app.services import availability
 from app.services import google_sync as sync
+from app.services import task_dependencies as dependencies
 from app.services.recurrence import SEOUL, occurrences, utc
 
 MAX_ROWS = 1000
@@ -306,6 +307,9 @@ def local_state(db, owner, request):
     }
     if request.use_saved_availability:
         state["availability"] = availability.read(db, owner)
+    _, _, dependency_state = dependencies.context(db, owner, tasks)
+    if dependency_state:
+        state["task_dependencies"] = dependency_state
     if request.replace_existing:
         state["replacement_deadlines"] = [
             {
@@ -402,9 +406,10 @@ def preview(db, owner, request):
         expires_at=moment + timedelta(minutes=15),
     )
     blocks, skipped, summaries = [], [], []
+    parents, finishes, _ = dependencies.context(db, owner, tasks)
     retained = {e.id: e for e in replacements}
     replacing = {e.task_id for e in replacements}
-    for task in sorted(tasks, key=lambda t: (limits[t.id][1], -t.priority, str(t.id))):
+    for task in dependencies.order(tasks, parents, lambda t: (limits[t.id][1], -t.priority, str(t.id))):
         reason = None
         if task.schedule_type != "flexible" or task.recurrence or task.series_id:
             reason = "시간이 정해지지 않은 유동 작업만 자동 배치할 수 있습니다."
@@ -421,6 +426,10 @@ def preview(db, owner, request):
         elif task.deadline_id and task.deadline_id not in deadlines:
             reason = "연결된 마감일을 확인해 주세요."
         begin, end = limits[task.id]
+        if not reason and any(p not in finishes for p in parents.get(task.id, [])):
+            reason = "먼저 할 작업을 함께 선택해 배치하거나, 해당 작업을 완료해 주세요."
+        if not reason:
+            begin = max([begin, *(finishes[p] for p in parents.get(task.id, []))])
         summaries.append(
             {
                 "id": str(task.id),
@@ -481,6 +490,7 @@ def preview(db, owner, request):
             )
             continue
         free = subtract(free, merge(proposed))
+        finishes[task.id] = max(b for _, b in proposed)
         retained = {key: e for key, e in retained.items() if e.task_id != task.id}
         for a, b in proposed:
             blocks.append(
@@ -636,6 +646,13 @@ def approve(db, owner, identity, payload):
         intervals.append((start, end))
         saved.append({**original, "start_at": stamp(start), "end_at": stamp(end)})
     by_id = {str(task.id): task for task in tasks}
+    parents, finishes, _ = dependencies.context(db, owner, tasks)
+    for task_id in selected:
+        finishes[uuid.UUID(task_id)] = max(datetime.fromisoformat(b["end_at"]) for b in saved if b["task_id"] == task_id)
+    for task_id in selected:
+        start = min(datetime.fromisoformat(b["start_at"]) for b in saved if b["task_id"] == task_id)
+        if any(p not in finishes or start < finishes[p] for p in parents.get(uuid.UUID(task_id), [])):
+            raise HTTPException(422, "먼저 할 작업을 모두 포함하고, 그 작업이 끝난 뒤에 배치해 주세요.")
     for task_id in selected:
         total = sum(
             (

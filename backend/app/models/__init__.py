@@ -9,6 +9,7 @@ from app.models.schedule_plan import SchedulePlan
 from app.models.scheduled_event import ScheduledEvent
 from app.models.source import Source
 from app.models.task import Task
+from app.models.task_plan import TaskDependency, TaskProposal
 from app.models.user import User
 
 __all__ = [
@@ -22,5 +23,7 @@ __all__ = [
     "ScheduledEvent",
     "Source",
     "Task",
+    "TaskDependency",
+    "TaskProposal",
     "User",
 ]

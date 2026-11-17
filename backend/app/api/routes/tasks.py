@@ -6,12 +6,13 @@ from typing import Annotated
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import AwareDatetime
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.deadlines import get_owned_deadline
 from app.models.scheduled_event import ScheduledEvent
 from app.models.task import Task
+from app.models.task_plan import TaskDependency
 from app.schemas.task import (
     OccurrenceUpdate,
     ScheduleType,
@@ -117,6 +118,10 @@ def update_task(
             task.completed_at = datetime.now(UTC)
         elif not changes["is_completed"]:
             task.completed_at = None
+    if (changes.get("schedule_type", task.schedule_type) != "flexible" or changes.get("recurrence", task.recurrence)) and db.scalar(
+        select(TaskDependency.task_id).where(TaskDependency.user_id == current_user.id,
+            or_(TaskDependency.task_id == task.id, TaskDependency.predecessor_id == task.id)).limit(1)):
+        raise HTTPException(409, "먼저 작업 순서의 연결을 해제한 뒤 고정·반복 일정으로 바꿔 주세요.")
     for field, value in changes.items():
         setattr(task, field, value)
     sync.enqueue_task(db, current_user.id, task.id)

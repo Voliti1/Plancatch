@@ -72,6 +72,18 @@ export function DeadlineDetail({ id }: { id: string }) {
         deadlineId={id}
         onUpdated={() => setWorkVersion((v) => v + 1)}
       />
+      <section className="card">
+        <h2>마감일까지 작업 계획</h2>
+        <p className="muted">
+          필요한 작업과 순서를 제안받고 확인한 뒤 할 일로 등록하세요.
+        </p>
+        <Link
+          className="button secondary"
+          href={`/deadlines/${encodeURIComponent(id)}/plan`}
+        >
+          AI 작업 계획 만들기
+        </Link>
+      </section>
       <section className="card danger-zone">
         <div>
           <h2>마감일 삭제</h2>
