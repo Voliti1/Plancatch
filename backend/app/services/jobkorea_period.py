@@ -63,6 +63,8 @@ class CountdownHTML(HTMLParser):
         self.size = 0
         self.blocks = 0
         self.overflow = False
+        self.application_boxes = 0
+        self.open_ended = False
 
     def handle_starttag(self, tag, attrs):
         attrs = dict(attrs)
@@ -118,6 +120,26 @@ class CountdownHTML(HTMLParser):
                     return []
                 if isinstance(node, list):
                     if (len(node) == 4 and node[:2] == ["$", "div"] and isinstance(node[3], dict)):
+                        if node[3].get("data-sentry-component") == "ApplyTimerBox":
+                            self.application_boxes += 1
+                            labels, descendants, inspected = [], [node[3].get("children")], 0
+                            while descendants and len(labels) < 100 and len(descendants) < 1000:
+                                inspected += 1
+                                if inspected > MAX_NODES:
+                                    self.overflow = True
+                                    break
+                                child = descendants.pop()
+                                if isinstance(child, str):
+                                    labels.append(child)
+                                elif isinstance(child, list):
+                                    if len(child) == 4 and child[0] == "$" and isinstance(child[3], dict):
+                                        descendants.append(child[3].get("children"))
+                                    else:
+                                        descendants.extend(child)
+                            self.overflow |= bool(descendants)
+                            if (not self.overflow and "마감일" in labels
+                                    and any(re.fullmatch(r"채용\s*(?:완료\s*)?시(?:\s*(?:마감|까지))?|상시\s*(?:채용|모집)", label) for label in labels)):
+                                self.open_ended = True
                         children = node[3].get("children")
                         if isinstance(children, list) and len(children) == 2:
                             label, timer = children
@@ -130,6 +152,7 @@ class CountdownHTML(HTMLParser):
                     pending.extend((item, depth + 1) for item in node if isinstance(item, (list, dict)))
                 elif isinstance(node, dict):
                     pending.extend((item, depth + 1) for item in node.values() if isinstance(item, (list, dict)))
+        self.overflow |= self.application_boxes > 1
         return values
 
 
@@ -144,11 +167,16 @@ def period_text(html: str, source_url: str | None, job_text: str) -> str:
     parser = CountdownHTML()
     parser.feed(html)
     dates = parser.dates()
+    if parser.open_ended and not parser.overflow:
+        return "\n".join([MARKER, f"공고 URL: {source_url}", "마감일 원문: 채용 시 마감", END_MARKER])
     if not dates or not any(parse_end(value) for value in dates):
         return ""
     raw = dates[0]
     end = parse_end(raw)
-    conflict = parser.overflow or parser.countdowns != 1 or len(dates) != 1 or end is None or not agrees(end, metadata[0])
+    # Streaming HTML may contain the primary timer's inert data before its
+    # span is emitted. A unique labeled timer still needs same-job metadata
+    # agreement; multiple rendered timers remain conflicting.
+    conflict = parser.overflow or parser.countdowns > 1 or len(dates) != 1 or end is None or not agrees(end, metadata[0])
     lines = [MARKER, f"공고 URL: {source_url}", f"마감일 원문: {raw}", f"공고 메타데이터 마감일: {metadata[0]}"]
     if end is not None and not conflict:
         lines.append(f"마감일 (정규화): {end.isoformat()}")
@@ -169,6 +197,9 @@ def read_period(text: str) -> dict | None:
     if not is_job_url(value("공고 URL: ") or ""):
         return None
     raw, metadata = value("마감일 원문: "), value("공고 메타데이터 마감일: ")
+    if raw == "채용 시 마감":
+        return {"site": "jobkorea", "source_url": value("공고 URL: "), "start_text": None,
+                "end_text": raw, "deadline_at": None, "remaining_text": None, "has_conflict": CONFLICT in block}
     end = parse_end(raw or "")
     conflict = CONFLICT in block or end is None or not agrees(end, metadata or "")
     if end is not None and value("마감일 (정규화): ") != end.isoformat():

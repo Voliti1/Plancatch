@@ -13,7 +13,7 @@ from app.services.deadline_dates import (
 BEGIN = "[URL 마감일 HTML 검토 데이터]"
 END = "[URL 마감일 HTML 검토 끝]"
 URL_MODEL = "html:url:v1"
-OPEN = re.compile(r"채용\s*시|채용\s*완료\s*시|상시\s*모집")
+OPEN = re.compile(r"채용\s*(?:완료\s*)?시(?:\s*(?:마감|까지|종료)|(?=$|[\s.,()/]))|상시\s*(?:모집|채용)")
 LABEL = re.compile(r"마감일|접수\s*(?:마감|종료|기간)|지원\s*마감|모집\s*기간")
 
 
@@ -34,9 +34,11 @@ def closing_context(lines: list[str], index: int) -> str:
         date_text = token.removesuffix("까지").removesuffix("부터").strip(" ~～〜∼–—")
         match = DATE.fullmatch(date_text)
         clock = re.match(r"^(?:오전|오후|AM\b|PM\b|\d{1,2}\s*[:：시])", token, re.IGNORECASE)
-        if token and not (match or RANGE.fullmatch(token) or clock):
+        if token and not (match or RANGE.fullmatch(token) or clock or OPEN.search(token)):
             break
         selected.append(line)
+        if OPEN.search(token):
+            break
         if len("\n".join(selected)) >= 500:
             break
     return "\n".join(selected)[:500]
@@ -161,6 +163,7 @@ def review_data(text: str, source_url: str | None = None) -> dict | None:
 def analyze_url(text: str, source_url: str, title: str | None):
     from app.schemas.analysis import ProviderResult
     from app.services.catch_period import CONFLICT as CATCH_CONFLICT
+    from app.services.catch_period import METADATA_TIME as CATCH_METADATA_TIME
     from app.services.catch_period import UNRESOLVED as CATCH_UNRESOLVED
     from app.services.catch_period import read_period as read_catch
     from app.services.jasoseol_period import CONFLICT as JASOSEOL_CONFLICT
@@ -183,6 +186,7 @@ def analyze_url(text: str, source_url: str, title: str | None):
     jobplanet_period = read_jobplanet(text)
     linkareer_period = read_linkareer(text)
     work24_period = read_work24(text)
+    catch_period = read_catch(text)
     if data and data.get("open_ended"):
         warnings.append("채용 시 마감 또는 상시 모집입니다. 본인이 원하는 마감 날짜와 시간을 입력한 후 등록하세요.")
     elif data and data.get("has_conflict"):
@@ -208,6 +212,8 @@ def analyze_url(text: str, source_url: str, title: str | None):
             warnings.append(DEFAULT_TIME_NOTICE)
         elif linkareer_period and linkareer_period["time_from_metadata"]:
             warnings.append(METADATA_TIME)
+        elif catch_period and catch_period["time_from_metadata"]:
+            warnings.append(CATCH_METADATA_TIME)
     else:
         warnings.append("HTML에서 확정 마감일을 찾지 못했습니다. 원문을 확인하고 마감 날짜와 시간을 직접 입력하세요.")
     if data is None:

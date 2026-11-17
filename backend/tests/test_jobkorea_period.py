@@ -54,6 +54,39 @@ def test_exact_countdown_deadline_including_seconds_without_relative_clock_arith
     assert result.warnings == []
 
 
+def application_box(label='마감일', value='채용 시 마감', component='ApplyTimerBox'):
+    return ['$', 'div', None, {'data-sentry-component': component, 'children': [
+        ['$', 'span', None, {'children': label}],
+        ['$', 'span', None, {'children': value}],
+    ]}]
+
+
+@pytest.mark.parametrize('wording', ['채용 시 마감', '채용 시까지', '채용 완료 시', '상시채용', '상시 모집'])
+def test_bound_primary_open_ended_notice_overrides_placeholder_countdown_and_expiry(wording):
+    html = markup() + '<script>self.__next_f.push(' + json.dumps([1,
+        'c:' + json.dumps(application_box(value=wording), ensure_ascii=False) + '\n']) + ')</script>'
+    text = snapshot(html)
+    data = review_data(text, URL)
+    assert data['open_ended'] and data['choices'] == []
+    result = analyze_url(text, URL, None)
+    assert result.deadlines[0].due_at is None
+    assert any('채용 시 마감' in item for item in result.warnings)
+
+
+@pytest.mark.parametrize('box', [application_box(component='RecommendedJobs'),
+                                application_box(label='우대 조건')])
+def test_unrelated_open_ended_strings_do_not_override_the_owned_job_period(box):
+    html = markup() + '<script>self.__next_f.push(' + json.dumps([1,
+        'c:' + json.dumps(box, ensure_ascii=False) + '\n']) + ')</script>'
+    assert analyze_url(snapshot(html), URL, None).deadlines[0].due_at.isoformat() == DUE
+
+
+def test_two_primary_application_boxes_are_conflicting_instead_of_prefilled():
+    html = markup() + '<script>self.__next_f.push(' + json.dumps([1,
+        'c:' + json.dumps([application_box(), application_box(value='다른 기간')], ensure_ascii=False) + '\n']) + ')</script>'
+    assert analyze_url(snapshot(html), URL, None).deadlines[0].due_at is None
+
+
 def test_relative_countdown_alone_never_becomes_a_deadline():
     html = '<main><div>남은기간<span data-sentry-component="Countdown">0일 14:40:59</span></div></main>'
     assert period.MARKER not in snapshot(html)
@@ -76,6 +109,40 @@ def test_two_countdowns_are_not_collapsed_into_one_authoritative_date():
     text = snapshot(markup(count=2))
     assert period.read_period(text)["has_conflict"]
     assert analyze_url(text, URL, None).deadlines[0].due_at is None
+
+
+def test_primary_streaming_timer_can_precede_its_span_but_must_match_owned_expiry():
+    html=markup().replace('data-sentry-component="Countdown"','data-pending="timer"')
+    assert analyze_url(snapshot(html),URL,None).deadlines[0].due_at.isoformat()==DUE
+    assert analyze_url(snapshot(html.replace('"2026-10-27T23:59"','"2026-10-28T23:59"')),URL,None).deadlines[0].due_at is None
+
+
+def test_explicit_owned_head_closing_policy_overrides_a_placeholder_timer():
+    canonical=URL.split('?')[0]
+    html=f'<html><head><link rel="canonical" href="{canonical}"><meta name="description" content="경력 : 신입, 마감일 : 상시채용"></head><body>'+markup()+'</body></html>'
+    data=review_data(snapshot(html),URL)
+    assert data['open_ended']
+    assert analyze_url(snapshot(html),URL,None).deadlines[0].due_at is None
+
+
+@pytest.mark.parametrize('wrapper,open_ended', [('',True),('hidden',False)])
+def test_primary_semantic_closing_field_wins_over_a_placeholder_date(wrapper,open_ended):
+    canonical=URL.split('?')[0]
+    field=f'<section id="application-section" {wrapper}><dl><div><dt>마감일</dt><dd>2026.10.27(화)<span>채용 시 마감</span></dd></div></dl></section>'
+    html=f'<html><head><link rel="canonical" href="{canonical}"></head><body>'+markup()+field+'</body></html>'
+    assert review_data(snapshot(html),URL)['open_ended'] is open_ended
+    assert (analyze_url(snapshot(html),URL,None).deadlines[0].due_at is None) is open_ended
+
+
+def test_primary_closing_policy_can_use_owned_job_metadata_when_canonical_is_absent():
+    field='<section id="application-section"><dl><div><dt>마감일</dt><dd>2026.10.27(화)<span>채용 시 마감</span></dd></div></dl></section>'
+    html=markup()+field
+    assert review_data(snapshot(html),URL)['open_ended']
+    assert analyze_url(snapshot(html),URL,None).deadlines[0].due_at is None
+    # Neither a different job's metadata nor a conflicting canonical grants ownership.
+    assert not review_data(snapshot(html.replace('50195748','99999999')),URL)['open_ended']
+    conflicting='<head><link rel="canonical" href="https://www.jobkorea.co.kr/Recruit/GI_Read/99999999"></head>'+html
+    assert not review_data(snapshot(conflicting),URL)['open_ended']
 
 
 @pytest.mark.parametrize("raw", ["2026-10-27T23:59:59", "2026-02-30T23:59:59+09:00", "2026-10-27T23:59:99+09:00", "0일 14:40:59"])

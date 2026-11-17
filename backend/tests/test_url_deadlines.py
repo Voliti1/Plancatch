@@ -102,6 +102,14 @@ def test_split_clock_is_preserved_or_kept_unresolved_instead_of_defaulted(clock,
     assert not data['choices'][0]['time_defaulted']
 
 
+def test_open_ended_wording_does_not_mistake_recruiting_systems_for_a_closing_policy():
+    from app.services.url_deadlines import OPEN
+    for text in ['채용시 마감', '채용 시까지', '채용 완료 시', '상시채용', '상시 모집']:
+        assert OPEN.search(text)
+    assert OPEN.search('채용시스템') is None
+    assert OPEN.search('채용 시작일') is None
+
+
 def test_malformed_or_duplicate_snapshots_fail_closed():
     text = snapshot("<main>마감일 2026.11.03 23:59</main>")
     assert review_data(text + text) is None

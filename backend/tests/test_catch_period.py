@@ -50,6 +50,15 @@ def test_same_page_partial_label_and_complete_metadata_resolve_without_js_or_tim
     assert review_data(text, URL)["choices"][0]["due_at"] == DUE
 
 
+@pytest.mark.parametrize('prefix', ['[11월]', '[CATCH-UP]'])
+def test_heading_brackets_are_job_title_content_not_a_second_company_prefix(prefix):
+    title = prefix + ' 2026년 채용설명회'
+    html = markup(heading=title).replace(json.dumps(TITLE), json.dumps('[테스트기업] ' + title))
+    assert analyze_url(snapshot(html), URL, None).deadlines[0].due_at.isoformat() == DUE
+    html = html.replace(title + '</h1>', '[다른 제목] 2026년 채용설명회</h1>')
+    assert analyze_url(snapshot(html), URL, None).deadlines[0].due_at is None
+
+
 @pytest.mark.parametrize("metadata", ["2026-10-29T05:00:00Z", "2026-10-29T14:00:00", "2037-10-29T14:00:00+09:00"])
 def test_explicit_metadata_year_and_timezone_are_used_instead_of_current_year(metadata):
     result = analyze_url(snapshot(markup(metadata=metadata)), URL, None)
@@ -67,13 +76,41 @@ def test_visible_and_metadata_disagreement_never_prefills_a_deadline(raw):
 
 
 @pytest.mark.parametrize("changes", [{"metadata": None}, {"canonical": None}, {"heading": "다른 공고"},
-                                    {"raw": "~ 10.29(목)"}])
+                                    {"raw": "채용예정 10.29(목)"}])
 def test_missing_year_scope_or_visible_clock_remains_manual_confirmation(changes):
     text = snapshot(markup(**changes))
     assert period.read_period(text)["deadline_at"] is None
     result = analyze_url(text, URL, None)
     assert result.deadlines[0].due_at is None
     assert result.warnings == [period.UNRESOLVED]
+
+
+@pytest.mark.parametrize('raw,metadata', [
+    ('채용예정 11.23(월) ~ 11.30(월) 18시', '2026-11-30T18:00:00+09:00'),
+    ('채용예정 11.13(금) ~ 11.26(목) 10시', '2026-11-26T10:00:00+09:00'),
+    ('~ 11.12(목)', '2026-11-12T12:00:00+09:00'),
+])
+def test_range_end_and_date_only_label_keep_the_owned_explicit_html_clock(raw,metadata):
+    text = snapshot(markup(raw=raw, metadata=metadata))
+    info = period.read_period(text)
+    result = analyze_url(text,URL,None)
+    assert not info['has_conflict'] and result.deadlines[0].due_at.isoformat()==metadata
+    assert info['time_from_metadata'] is (raw=='~ 11.12(목)')
+    assert result.warnings == ([period.METADATA_TIME] if info['time_from_metadata'] else [])
+
+
+@pytest.mark.parametrize('raw', [
+    '채용예정 11.23(월) ~ 11.30(월) 17시',
+    '채용예정 2026.12.01(화) ~ 11.30(월) 18시',
+    '채용예정 11.23(화) ~ 11.30(월) 18시',
+    '채용예정 11.31(월) ~ 11.30(월) 18시',
+    '채용예정 11.30(월) 19시 ~ 11.30(월) 18시',
+    '채용예정 11.23(월) 26시 ~ 11.30(월) 18시',
+])
+def test_range_conflicting_clock_invalid_opening_and_reversed_dates_stay_manual(raw):
+    text = snapshot(markup(raw=raw,metadata='2026-11-30T18:00:00+09:00'))
+    assert analyze_url(text,URL,None).deadlines[0].due_at is None
+    assert period.read_period(text)['has_conflict']
 
 
 def test_t2_only_relative_days_do_not_infer_a_deadline():

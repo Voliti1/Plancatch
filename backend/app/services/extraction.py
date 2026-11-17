@@ -429,15 +429,23 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
         from app.services.jobkorea_period import period_text as jobkorea_text
         from app.services.jobkorea_period import read_period as read_jobkorea
         jobkorea_snapshot = jobkorea_text(decoded, source_url, job_text)
+        from app.services.jobkorea_legacy import review as legacy_jobkorea_review
+        legacy = legacy_jobkorea_review(decoded, source_url, job_text)
+        if legacy and (not jobkorea_snapshot or legacy[0]["open_ended"]):
+            review = {**review, **legacy[0]}
+            text = f"{text}\n\n{legacy[1]}"
+            jobkorea_snapshot = ""
         if jobkorea_snapshot:
-            from app.services.url_deadlines import date_choice
+            from app.services.url_deadlines import OPEN, date_choice
             period_info = read_jobkorea(jobkorea_snapshot)
             if period_info:
                 evidence = f"마감일 원문: {period_info['end_text']}"
                 choice = date_choice(period_info["end_text"], evidence)
                 review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": bool(OPEN.search(period_info["end_text"])),
                           "has_conflict": period_info["has_conflict"], "scope_confirmed": True}
             text = f"{text}\n\n{jobkorea_snapshot}"
+        from app.services.catch_period import display_fields as catch_display_fields
         from app.services.catch_period import period_text as catch_text
         from app.services.catch_period import read_period as read_catch
         catch_snapshot = catch_text(decoded, source_url)
@@ -446,14 +454,15 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
             info = read_catch(catch_snapshot)
             if info:
                 due = info["deadline_at"]
-                raw = due.isoformat() if due else info["end_text"]
+                _, closing_label = catch_display_fields(info["end_text"])
+                raw = due.isoformat() if due else closing_label[0] if closing_label else info["end_text"]
                 evidence = "\n".join(line for line in catch_snapshot.splitlines()
                                      if line.startswith(("마감일 원문: ", "공고 메타데이터 마감일: ")))
                 choice = date_choice(raw, evidence)
                 if choice and not due and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
-                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "open_ended": bool(OPEN.search(info["end_text"])),
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = f"{text}\n\n{catch_snapshot}"
         from app.services.jobplanet_period import period_text as jobplanet_text
@@ -468,14 +477,14 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 if choice and info["deadline_at"] is None and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
-                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "open_ended": bool(OPEN.search(info["end_text"])),
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = f"{text}\n\n{jobplanet_snapshot}"
         from app.services.jasoseol_period import period_text as jasoseol_text
         from app.services.jasoseol_period import read_period as read_jasoseol
         jasoseol_snapshot = jasoseol_text(decoded, source_url)
         if jasoseol_snapshot:
-            from app.services.url_deadlines import date_choice
+            from app.services.url_deadlines import OPEN, date_choice
             info = read_jasoseol(jasoseol_snapshot)
             if info:
                 evidence = f"마감일 원문: {info['end_text']}"
@@ -483,13 +492,14 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 if choice and info["deadline_at"] is None and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": bool(OPEN.search(info["end_text"])),
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = f"{text}\n\n{jasoseol_snapshot}"
         from app.services.linkareer_period import period_text as linkareer_text
         from app.services.linkareer_period import read_period as read_linkareer
         linkareer_snapshot = linkareer_text(decoded, source_url)
         if linkareer_snapshot:
-            from app.services.url_deadlines import date_choice
+            from app.services.url_deadlines import OPEN, date_choice
             info = read_linkareer(linkareer_snapshot)
             if info:
                 due = info["deadline_at"]
@@ -499,6 +509,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 if choice and not due and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
+                          "open_ended": bool(OPEN.search(info["end_text"])),
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = f"{text}\n\n{linkareer_snapshot}"
         from app.services.work24_period import period_text as work24_text
@@ -514,7 +525,7 @@ def parse_page(body: bytes, content_type: str, source_url: str | None = None) ->
                 if choice and not due and not choice["time_defaulted"]:
                     choice["due_at"] = None
                 review = {**review, "choices": [choice] if choice else [],
-                          "open_ended": review["open_ended"] or bool(OPEN.search(info["end_text"])),
+                          "open_ended": bool(OPEN.search(info["end_text"])),
                           "has_conflict": info["has_conflict"], "scope_confirmed": True}
             text = f"{text}\n\n{work24_snapshot}"
         from app.services.job_company import company_for_page
