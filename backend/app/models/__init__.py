@@ -1,6 +1,7 @@
 """Database model package."""
 
 from app.models.analysis import Analysis
+from app.models.availability import AvailabilityProfile
 from app.models.deadline import Deadline
 from app.models.google_calendar import GoogleCalendarConnection, GoogleOAuthRequest
 from app.models.google_export import GoogleExport
@@ -12,6 +13,7 @@ from app.models.user import User
 
 __all__ = [
     "Analysis",
+    "AvailabilityProfile",
     "Deadline",
     "GoogleCalendarConnection",
     "GoogleExport",

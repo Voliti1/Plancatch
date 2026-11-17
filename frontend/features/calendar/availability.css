@@ -1,0 +1,48 @@
+.availability-page .card {
+  margin-bottom: 20px;
+}
+.availability-day {
+  margin: 18px 0;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.availability-day legend {
+  font-weight: 700;
+}
+.availability-window,
+.availability-add-date {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+  margin: 10px 0;
+  flex-wrap: wrap;
+}
+.availability-window label {
+  flex: 1 1 130px;
+  min-width: 0;
+  margin-bottom: 0;
+}
+.availability-add-date label {
+  margin-bottom: 0;
+}
+.availability-day > .small {
+  display: block;
+  margin: 8px 0;
+}
+.availability-window button,
+.availability-add-date button {
+  flex-shrink: 0;
+}
+.availability-page input[type="date"],
+.availability-page input[type="time"] {
+  max-width: 100%;
+  min-width: 0;
+}
+@media (max-width: 600px) {
+  .availability-window {
+    gap: 8px;
+  }
+  .availability-window label {
+    flex-basis: 180px;
+  }
+}
