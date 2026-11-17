@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.schemas.capacity_risk import CapacityRisk
+
 
 class DeadlineReadiness(BaseModel):
     deadline_id: uuid.UUID
@@ -25,3 +27,4 @@ class DeadlineReadiness(BaseModel):
     unplanned_minutes: int | None
     remaining_minutes: int
     truncated: bool
+    capacity_risk: CapacityRisk | None = None

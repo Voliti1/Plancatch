@@ -87,7 +87,10 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
       )}
       {pdf &&
         analysis.status === "ready" &&
-        analysis.model !== "pdf:local-v1" && (
+        (analysis.model !== "pdf:local-v1" ||
+          analysis.candidates.some(
+            (candidate) => !candidate.evidence_page,
+          )) && (
           <Link
             className="source-detail-link"
             href={`/sources/${encodeURIComponent(analysis.source_id)}/review?reanalyze=1`}

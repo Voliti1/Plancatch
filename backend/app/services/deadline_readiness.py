@@ -1,13 +1,16 @@
-"""Bounded local preparation checks. No planning writes, AI or Google requests."""
+"""Bounded preparation and optional Google reads; never write tasks or events."""
 
 from datetime import UTC, datetime
 from math import ceil
+from types import SimpleNamespace
 
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import load_only
 
-from app.models import ScheduledEvent, Task
+from app.models import Deadline, ScheduledEvent, Task
 from app.schemas.deadline_readiness import DeadlineReadiness
+from app.services import auto_schedule, capacity_risk, google_sync
 from app.services.recurrence import utc
 
 MAX_TASKS = 200
@@ -33,32 +36,86 @@ def minutes(intervals):
     return int(sum((end - start).total_seconds() for start, end in intervals) // 60)
 
 
-def assess(db, owner, deadline):
+def assess(db, owner, deadline, *, include_google=False):
+    identity = deadline.id if isinstance(deadline, Deadline) else deadline
+    google_sync.lock_owner(db, owner)
+    deadline = db.scalar(
+        select(Deadline)
+        .options(
+            load_only(
+                Deadline.id,
+                Deadline.user_id,
+                Deadline.due_at,
+                Deadline.safety_buffer_minutes,
+                Deadline.is_confirmed,
+            )
+        )
+        .where(Deadline.id == identity, Deadline.user_id == owner)
+        .execution_options(populate_existing=True)
+    )
+    if deadline is None:
+        raise HTTPException(404, "마감일을 찾을 수 없습니다.")
     at = now()
     target = utc(deadline.safe_due_at or deadline.due_at)
-    tasks = list(
-        db.scalars(
-            select(Task)
+
+    def load_tasks():
+        return list(
+            db.scalars(
+                select(Task)
+                .options(load_only(*capacity_risk.TASK_FIELDS))
+                .where(
+                    Task.user_id == owner,
+                    Task.deadline_id == deadline.id,
+                )
+                .order_by(Task.id)
+                .limit(MAX_TASKS + 1)
+            )
+        )
+
+    tasks = load_tasks()
+    google_busy = []
+    google_state = "excluded" if not include_google else "not_needed"
+    google_incomplete = False
+    if include_google and target > at and any(not t.is_completed for t in tasks):
+        old_target = target
+        request = SimpleNamespace(
+            start_at=at, end_at=capacity_risk.horizon(at, target), include_google=True
+        )
+        db.rollback()  # Release the local owner lock before Google I/O.
+        try:
+            google_busy, details, bound = auto_schedule.external_busy(
+                db, owner, request
+            )
+            google_state = details["google_state"]
+            google_incomplete = details["blocked"] or google_state == "not_connected"
+        except HTTPException:
+            google_state = "unavailable"
+            google_incomplete = True
+            bound = None
+        db.expire_all()
+        google_sync.lock_owner(db, owner)
+        deadline = db.scalar(
+            select(Deadline)
             .options(
                 load_only(
-                    Task.id,
-                    Task.is_completed,
-                    Task.recurrence,
-                    Task.series_id,
-                    Task.estimated_minutes,
-                    Task.schedule_type,
-                    Task.earliest_start,
-                    Task.latest_end,
+                    Deadline.id,
+                    Deadline.user_id,
+                    Deadline.due_at,
+                    Deadline.safety_buffer_minutes,
+                    Deadline.is_confirmed,
                 )
             )
-            .where(
-                Task.user_id == owner,
-                Task.deadline_id == deadline.id,
-            )
-            .order_by(Task.id)
-            .limit(MAX_TASKS + 1)
+            .where(Deadline.id == identity, Deadline.user_id == owner)
+            .execution_options(populate_existing=True)
         )
-    )
+        if deadline is None:
+            raise HTTPException(404, "마감일을 찾을 수 없습니다.")
+        at = now()
+        target = utc(deadline.safe_due_at or deadline.due_at)
+        tasks = load_tasks()
+        google_incomplete |= (
+            target != old_target or bound != auto_schedule.connection_binding(db, owner)
+        )
     truncated = len(tasks) > MAX_TASKS
     tasks = tasks[:MAX_TASKS]
     pending = [task for task in tasks if not task.is_completed]
@@ -226,4 +283,16 @@ def assess(db, owner, deadline):
         unplanned_minutes=max(0, required - planned) if complete_information else None,
         remaining_minutes=remaining,
         truncated=truncated,
+        capacity_risk=capacity_risk.assess(
+            db,
+            owner,
+            deadline,
+            tasks,
+            at,
+            truncated=truncated,
+            include_google=include_google,
+            google_busy=google_busy,
+            google_state=google_state,
+            google_incomplete=google_incomplete,
+        ),
     )

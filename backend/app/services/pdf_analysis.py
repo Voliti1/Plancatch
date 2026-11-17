@@ -9,7 +9,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, Field, ValidationError
 
-from app.schemas.analysis import FileResult, Proposal
+from app.schemas.analysis import FileProposal, FileResult
 from app.services.ai_analysis import AIError, configured_model, provider_request
 from app.services.deadline_dates import (
     DEFAULT_TIME_NOTICE,
@@ -106,19 +106,24 @@ def deadline_evidence(lines: list[str]):
         yield label.group(), date_line[:end], date_line
 
 
-def extract_review(pages: list[str]) -> FileResult:
+def extract_review(pages: list[str], *, scan_transcript: str | None = None) -> FileResult:
     page_lines = [clean_lines(page) for page in pages]
-    header = next((lines[:12] for lines in page_lines if lines), [])
+    scan_lines = clean_lines(scan_transcript) if scan_transcript else []
+    header = next((lines[:12] for lines in [scan_lines, *page_lines] if lines), [])
     # Recruitment posters sometimes place year, employer and title on separate lines.
     if len(header) >= 3 and SEASON.fullmatch(header[0]) and re.match(r"(?:신입|경력|인턴).{0,24}채용", header[2]):
         header = [" ".join(header[:3]), *header[3:]]
     heading = next((line[:220] for line in header if DOCUMENT_HEADING_YEAR.match(line)), "")
-    evidence = [entry for lines in page_lines for entry in deadline_evidence(lines)]
-    transcript = "\n".join(dict.fromkeys([*header, *(quote for _, quote, _ in evidence)]))[:40000]
+    evidence = [(None, *entry) for entry in deadline_evidence(scan_lines)] + [
+        (page_number, *entry)
+        for page_number, lines in enumerate(page_lines, start=1)
+        for entry in deadline_evidence(lines)
+    ]
+    transcript = "\n".join(dict.fromkeys([*header, *(quote for _, _, quote, _ in evidence)]))[:40000]
     year = pdf_document_year("\n".join(header))
-    candidates = {}
+    candidates: dict[tuple, FileProposal] = {}
     defaulted = False
-    for label, quote, context in evidence:
+    for page_number, label, quote, context in evidence:
         if quote not in transcript:
             continue
         choice = pdf_closing_choice(quote, context, transcript, year)
@@ -127,11 +132,17 @@ def extract_review(pages: list[str]) -> FileResult:
         due = datetime.fromisoformat(choice["due_at"]) if choice["due_at"] else None
         submission = "제출" in label
         key = (due or quote, "제출" if submission else "접수")
-        if key in candidates or len(candidates) >= 30:
+        if previous := candidates.get(key):
+            if previous.evidence_page is None and previous.evidence_text == quote:
+                previous.evidence_page = page_number
+            continue
+        if len(candidates) >= 30:
             continue
         title = re.sub(r"\s*(?:마감(?:일시?)?|기간|기한)$", "", label) if submission else (
             heading or "지원서 접수 마감")
-        candidates[key] = Proposal(title=title, due_at=due, evidence_text=quote, confidence=1)
+        candidates[key] = FileProposal(
+            title=title, due_at=due, evidence_text=quote, evidence_page=page_number, confidence=1,
+        )
         defaulted |= choice["time_defaulted"]
     warnings = []
     if defaulted:
@@ -155,4 +166,4 @@ def analyze_pdf(data: bytes, *, allow_external_ai: bool = False) -> tuple[FileRe
         raise AIError(SCAN_CONSENT_REQUIRED)
     model = configured_model()
     scan = read_scan(data, model)
-    return extract_review([scan, *pages]), f"pdf:ocr:{model}"[:100]
+    return extract_review(pages, scan_transcript=scan), f"pdf:ocr:{model}"[:100]

@@ -50,6 +50,17 @@ def interrupt(record):
     finish_processing(record)
 
 
+def interrupt_file_source(source, analyses):
+    # A correction attempts a new review of existing text; keep that last usable text.
+    if (source.source_type == "image" and source.extracted_text
+            and any(a.model == "image:corrected-text" for a in analyses)):
+        source.processing_status = "extracted"
+        source.error_message = None
+        finish_processing(source)
+    else:
+        interrupt(source)
+
+
 class ProcessingLease:
     """Short DB heartbeat transactions, never an open connection during I/O."""
     def __init__(self, engine, *, source_id=None, analysis_id=None, run_id=None):
@@ -132,13 +143,14 @@ def recover_interrupted(engine, *, at=None, limit=50):
                             .order_by(Source.updated_at, Source.id).limit(limit).with_for_update(skip_locked=True)).all()
         for source in sources:
             token = source.processing_run_id
+            analyses = []
             if source.source_type in {"image", "pdf"}:
                 analyses = db.scalars(select(Analysis).where(Analysis.source_id == source.id,
                     Analysis.status == "processing", Analysis.processing_run_id == token).with_for_update()).all()
                 for analysis in analyses:
                     interrupt(analysis)
                     counts["analyses"] += 1
-            interrupt(source)
+            interrupt_file_source(source, analyses)
             counts["sources"] += 1
         # Query IDs without child locks, then lock each source before its analysis.
         rows = db.execute(select(Analysis.id, Analysis.source_id).where(
@@ -155,7 +167,7 @@ def recover_interrupted(engine, *, at=None, limit=50):
             interrupt(analysis)
             counts["analyses"] += 1
             if source.source_type in {"image", "pdf"} and is_processing(source) and source.processing_run_id == token:
-                interrupt(source)
+                interrupt_file_source(source, [analysis])
                 counts["sources"] += 1
         db.commit()
     return counts
