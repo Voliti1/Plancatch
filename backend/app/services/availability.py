@@ -11,7 +11,7 @@ def read(db, owner):
     return {
         "revision": row.revision if row else 0,
         "timezone": "Asia/Seoul",
-        "weekly": row.weekly if row else [day.model_dump(mode="json") for day in default_weekly()],
+        "weekly": row.weekly if row else [day.model_dump(mode="json", exclude_none=True) for day in default_weekly()],
         "exceptions": row.exceptions if row else [],
     }
 
@@ -26,7 +26,7 @@ def save(db, owner, payload):
         row = AvailabilityProfile(user_id=owner)
         db.add(row)
     row.revision = current["revision"] + 1
-    row.weekly = [day.model_dump(mode="json") for day in payload.weekly]
+    row.weekly = [day.model_dump(mode="json", exclude_none=True) for day in payload.weekly]
     row.exceptions = [day.model_dump(mode="json") for day in payload.exceptions]
     db.commit()
     return read(db, owner)

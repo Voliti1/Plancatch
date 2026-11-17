@@ -159,7 +159,12 @@ def test_current_counts_do_not_rewrite_approval_snapshot_or_expose_foreign_event
         "inactive_count": 1,
     }
     response = client.get(BASE, headers=auth)
-    assert response.json()["entries"][0]["saved_state"] == expected
+    [entry] = response.json()["entries"]
+    assert entry["saved_state"] == expected
+    assert entry["calendar_date"] == "2026-11-11"
+    assert entry["suggested_times"] == [
+        {"start_at": start.isoformat(), "end_at": (start + timedelta(hours=1)).isoformat()}
+    ] * 3
     assert "비공개" not in response.text
     detail = client.get(BASE + "/" + plan_id, headers=auth).json()
     assert (

@@ -215,6 +215,27 @@ def test_owner_scope_candidates_and_expiry(monkeypatch):
     assert approve(auth, plan).status_code == 409 and not events(auth)
 
 
+def test_candidate_ids_keep_ownership_and_do_not_label_start_as_deadline():
+    auth, other = owner(), owner()
+    item = task(auth, earliest_start="2026-11-16T09:00:00+09:00")
+    another = task(auth, latest_end="2026-11-16T17:00:00+09:00")
+    foreign = task(other)
+    response = client.get(
+        BASE + "/tasks",
+        params=[("ids", item["id"]), ("ids", foreign["id"])],
+        headers=auth,
+    )
+    assert response.status_code == 200
+    [entry] = response.json()["entries"]
+    assert entry["id"] == item["id"]
+    assert entry["sort_at"] and entry["completion_due_at"] is None
+    response = client.get(BASE + "/tasks", params={"ids": another["id"]}, headers=auth)
+    assert response.json()["entries"][0]["completion_due_at"] == "2026-11-16T08:00:00+00:00"
+    assert client.get(
+        BASE + "/tasks", params=[("ids", item["id"])] * 21, headers=auth
+    ).status_code == 422
+
+
 @pytest.mark.parametrize(
     "extra",
     [

@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from sqlalchemy import select
 
 from app.models import ScheduledEvent, Task
-from app.services.recurrence import utc
+from app.services.recurrence import SEOUL, utc
 
 
 def now():
@@ -47,6 +47,7 @@ def summaries(db, owner, plans):
             else "pending"
         )
         saved = None
+        first_active = None
         if approved:
             active = changed = deleted = inactive = 0
             originals = {block["id"]: block for block in plan.blocks}
@@ -57,6 +58,9 @@ def summaries(db, owner, plans):
                     continue
                 if event.status in {"approved", "synced"}:
                     active += 1
+                    start = utc(event.start_at)
+                    if first_active is None or start < first_active:
+                        first_active = start
                 else:
                     inactive += 1
                 block = originals.get(identity)
@@ -80,12 +84,18 @@ def summaries(db, owner, plans):
                 "approved_at": utc(plan.approved_at) if approved else None,
                 "state": state,
                 "blocked": bool(plan.details.get("blocked")),
+                "replace_existing": bool(plan.details.get("replace_existing")),
                 "start_at": plan.request["start_at"],
                 "end_at": plan.request["end_at"],
                 "task_titles": [task["title"] for task in tasks],
                 "task_count": len(tasks),
                 "block_count": len(plan.blocks),
+                "suggested_times": [
+                    {key: block[key] for key in ("start_at", "end_at")}
+                    for block in sorted(plan.blocks, key=lambda item: item["start_at"])[:3]
+                ],
                 "unplaced_count": len(plan.details.get("unplaced", [])),
+                "calendar_date": first_active.astimezone(SEOUL).date().isoformat() if first_active else None,
                 "saved_state": saved,
             }
         )
