@@ -592,7 +592,7 @@ export function TaskForm({
         {!isDeadline && scheduleType === "flexible" && (
           <p className="notice">
             시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면
-            자동 배치에서 빈 시간을 제안받을 수 있습니다.
+            할 일 시간 추천에서 빈 시간을 제안받을 수 있습니다.
           </p>
         )}
         {Boolean(initial?.exception_count) && (

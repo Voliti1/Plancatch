@@ -193,7 +193,7 @@ export function TaskDetail({ id }: { id: string }) {
                     {data.schedule_type === "flexible" &&
                       !data.is_completed && (
                         <Link className="button secondary" href="/planning">
-                          자동 배치에서 시간 정하기
+                          할 일 시간 추천받기
                         </Link>
                       )}
                     <button

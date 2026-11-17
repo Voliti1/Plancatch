@@ -112,8 +112,8 @@ export function AutoSchedulePage({
   return (
     <div className="auto-schedule">
       <PageHeading
-        eyebrow="AUTOMATIC PLANNING"
-        title="자동 배치"
+        eyebrow="TIME SUGGESTIONS"
+        title="할 일 시간 추천"
         description="할 일을 고르면 가능한 시간을 추천합니다. 미리보기에서 시간을 확인한 뒤 캘린더에 저장하세요."
         action={
           <div className="planning-heading-actions">
@@ -121,7 +121,7 @@ export function AutoSchedulePage({
               가능 시간 설정
             </Link>
             <Link className="button secondary" href="/planning/history">
-              배치 기록
+              시간 추천 기록
             </Link>
             <Link className="button secondary" href="/sources/new?mode=manual">
               할 일 등록
@@ -141,7 +141,7 @@ export function AutoSchedulePage({
           if (pending.current) return;
           setError("");
           if (!selected.length) {
-            setError("배치할 할 일을 선택해 주세요.");
+            setError("시간을 정할 할 일을 선택해 주세요.");
             return;
           }
           pending.current = true;
@@ -175,8 +175,12 @@ export function AutoSchedulePage({
         }}
       >
         <fieldset disabled={busy}>
-          <h2>배치할 할 일</h2>
-          <div className="planning-days" role="group" aria-label="배치 방식">
+          <h2>시간을 정할 할 일</h2>
+          <div
+            className="planning-days"
+            role="group"
+            aria-label="시간 추천 방식"
+          >
             {[false, true].map((value) => (
               <button
                 key={String(value)}
@@ -191,14 +195,14 @@ export function AutoSchedulePage({
                   setError("");
                 }}
               >
-                {value ? "기존 배치 다시 짜기" : "새 배치 만들기"}
+                {value ? "저장한 시간 다시 정하기" : "새 시간 찾기"}
               </button>
             ))}
           </div>
           <p className="small muted">
             {replace
-              ? "아직 시작하지 않은 배치를 다시 배치할 수 있습니다. 미리보기를 승인하면 기존 시간을 교체합니다."
-              : "배치할 수 있는 할 일이 보이지 않으면 유동 작업으로 등록하고 예상 소요시간을 입력하세요."}
+              ? "아직 시작하지 않은 일정은 시간을 다시 정할 수 있습니다. 새 시간을 저장하면 기존 시간이 바뀝니다."
+              : "고를 수 있는 할 일이 없다면 유동 작업으로 등록하고 예상 소요시간을 입력하세요."}
           </p>
           <PlanningTaskPicker
             key={String(replace)}
@@ -219,10 +223,12 @@ export function AutoSchedulePage({
             }}
           >
             <summary ref={conditionsSummary}>
-              <span className="planning-conditions-title">배치 조건</span>
+              <span className="planning-conditions-title">추천 조건</span>
               <span className="planning-conditions-values small muted">
                 <span>
-                  {first && last ? `${first} ~ ${last}` : "배치 날짜 입력 필요"}
+                  {first && last
+                    ? `${first} ~ ${last}`
+                    : "추천 기간을 입력해 주세요"}
                 </span>
                 <span>
                   {useSaved
@@ -246,13 +252,13 @@ export function AutoSchedulePage({
               </label>
               {useSaved && (
                 <p className="small muted">
-                  계정에 저장한 시간으로 배치합니다. 아래 하루 시간·요일 대신
-                  저장한 설정을 사용합니다. 처음에는 평일 09:00~18:00입니다.
+                  계정에 저장한 시간과 날짜별 예외를 반영합니다. 처음에는 평일
+                  09:00~18:00입니다.
                 </p>
               )}
               <div className="form-grid">
                 <label>
-                  배치 시작일
+                  추천 기간 시작일
                   <input
                     type="date"
                     required
@@ -261,7 +267,7 @@ export function AutoSchedulePage({
                   />
                 </label>
                 <label>
-                  배치 종료일
+                  추천 기간 종료일
                   <input
                     type="date"
                     required
@@ -357,8 +363,8 @@ export function AutoSchedulePage({
               {busy
                 ? "빈 시간을 확인하는 중…"
                 : replace
-                  ? "재배치 미리보기 만들기"
-                  : "배치 미리보기 만들기"}
+                  ? "새 시간 추천 보기"
+                  : "추천 시간 보기"}
             </button>
           </div>
         </fieldset>
@@ -432,13 +438,13 @@ function PlanEditor({
   const expired = !plan.approved_at && Date.parse(plan.expires_at) <= moment;
   const { markSaved } = useUnsavedChanges(JSON.stringify([draft, selected]));
   return (
-    <section className="card planning-result" aria-label="자동 배치 미리보기">
+    <section className="card planning-result" aria-label="추천 시간 미리보기">
       <h2 ref={headingRef} tabIndex={-1}>
         {plan.approved_at
-          ? "배치 저장 완료"
+          ? "캘린더 저장 완료"
           : expired
             ? "유효 시간이 지난 미리보기"
-            : "미리보기 확인"}
+            : "추천 시간 확인"}
       </h2>
       <p className="small muted">
         {formatSeoul(plan.request.start_at)} ~{" "}
@@ -453,12 +459,12 @@ function PlanEditor({
         </p>
       ))}
       {plan.details.replace_existing && (
-        <section className="planning-replacement" aria-label="재배치 변경 비교">
-          <h3>{plan.approved_at ? "교체 전 배치 기록" : "교체할 기존 배치"}</h3>
+        <section className="planning-replacement" aria-label="기존 시간과 비교">
+          <h3>{plan.approved_at ? "변경 전 시간 기록" : "변경할 기존 시간"}</h3>
           <p className="small muted">
             {plan.approved_at
-              ? "승인 시 선택한 할 일만 새 배치로 교체했습니다."
-              : "아래 기존 시간은 아직 유지됩니다. 선택한 할 일만 승인 시 교체하며, 제외하거나 배치하지 못한 할 일은 기존 시간을 유지합니다."}
+              ? "선택한 할 일의 시간을 변경했습니다."
+              : "선택한 할 일의 시간을 저장하면 아래 시간이 바뀝니다. 제외했거나 추천 시간이 없는 할 일은 기존 시간을 유지합니다."}
           </p>
           <ul>
             {plan.details.replaced_blocks?.map((block) => (
@@ -474,7 +480,7 @@ function PlanEditor({
           {!plan.approved_at && (
             <p className="notice">
               일부 할 일을 제외하면 그 할 일의 기존 시간과 겹칠 수 있습니다.
-              승인이 막히면 선택을 다시 정하고 새 미리보기를 만들어 주세요.
+              저장할 수 없다면 할 일을 다시 선택하고 추천 시간을 확인하세요.
             </p>
           )}
         </section>
@@ -482,18 +488,18 @@ function PlanEditor({
       {plan.approved_at ? (
         <>
           <p className="success" role="status">
-            승인한 시간 {plan.blocks.length}개를 저장했습니다. 구글 계정이
+            캘린더에 시간 {plan.blocks.length}개를 저장했습니다. 구글 계정이
             연결되어 있으면 자동 반영됩니다.
           </p>
           <p className="small muted">
-            아래 시간은 승인 당시 기록입니다. 이후 변경·삭제된 실제 시간은
-            ‘저장한 배치 관리’에서 확인하세요.
+            아래는 처음 저장한 시간입니다. 이후 변경·삭제된 실제 시간은 ‘저장한
+            시간 관리’에서 확인하세요.
           </p>
           <Link className="button" href="/calendar">
             캘린더 보기
           </Link>
           <button type="button" className="secondary" onClick={onReplan}>
-            다시 배치하기
+            시간 다시 정하기
           </button>
         </>
       ) : (
@@ -510,13 +516,13 @@ function PlanEditor({
       )}
       {!plan.blocks.length && (
         <p>
-          배치할 수 있는 빈 시간이 없습니다. 아래 제외 이유를 확인하고
+          추천할 수 있는 빈 시간이 없습니다. 아래 제외 이유를 확인하고
           기간·소요시간을 조정해 주세요.
         </p>
       )}
       {!plan.approved_at && (plan.details.blocked || !plan.blocks.length) && (
         <button type="button" className="secondary" onClick={onEditConditions}>
-          배치 조건 수정
+          추천 조건 수정
         </button>
       )}
       {groups.map((id) => {
@@ -539,13 +545,15 @@ function PlanEditor({
                     )
                   }
                 />
-                <strong>{task.title} 배치 포함</strong>
+                <strong>{task.title} 추천 시간 포함</strong>
               </label>
             )}
             <p className="small muted">
               {task.minutes}분 ·{" "}
-              {task.uses_safety_deadline ? "안전 마감 기준" : "배치 완료 기한"}:{" "}
-              {formatSeoul(task.limit)}
+              {task.uses_safety_deadline
+                ? "안전 마감 기준"
+                : "할 일을 끝낼 기한"}
+              : {formatSeoul(task.limit)}
             </p>
             {displayedBlocks
               .filter((b) => b.task_id === id)
@@ -651,7 +659,7 @@ function PlanEditor({
               {busy
                 ? "다시 확인하고 저장하는 중…"
                 : plan.details.replace_existing
-                  ? "선택한 기존 배치 교체"
+                  ? "선택한 시간으로 변경"
                   : "캘린더에 저장"}
             </button>
           </div>
@@ -659,7 +667,7 @@ function PlanEditor({
       )}
       {plan.details.unplaced.length > 0 && (
         <div className="planning-unplaced">
-          <h3>배치에서 제외된 할 일</h3>
+          <h3>추천 시간을 찾지 못한 할 일</h3>
           <ul>
             {plan.details.unplaced.map((t) => (
               <li key={t.task_id}>
@@ -673,7 +681,7 @@ function PlanEditor({
         </div>
       )}
       <p className="small">
-        <Link href="/planning/history">전체 배치 기록 →</Link>
+        <Link href="/planning/history">전체 시간 추천 기록 →</Link>
         {" · "}
         <Link href={`/planning?${new URLSearchParams({ plan: plan.id })}`}>
           이 미리보기 다시 열기 →
@@ -681,9 +689,10 @@ function PlanEditor({
       </p>
       {plan.approved_at && (
         <div>
-          <h3>저장한 배치 관리</h3>
+          <h3>저장한 시간 관리</h3>
           <p className="small muted">
-            배치 시간을 수정하거나 지워도 할 일의 내용은 유지됩니다.
+            할 일은 그대로 두고 캘린더에 잡힌 시간만 바꾸거나 삭제할 수
+            있습니다.
           </p>
           <label>
             관리할 할 일

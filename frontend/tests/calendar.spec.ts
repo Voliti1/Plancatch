@@ -76,10 +76,10 @@ test("task detail has no placement controls or placement requests; existing plac
     page.getByRole("heading", { name: calendarTask.title, exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("region", { name: "캘린더 배치", exact: true }),
+    page.getByRole("region", { name: "캘린더에 저장한 시간", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: "캘린더에 배치", exact: true }),
+    page.getByRole("button", { name: "캘린더에 시간 추가", exact: true }),
   ).toHaveCount(0);
   expect(requests).toEqual([]);
   await page.goto("/calendar?date=2026-11-01");

@@ -90,10 +90,10 @@ test("history pages, filters and refresh are read only and reflect changed/delet
   });
   await page.goto("/planning/history");
   const region = page.getByRole("region", {
-    name: "배치 기록 목록",
+    name: "시간 추천 기록 목록",
     exact: true,
   });
-  await expect(region).toContainText("현재 캘린더에 표시되는 배치 0개");
+  await expect(region).toContainText("현재 캘린더에 있는 시간 0개");
   await expect(region).toContainText("시간 변경 1개 · 삭제 2개");
   await expect(
     region.getByRole("heading", { name: "보고서 latest", exact: true }),
@@ -145,7 +145,7 @@ test("history errors retry and empty filters have no leftover rows", async ({
   );
   await page.getByRole("button", { name: "새로고침", exact: true }).click();
   await expect(page.getByRole("main")).toContainText(
-    "해당 상태의 배치 기록이 없습니다.",
+    "해당 상태의 시간 추천 기록이 없습니다.",
   );
   await expect(
     page.getByRole("button", { name: "다음 기록", exact: true }),
@@ -189,17 +189,17 @@ test("approved history reopens receipt and current placement management without 
   );
   await page.goto("/planning/history");
   await page
-    .getByRole("link", { name: "기록 보기 · 배치 관리", exact: true })
+    .getByRole("link", { name: "기록 보기 · 시간 관리", exact: true })
     .click();
   const result = page.getByRole("region", {
-    name: "자동 배치 미리보기",
+    name: "추천 시간 미리보기",
     exact: true,
   });
-  await expect(result).toContainText("아래 시간은 승인 당시 기록입니다.");
+  await expect(result).toContainText("아래는 처음 저장한 시간입니다.");
   await result
     .getByLabel("관리할 할 일", { exact: true })
     .selectOption("old-task");
-  await expect(result).toContainText("캘린더에 배치된 시간이 없습니다");
+  await expect(result).toContainText("캘린더에 저장한 시간이 없습니다");
   await expect(
     result.getByRole("button", { name: "캘린더에 저장", exact: true }),
   ).toHaveCount(0);
@@ -223,7 +223,7 @@ test("expired preview can only be read and never sends an approval", async ({
   );
   await page.goto("/planning?plan=saved-plan");
   const result = page.getByRole("region", {
-    name: "자동 배치 미리보기",
+    name: "추천 시간 미리보기",
     exact: true,
   });
   await expect(
@@ -240,7 +240,7 @@ test("expired preview can only be read and never sends an approval", async ({
   ).toBeDisabled();
   expect(writes).toBe(0);
   await expect(
-    page.getByRole("link", { name: "배치 기록", exact: true }),
+    page.getByRole("link", { name: "시간 추천 기록", exact: true }),
   ).toHaveAttribute("href", "/planning/history");
 });
 
@@ -291,35 +291,35 @@ test("history management edits then deletes an existing placement and refreshes 
   );
   await page.goto("/planning?plan=saved-plan");
   const result = page.getByRole("region", {
-    name: "자동 배치 미리보기",
+    name: "추천 시간 미리보기",
     exact: true,
   });
   await result
     .getByLabel("관리할 할 일", { exact: true })
     .selectOption(calendarTask.id);
-  await result.getByRole("button", { name: "배치 수정", exact: true }).click();
+  await result.getByRole("button", { name: "시간 수정", exact: true }).click();
   await result
-    .getByLabel("배치 시작", { exact: true })
+    .getByLabel("시작 시간", { exact: true })
     .fill("2026-11-16T14:00");
   await result
-    .getByLabel("배치 종료", { exact: true })
+    .getByLabel("종료 시간", { exact: true })
     .fill("2026-11-16T15:00");
   await result
-    .getByRole("button", { name: "배치 변경 저장", exact: true })
+    .getByRole("button", { name: "시간 변경 저장", exact: true })
     .click();
-  await expect(result).toContainText("캘린더 배치를 저장했습니다.");
+  await expect(result).toContainText("캘린더에 시간을 저장했습니다.");
   expect(edits).toBe(1);
-  await result.getByRole("button", { name: "배치 삭제", exact: true }).click();
+  await result.getByRole("button", { name: "시간 삭제", exact: true }).click();
   await result
-    .getByRole("button", { name: "배치 삭제 확인", exact: true })
+    .getByRole("button", { name: "시간 삭제 확인", exact: true })
     .click();
-  await expect(result).toContainText("캘린더에 배치된 시간이 없습니다");
+  await expect(result).toContainText("캘린더에 저장한 시간이 없습니다");
   expect(deletes).toBe(1);
   await result
-    .getByRole("link", { name: "전체 배치 기록 →", exact: true })
+    .getByRole("link", { name: "전체 시간 추천 기록 →", exact: true })
     .click();
   await expect(
-    page.getByRole("region", { name: "배치 기록 목록", exact: true }),
-  ).toContainText("현재 캘린더에 표시되는 배치 0개 · 시간 변경 0개 · 삭제 1개");
+    page.getByRole("region", { name: "시간 추천 기록 목록", exact: true }),
+  ).toContainText("현재 캘린더에 있는 시간 0개 · 시간 변경 0개 · 삭제 1개");
   expect(approvals).toBe(0);
 });

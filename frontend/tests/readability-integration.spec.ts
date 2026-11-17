@@ -27,7 +27,7 @@ test("larger typography aligns detail cards and keeps calendar and compact regis
     page.viewportSize()!.width > 760 ? "17px" : "16px",
   );
   await expect(
-    page.getByRole("region", { name: "캘린더 배치", exact: true }),
+    page.getByRole("region", { name: "캘린더에 저장한 시간", exact: true }),
   ).toHaveCount(0);
   await page.setViewportSize({ width: 320, height: 900 });
   await page.goto("/calendar?date=2026-11-02");

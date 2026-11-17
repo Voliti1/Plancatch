@@ -76,16 +76,19 @@ async function selectTask(page: Page) {
 
 async function open(page: Page) {
   await selectTask(page);
-  await page.getByText("배치 조건", { exact: true }).click();
-  await page.getByLabel("배치 시작일", { exact: true }).fill("2026-11-16");
-  await page.getByLabel("배치 종료일", { exact: true }).fill("2026-11-16");
+  await page.getByText("추천 조건", { exact: true }).click();
+  await page.getByLabel("추천 기간 시작일", { exact: true }).fill("2026-11-16");
+  await page.getByLabel("추천 기간 종료일", { exact: true }).fill("2026-11-16");
 }
 
 test("suggests a preview with saved availability without opening settings", async ({
   page,
 }) => {
   await selectTask(page);
-  const startDate = page.getByLabel("배치 시작일", { exact: true });
+  await expect(
+    page.getByRole("link", { name: "할 일 시간 추천", exact: true }),
+  ).toHaveAttribute("aria-current", "page");
+  const startDate = page.getByLabel("추천 기간 시작일", { exact: true });
   await expect(startDate).toBeHidden();
   let approvals = 0;
   page.on("request", (request) => {
@@ -102,13 +105,13 @@ test("suggests a preview with saved availability without opening settings", asyn
   });
 
   await page
-    .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
 
-  const result = page.getByRole("region", { name: "자동 배치 미리보기" });
+  const result = page.getByRole("region", { name: "추천 시간 미리보기" });
   await expect(result).toContainText("아직 캘린더에는 저장되지 않았습니다.");
   await expect(
-    result.getByRole("heading", { name: "미리보기 확인" }),
+    result.getByRole("heading", { name: "추천 시간 확인" }),
   ).toBeFocused();
   await expect(startDate).toBeHidden();
   await expect(
@@ -119,20 +122,20 @@ test("suggests a preview with saved availability without opening settings", asyn
 
 test("reveals a missing date before asking for input", async ({ page }) => {
   await selectTask(page);
-  const settings = page.getByText("배치 조건", { exact: true });
+  const settings = page.getByText("추천 조건", { exact: true });
   await settings.click();
-  const startDate = page.getByLabel("배치 시작일", { exact: true });
+  const startDate = page.getByLabel("추천 기간 시작일", { exact: true });
   await startDate.clear();
   await settings.click();
   await expect(startDate).toBeHidden();
 
   await page
-    .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
 
   await expect(startDate).toBeFocused();
   await expect(
-    page.getByRole("region", { name: "자동 배치 미리보기" }),
+    page.getByRole("region", { name: "추천 시간 미리보기" }),
   ).toHaveCount(0);
 });
 
@@ -178,10 +181,10 @@ test("preview does not write calendar blocks and edited times are explicitly app
     },
   );
   await page
-    .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
   const result = page.getByRole("region", {
-    name: "자동 배치 미리보기",
+    name: "추천 시간 미리보기",
     exact: true,
   });
   await expect(result).toContainText("아직 캘린더에는 저장되지 않았습니다.");
@@ -203,7 +206,7 @@ test("preview does not write calendar blocks and edited times are explicitly app
       button.click();
       button.click();
     });
-  await expect(result).toContainText("승인한 시간 2개를 저장했습니다.");
+  await expect(result).toContainText("캘린더에 시간 2개를 저장했습니다.");
   expect(previews).toBe(1);
   expect(approvals).toBe(1);
   expect(legacyWrites).toBe(0);
@@ -236,7 +239,7 @@ test("approval retry preserves edits and uses the same preview identity", async 
     },
   );
   await page
-    .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
   await page
     .getByLabel("보고서 준비 1 시작", { exact: true })
@@ -254,7 +257,7 @@ test("approval retry preserves edits and uses the same preview identity", async 
     .getByRole("button", { name: "캘린더에 저장", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "배치 저장 완료", exact: true }),
+    page.getByRole("heading", { name: "캘린더 저장 완료", exact: true }),
   ).toBeVisible();
   expect(approvals).toBe(2);
 });
@@ -279,13 +282,13 @@ test("partial Google checks block approval and changed settings discard stale pr
     }),
   );
   await page
-    .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
   await expect(
     page.getByRole("button", { name: "캘린더에 저장", exact: true }),
   ).toBeDisabled();
   await page
-    .getByRole("button", { name: "배치 조건 수정", exact: true })
+    .getByRole("button", { name: "추천 조건 수정", exact: true })
     .click();
   const includeGoogle = page.getByRole("checkbox", {
     name: "연결된 구글 기본 캘린더의 바쁨 일정도 피하기",
@@ -294,7 +297,7 @@ test("partial Google checks block approval and changed settings discard stale pr
   await expect(includeGoogle).toBeChecked();
   await includeGoogle.uncheck();
   await expect(
-    page.getByRole("region", { name: "자동 배치 미리보기", exact: true }),
+    page.getByRole("region", { name: "추천 시간 미리보기", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -331,19 +334,19 @@ test("expired or changed data errors do not save any partial result and excluded
       }),
   );
   await page
-    .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
   await expect(
-    page.getByRole("region", { name: "자동 배치 미리보기", exact: true }),
+    page.getByRole("region", { name: "추천 시간 미리보기", exact: true }),
   ).toContainText("소요시간을 입력해 주세요.");
   await page
-    .getByRole("checkbox", { name: "보고서 준비 배치 포함", exact: true })
+    .getByRole("checkbox", { name: "보고서 준비 추천 시간 포함", exact: true })
     .uncheck();
   await expect(
     page.getByRole("button", { name: "캘린더에 저장", exact: true }),
   ).toBeDisabled();
   await page
-    .getByRole("checkbox", { name: "보고서 준비 배치 포함", exact: true })
+    .getByRole("checkbox", { name: "보고서 준비 추천 시간 포함", exact: true })
     .check();
   await page
     .getByRole("button", { name: "캘린더에 저장", exact: true })
@@ -352,7 +355,7 @@ test("expired or changed data errors do not save any partial result and excluded
     "기존 일정이 변경됐습니다",
   );
   await expect(
-    page.getByRole("heading", { name: "배치 저장 완료", exact: true }),
+    page.getByRole("heading", { name: "캘린더 저장 완료", exact: true }),
   ).toHaveCount(0);
 });
 
@@ -379,7 +382,7 @@ test("a saved receipt can be reopened without approving again", async ({
   });
   await page.goto("/planning?plan=preview-1");
   await expect(
-    page.getByRole("heading", { name: "배치 저장 완료", exact: true }),
+    page.getByRole("heading", { name: "캘린더 저장 완료", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "캘린더에 저장", exact: true }),

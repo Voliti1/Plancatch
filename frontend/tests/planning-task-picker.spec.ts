@@ -30,7 +30,7 @@ test("retrying a failed title search never submits a selected planning task", as
   await setup(page);
   const search = page.getByRole("combobox", { name: "할 일 제목 검색" });
   await search.click();
-  const panel = page.getByRole("dialog", { name: "배치할 할 일 선택" });
+  const panel = page.getByRole("dialog", { name: "시간을 정할 할 일 선택" });
   await panel.getByRole("checkbox", { name: /가 준비/ }).check();
   let failed = false;
   let writes = 0;
@@ -71,10 +71,10 @@ test("searchable dropdown groups Seoul dates and orders time then Korean titles,
   await setup(page);
   const search = page.getByRole("combobox", { name: "할 일 제목 검색" });
   await expect(
-    page.getByRole("dialog", { name: "배치할 할 일 선택" }),
+    page.getByRole("dialog", { name: "시간을 정할 할 일 선택" }),
   ).toHaveCount(0);
   await page.getByRole("button", { name: "할 일 목록 열기" }).click();
-  const panel = page.getByRole("dialog", { name: "배치할 할 일 선택" });
+  const panel = page.getByRole("dialog", { name: "시간을 정할 할 일 선택" });
   await expect(panel.locator("h3")).toHaveText([
     "2026년 11월 11일",
     "2026년 11월 12일",
@@ -104,7 +104,9 @@ test("searchable dropdown groups Seoul dates and orders time then Korean titles,
   await expect(search).toHaveAttribute("aria-expanded", "false");
   await search.click();
   await expect(panel).toBeVisible();
-  await page.getByRole("heading", { name: "자동 배치", exact: true }).click();
+  await page
+    .getByRole("heading", { name: "할 일 시간 추천", exact: true })
+    .click();
   await expect(panel).toHaveCount(0);
   await page.getByRole("button", { name: "선택 해제", exact: true }).click();
   await expect(page.locator(".planning-picker > p")).toContainText("0개 선택");
@@ -140,7 +142,7 @@ test("dropdown can browse later pages, search with no matches, and retry failure
   await page.reload();
   const search = page.getByRole("combobox", { name: "할 일 제목 검색" });
   await search.fill("없음");
-  const panel = page.getByRole("dialog", { name: "배치할 할 일 선택" });
+  const panel = page.getByRole("dialog", { name: "시간을 정할 할 일 선택" });
   await expect(panel).toContainText("검색 결과가 없습니다");
   await search.fill("");
   await panel.getByRole("button", { name: "할 일 더 보기" }).click();

@@ -141,7 +141,7 @@ test("consent, editable candidates and one-click review approval", async ({
   expect(state.patched).toBe(1);
   expect(state.approved).toBe(1);
   await expect(
-    page.getByRole("link", { name: "자동 배치로 이동" }),
+    page.getByRole("link", { name: "할 일 시간 추천으로 이동" }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -180,6 +180,6 @@ test("changed deadline error preserves saved review and does not report success"
     page.getByLabel("작업 제목", { exact: true }).first(),
   ).toHaveValue("보존할 수정");
   await expect(
-    page.getByRole("link", { name: "자동 배치로 이동" }),
+    page.getByRole("link", { name: "할 일 시간 추천으로 이동" }),
   ).toHaveCount(0);
 });
