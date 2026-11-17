@@ -54,7 +54,7 @@ export function AvailabilityPage() {
             className="button secondary"
             href="/planning?availability=saved"
           >
-            이 시간으로 자동 배치
+            이 조건으로 시간 추천받기
           </Link>
         }
       />
@@ -216,8 +216,8 @@ function AvailabilityEditor({
         </section>
         <section className="card">
           <p className="small muted">
-            이미 등록한 일정은 옮기지 않습니다. 가능 시간을 바꾼 뒤에는 자동
-            배치 미리보기를 새로 만들어 주세요.
+            이미 등록한 일정은 옮기지 않습니다. 가능 시간을 바꾼 뒤에는 추천
+            시간을 다시 확인해 주세요.
           </p>
           {error && <ErrorNotice message={error} />}
           {error && (

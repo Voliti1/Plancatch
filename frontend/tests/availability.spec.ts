@@ -69,7 +69,8 @@ test("saved weekly hours and date exception survive navigation and enable accoun
       () => document.documentElement.scrollWidth > innerWidth,
     ),
   ).toBe(false);
-  await page.getByRole("link", { name: "이 시간으로 자동 배치" }).click();
+  await page.getByRole("link", { name: "이 조건으로 시간 추천받기" }).click();
+  await page.getByText("추천 조건", { exact: true }).click();
   await expect(
     page.getByLabel("저장한 가능 시간과 날짜별 예외 사용"),
   ).toBeChecked();
@@ -165,11 +166,12 @@ test("automatic preview explicitly uses account hours when selected", async ({
       },
     });
   });
-  await page.getByRole("link", { name: "이 시간으로 자동 배치" }).click();
+  await page.getByRole("link", { name: "이 조건으로 시간 추천받기" }).click();
   await page.getByRole("combobox", { name: "할 일 제목 검색" }).focus();
   await page.getByRole("checkbox", { name: /가능 시간 검사/ }).check();
+  await page.getByRole("button", { name: "할 일 선택 완료" }).click();
   await page
-    .getByRole("button", { name: "배치 미리보기 만들기", exact: true })
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
   await expect.poll(() => usesSaved).toBe(true);
 });
@@ -180,7 +182,7 @@ test("leaving unsaved working hours asks before discarding", async ({
   await setup(page);
   await page.getByLabel("월요일 1 시작", { exact: true }).fill("11:00");
   page.once("dialog", (dialog) => dialog.dismiss());
-  await page.getByRole("link", { name: "이 시간으로 자동 배치" }).click();
+  await page.getByRole("link", { name: "이 조건으로 시간 추천받기" }).click();
   await expect(page).toHaveURL(/\/planning\/availability$/);
   await expect(page.getByLabel("월요일 1 시작", { exact: true })).toHaveValue(
     "11:00",

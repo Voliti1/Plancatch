@@ -57,7 +57,7 @@ export function EventForm({
     if (pending.current || blocked || !hydrated) return;
     setError("");
     if (!start || !end) {
-      setError("배치 시작과 배치 종료를 입력해 주세요.");
+      setError("시작 시간과 종료 시간을 입력해 주세요.");
       return;
     }
     const start_at =
@@ -69,7 +69,7 @@ export function EventForm({
         ? initial.end_at
         : seoulInputToUtc(end);
     if (Date.parse(start_at) >= Date.parse(end_at)) {
-      setError("배치 종료는 시작보다 늦어야 합니다.");
+      setError("종료 시간은 시작 시간보다 늦어야 합니다.");
       return;
     }
     pending.current = true;
@@ -105,11 +105,11 @@ export function EventForm({
       onChangeCapture={overlap.clear}
       noValidate
     >
-      <h3>{initial ? "배치 시간 수정" : "캘린더에 배치"}</h3>
+      <h3>{initial ? "캘린더 시간 수정" : "캘린더에 시간 추가"}</h3>
       <fieldset disabled={busy || !hydrated}>
         <div className="form-grid">
           <label htmlFor={`${id}-start`}>
-            배치 시작
+            시작 시간
             <input
               id={`${id}-start`}
               type="datetime-local"
@@ -119,7 +119,7 @@ export function EventForm({
             />
           </label>
           <label htmlFor={`${id}-end`}>
-            배치 종료
+            종료 시간
             <input
               id={`${id}-end`}
               type="datetime-local"
@@ -131,7 +131,7 @@ export function EventForm({
         </div>
         {initial && (
           <label htmlFor={`${id}-status`}>
-            배치 상태
+            시간 상태
             <select
               id={`${id}-status`}
               value={status}
@@ -165,8 +165,8 @@ export function EventForm({
                 ? "겹침 확인 중…"
                 : "저장 중…"
               : initial
-                ? "배치 변경 저장"
-                : "캘린더에 배치"}
+                ? "시간 변경 저장"
+                : "캘린더에 저장"}
           </button>
         </div>
       </fieldset>

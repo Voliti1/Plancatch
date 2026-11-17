@@ -229,11 +229,11 @@ function Planner({
             <>
               <p role="status">
                 할 일 {plan.approved_task_ids.length}개와 작업 순서를
-                등록했습니다. 캘린더 시간은 자동 배치에서 확인 후 정할 수
+                등록했습니다. 할 일 시간 추천에서 가능한 시간을 확인할 수
                 있습니다.
               </p>
               <Link className="button" href="/planning">
-                자동 배치로 이동
+                할 일 시간 추천으로 이동
               </Link>
             </>
           ) : plan.status === "rejected" ? (

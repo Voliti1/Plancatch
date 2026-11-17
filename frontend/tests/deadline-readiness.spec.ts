@@ -164,7 +164,7 @@ test("read-only server assessment displays Korean status, safety date and work t
   await expect(panel.getByText("확인 필요", { exact: true })).toBeVisible();
   expect(reads).toBe(2);
   await expect(
-    panel.getByRole("link", { name: "자동 배치로 시간 확인 →" }),
+    panel.getByRole("link", { name: "할 일 시간 추천받기 →" }),
   ).toHaveAttribute("href", "/planning");
   await page.getByRole("button", { name: "다크 모드로 전환" }).click();
   await panel.screenshot({

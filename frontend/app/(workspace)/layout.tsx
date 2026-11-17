@@ -12,7 +12,7 @@ const nav = [
   ["/sources", "▤", "원본 자료"],
   ["/deadlines", "◷", "일정"],
   ["/calendar", "▦", "캘린더"],
-  ["/planning", "▥", "자동 배치"],
+  ["/planning", "▥", "할 일 시간 추천"],
   ["/settings/google-calendar", "↗", "구글 캘린더 연결"],
 ];
 export default function WorkspaceLayout({

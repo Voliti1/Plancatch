@@ -226,7 +226,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
               <span className="small muted">
                 확인 시각 {formatSeoul(data.assessed_at)}
               </span>
-              <Link href="/planning">자동 배치로 시간 확인 →</Link>
+              <Link href="/planning">할 일 시간 추천받기 →</Link>
             </div>
           </>
         )

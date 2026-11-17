@@ -103,6 +103,11 @@ export function PlanningTaskPicker({
   }
   const hasMore = currentExtra?.has_more ?? tasks.data?.has_more;
   const waiting = search.trim() !== query;
+  const pickerAction = open
+    ? selected.length
+      ? "선택 완료"
+      : "목록 닫기"
+    : "목록 열기";
   return (
     <div
       className="planning-picker"
@@ -124,7 +129,7 @@ export function PlanningTaskPicker({
           role="combobox"
           type="search"
           autoComplete="off"
-          placeholder="제목을 검색하거나 목록에서 선택하세요"
+          placeholder="할 일 제목을 입력하세요"
           aria-expanded={open}
           aria-controls={panel}
           aria-haspopup="dialog"
@@ -154,18 +159,18 @@ export function PlanningTaskPicker({
         <button
           type="button"
           className="secondary"
-          aria-label={open ? "할 일 목록 닫기" : "할 일 목록 열기"}
+          aria-label={`할 일 ${pickerAction}`}
           aria-expanded={open}
           aria-controls={panel}
           onClick={() => setOpen(!open)}
         >
-          ⌄
+          {pickerAction}
         </button>
         {open && (
           <div
             id={panel}
             role="dialog"
-            aria-label="배치할 할 일 선택"
+            aria-label="시간을 정할 할 일 선택"
             className="planning-picker-panel"
           >
             <p className="small muted">
@@ -189,7 +194,7 @@ export function PlanningTaskPicker({
                 {!sorted.length && (
                   <p className="notice">
                     {replaceExisting
-                      ? "재배치할 할 일이 없습니다. 검색어를 바꾸거나 아직 시작하지 않은 확정 배치가 있는 유동 할 일을 확인해 주세요."
+                      ? "시간을 다시 정할 할 일이 없습니다. 검색어를 바꾸거나 아직 시작하지 않은 확정 배치가 있는 유동 할 일을 확인해 주세요."
                       : "검색 결과가 없습니다. 다른 제목을 입력하거나 유동 작업을 등록해 주세요."}
                   </p>
                 )}
