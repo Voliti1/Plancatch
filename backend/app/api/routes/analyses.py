@@ -30,6 +30,7 @@ from app.services.ai_analysis import (
     slots,
 )
 from app.services.html_analysis import HTML_MODEL, matching_period
+from app.services.processing_recovery import INTERRUPTED, begin_processing
 from app.services.url_deadlines import URL_MODEL
 
 router = APIRouter(tags=["ai-analyses"])
@@ -93,6 +94,7 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
         previous = select(Analysis).where(
             Analysis.source_id == source.id, Analysis.user_id == current_user.id,
             Analysis.input_hash == snapshot_hash,
+            Analysis.error_message.is_distinct_from(INTERRUPTED),
         )
         if source.source_type == "url":
             previous = previous.where(Analysis.model.in_([HTML_MODEL, URL_MODEL]))
@@ -113,10 +115,11 @@ def start_analysis(source_id: uuid.UUID, payload: AnalysisRequest,
         analysis = Analysis(user_id=current_user.id, source_id=source.id,
                             input_text=source.extracted_text,
                             input_hash=content_hash(source.extracted_text), model=model)
+        run_id = begin_processing(analysis)
         db.add(analysis)
         db.commit()
         db.refresh(analysis)
-        background_tasks.add_task(process_analysis, analysis.id, db.get_bind())
+        background_tasks.add_task(process_analysis, analysis.id, db.get_bind(), run_id)
     except IntegrityError as exc:
         db.rollback()
         slots.release()

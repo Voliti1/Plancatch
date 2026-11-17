@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from threading import BoundedSemaphore
 
 from pydantic import ValidationError
+from sqlalchemy import select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -23,6 +24,7 @@ from app.services.deadline_dates import (
 )
 from app.services.extraction import DEFAULT_TIMEZONE_POLICY, STRUCTURED_DATE_NOTICES
 from app.services.html_analysis import HTML_MODEL
+from app.services.processing_recovery import ProcessingLease, finish_processing
 from app.services.saramin_period import CONFLICT as PERIOD_CONFLICT
 from app.services.saramin_period import UNRESOLVED as PERIOD_UNRESOLVED
 from app.services.saramin_period import read_period
@@ -265,8 +267,11 @@ def analyze_text(text: str, model: str) -> ProviderResult:
         raise AIError("ai_invalid_result") from exc
 
 
-def process_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
+def process_analysis(analysis_id: uuid.UUID, engine: Engine, run_id: uuid.UUID | None = None) -> None:
+    lease = ProcessingLease(engine, analysis_id=analysis_id, run_id=run_id)
     try:
+        if not lease.start():
+            return
         with Session(engine) as db:
             analysis = db.get(Analysis, analysis_id)
             if analysis is None or analysis.status != "processing":
@@ -304,10 +309,12 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine) -> None:
         except Exception:  # noqa: BLE001 -- do not persist secrets from exception messages
             values = {"status": "failed", "error_message": "ai_processing_failed"}
         with Session(engine) as db:
-            analysis = db.get(Analysis, analysis_id)
-            if analysis is not None and analysis.status == "processing":
+            analysis = db.scalar(select(Analysis).where(Analysis.id == analysis_id).with_for_update())
+            if analysis is not None and lease.owns(analysis):
                 for field, value in values.items():
                     setattr(analysis, field, value)
+                finish_processing(analysis)
                 db.commit()
     finally:
+        lease.close()
         slots.release()

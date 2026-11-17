@@ -142,12 +142,15 @@ def start_file_analysis(source: Source, payload: AnalysisRequest, db: DatabaseSe
     try:
         analysis = Analysis(user_id=source.user_id, source_id=source.id,
             input_text="파일 분석 준비 중", input_hash=digest, model=model)
+        from app.services.processing_recovery import begin_processing
+        run_id = begin_processing(analysis)
+        begin_processing(source, run_id)
         source.processing_status = "processing"
         source.error_message = None
         db.add(analysis)
         db.commit()
         db.refresh(analysis)
-        background_tasks.add_task(process_file_analysis, analysis.id, db.get_bind(), payload.allow_external_ai)
+        background_tasks.add_task(process_file_analysis, analysis.id, db.get_bind(), payload.allow_external_ai, run_id)
         return analysis
     except Exception:
         db.rollback()

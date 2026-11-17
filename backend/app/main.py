@@ -18,6 +18,7 @@ async def lifespan(application):
     """Poll committed intents; tests with a replaced DB never start a real worker."""
     stop = asyncio.Event()
     task = None
+    recovery_task = None
     if getattr(get_settings(), "db_host", None) and get_db not in application.dependency_overrides:
         async def worker():
             from app.services.google_sync import run_batch
@@ -33,12 +34,33 @@ async def lifespan(application):
                 except TimeoutError:
                     pass
         task = asyncio.create_task(worker())
+        async def recovery_worker():
+            from app.services.processing_recovery import (
+                RECOVERY_SECONDS,
+                recover_interrupted,
+            )
+            while not stop.is_set():
+                delay = RECOVERY_SECONDS
+                try:
+                    counts = await asyncio.to_thread(recover_interrupted, get_engine())
+                    if any(counts.values()):
+                        logging.getLogger(__name__).info("Interrupted processing recovered: %s", counts)
+                except Exception as error:  # noqa: BLE001 - preserve jobs on temporary DB failures.
+                    logging.getLogger(__name__).warning("Processing recovery unavailable: %s", type(error).__name__)
+                    delay = 30
+                try:
+                    await asyncio.wait_for(stop.wait(), timeout=delay)
+                except TimeoutError:
+                    pass
+        recovery_task = asyncio.create_task(recovery_worker())
     try:
         yield
     finally:
         stop.set()
         if task:
             await task
+        if recovery_task:
+            await recovery_task
 
 
 def create_app() -> FastAPI:
