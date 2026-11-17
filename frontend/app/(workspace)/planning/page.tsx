@@ -6,16 +6,23 @@ export default async function Page({
     plan?: string | string[];
     mode?: string;
     availability?: string;
+    task?: string | string[];
+    retry?: string | string[];
   }>;
 }) {
-  const { plan, mode, availability } = await searchParams;
+  const { plan, mode, availability, task, retry } = await searchParams;
+  const retryId = typeof retry === "string" ? retry : undefined;
+  const taskId = typeof task === "string" ? task : undefined;
+  const planId = retryId ?? (typeof plan === "string" ? plan : undefined);
   const useSavedAvailability = availability !== "custom";
   return (
     <AutoSchedulePage
-      key={`${typeof plan === "string" ? plan : mode === "replan" ? "replan" : "new"}:${useSavedAvailability ? "saved" : "custom"}`}
+      key={`${planId ?? ""}:${mode ?? ""}:${useSavedAvailability}:${taskId ?? ""}:${Boolean(retryId)}`}
       initialReplace={mode === "replan"}
       initialSavedAvailability={useSavedAvailability}
-      initialPlanId={typeof plan === "string" ? plan : undefined}
+      initialPlanId={planId}
+      initialTaskId={taskId}
+      retryPlan={Boolean(retryId)}
     />
   );
 }

@@ -46,3 +46,36 @@
     flex-basis: 180px;
   }
 }
+
+.availability-bulk-days,
+.availability-day-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+.availability-bulk-days label {
+  flex-direction: row;
+  align-items: center;
+  min-height: 44px;
+  margin: 0;
+}
+.availability-bulk-days input {
+  width: auto;
+}
+.availability-preset-preview,
+.availability-bulk {
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+}
+.availability-bulk legend {
+  font-weight: 650;
+}
+.availability-quick summary {
+  align-content: center;
+  cursor: pointer;
+  font-weight: 600;
+  min-height: 44px;
+}

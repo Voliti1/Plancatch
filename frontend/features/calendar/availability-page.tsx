@@ -10,7 +10,7 @@ import { todaySeoul } from "./dates";
 import "./availability.css";
 
 type Window = { start_minutes: number; end_minutes: number };
-type Day = { weekday: number; intervals: Window[] };
+type Day = { weekday: number; intervals: Window[]; rest_day?: boolean };
 type Exception = { date: string; intervals: Window[] };
 export type Availability = {
   revision: number;
@@ -34,6 +34,180 @@ const clock = (minutes: number) =>
 function minute(value: string) {
   const [h, m] = value.split(":").map(Number);
   return h * 60 + m;
+}
+const presets = [
+  {
+    id: "office",
+    label: "평일 오전 9시~오후 6시",
+    count: 5,
+    start: 540,
+    end: 1080,
+  },
+  {
+    id: "evening",
+    label: "평일 저녁 오후 6시~10시",
+    count: 5,
+    start: 1080,
+    end: 1320,
+  },
+  {
+    id: "daily",
+    label: "매일 오전 9시~오후 10시",
+    count: 7,
+    start: 540,
+    end: 1320,
+  },
+];
+function validateWindows(windows: Window[]) {
+  const sorted = [...windows].sort((a, b) => a.start_minutes - b.start_minutes);
+  if (sorted.some((window) => window.end_minutes <= window.start_minutes))
+    return "종료 시간은 시작 시간보다 늦어야 합니다.";
+  if (
+    sorted.some(
+      (window, i) => i > 0 && sorted[i - 1].end_minutes > window.start_minutes,
+    )
+  )
+    return "시간대가 서로 겹쳐요.";
+  return "";
+}
+
+function QuickHours({
+  onPreset,
+  onBulk,
+}: {
+  onPreset: (weekly: Day[]) => void;
+  onBulk: (days: number[], interval: Window) => void;
+}) {
+  const [presetId, setPresetId] = useState("custom");
+  const preset = presets.find((item) => item.id === presetId);
+  const [selected, setSelected] = useState<number[]>([]);
+  const [start, setStart] = useState("09:00");
+  const [end, setEnd] = useState("18:00");
+  const [error, setError] = useState("");
+  return (
+    <section className="card availability-quick">
+      <h2>빠른 설정</h2>
+      <label>
+        기본 시간 프리셋
+        <select
+          value={presetId}
+          onChange={(event) => setPresetId(event.target.value)}
+        >
+          <option value="custom">직접 설정</option>
+          {presets.map((item) => (
+            <option key={item.id} value={item.id}>
+              {item.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {preset && (
+        <div className="availability-preset-preview">
+          <p className="small" role="status">
+            {preset.count === 5 ? "월~금" : "월~일"} {clock(preset.start)}~
+            {clock(preset.end)}
+            {preset.count === 5 ? " · 주말은 휴식일" : ""}. 적용한 뒤 아래에서
+            저장하면 반영됩니다.
+          </p>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              onPreset(
+                days.map((_, weekday) =>
+                  weekday < preset.count
+                    ? {
+                        weekday,
+                        intervals: [
+                          {
+                            start_minutes: preset.start,
+                            end_minutes: preset.end,
+                          },
+                        ],
+                      }
+                    : { weekday, intervals: [], rest_day: true },
+                ),
+              );
+              setPresetId("custom");
+            }}
+          >
+            이 기본 시간 적용
+          </button>
+        </div>
+      )}
+      <details>
+        <summary>여러 요일에 같은 시간 적용</summary>
+        <fieldset className="availability-bulk">
+          <legend>적용할 요일</legend>
+          <div className="availability-bulk-days">
+            {days.map((label, weekday) => (
+              <label className="checkbox-row" key={label}>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(weekday)}
+                  onChange={(event) =>
+                    setSelected(
+                      event.target.checked
+                        ? [...selected, weekday]
+                        : selected.filter((d) => d !== weekday),
+                    )
+                  }
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div className="availability-window">
+            <label>
+              일괄 적용 시작
+              <input
+                type="time"
+                value={start}
+                onChange={(event) => {
+                  setStart(event.target.value);
+                  setError("");
+                }}
+              />
+            </label>
+            <label>
+              일괄 적용 종료
+              <input
+                type="time"
+                value={end}
+                onChange={(event) => {
+                  setEnd(event.target.value);
+                  setError("");
+                }}
+              />
+            </label>
+          </div>
+          <p className="small muted">
+            선택한 요일의 기존 시간대를 이 시간으로 교체합니다.
+          </p>
+          {error && <ErrorNotice message={error} />}
+          <button
+            type="button"
+            className="secondary"
+            disabled={!selected.length || !start || !end}
+            onClick={() => {
+              const interval = {
+                start_minutes: minute(start),
+                end_minutes: minute(end) || 1440,
+              };
+              const message = validateWindows([interval]);
+              if (message) {
+                setError(message);
+                return;
+              }
+              onBulk(selected, interval);
+            }}
+          >
+            선택한 요일에 적용
+          </button>
+        </fieldset>
+      </details>
+    </section>
+  );
 }
 
 export function AvailabilityPage() {
@@ -99,6 +273,17 @@ function AvailabilityEditor({
       onSubmit={async (e) => {
         e.preventDefault();
         if (pending.current) return;
+        for (const entry of [...draft.weekly, ...draft.exceptions]) {
+          const message = validateWindows(entry.intervals);
+          if (message) {
+            setError(
+              ("weekday" in entry ? days[entry.weekday] : entry.date) +
+                ": " +
+                message,
+            );
+            return;
+          }
+        }
         pending.current = true;
         setBusy(true);
         setError("");
@@ -120,22 +305,48 @@ function AvailabilityEditor({
       }}
     >
       <fieldset disabled={busy}>
+        <QuickHours
+          onPreset={(weekly) => change({ ...draft, weekly })}
+          onBulk={(selected, interval) =>
+            change({
+              ...draft,
+              weekly: draft.weekly.map((item) =>
+                selected.includes(item.weekday)
+                  ? { weekday: item.weekday, intervals: [interval] }
+                  : item,
+              ),
+            })
+          }
+        />
         <section className="card">
           <h2>요일별 기본 시간</h2>
           <p className="small muted">
-            시간대는 하루에 최대 8개까지 나눌 수 있습니다. 시간대가 없으면 쉬는
-            날입니다. 종료의 00:00은 그날이 끝나는 자정입니다.
+            하루에 시간대를 최대 8개까지 추가할 수 있어요. 종료의 00:00은 그날이
+            끝나는 자정입니다.
           </p>
           {draft.weekly.map((entry) => (
             <WindowEditor
               key={entry.weekday}
               label={days[entry.weekday]}
               windows={entry.intervals}
+              resting={entry.rest_day ?? false}
+              onRestChange={(rest_day) =>
+                change({
+                  ...draft,
+                  weekly: draft.weekly.map((item) =>
+                    item.weekday === entry.weekday
+                      ? { ...item, rest_day }
+                      : item,
+                  ),
+                })
+              }
               onChange={(intervals) =>
                 change({
                   ...draft,
                   weekly: draft.weekly.map((d) =>
-                    d.weekday === entry.weekday ? { ...d, intervals } : d,
+                    d.weekday === entry.weekday
+                      ? { weekday: d.weekday, intervals }
+                      : d,
                   ),
                 })
               }
@@ -184,6 +395,7 @@ function AvailabilityEditor({
               <WindowEditor
                 label={entry.date}
                 windows={entry.intervals}
+                resting={!entry.intervals.length}
                 onChange={(intervals) =>
                   change({
                     ...draft,
@@ -244,16 +456,36 @@ function AvailabilityEditor({
 function WindowEditor({
   label,
   windows,
+  resting,
+  onRestChange,
   onChange,
 }: {
   label: string;
   windows: Window[];
+  resting: boolean;
+  onRestChange?: (value: boolean) => void;
   onChange: (value: Window[]) => void;
 }) {
+  const error = validateWindows(windows);
   return (
     <fieldset className="availability-day">
       <legend>{label}</legend>
-      {!windows.length && <span className="small muted">쉬는 날</span>}
+      {!windows.length && (
+        <div className="availability-day-status">
+          <span className="small muted">
+            {resting ? "휴식일" : "설정 없음"}
+          </span>
+          {onRestChange && (
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => onRestChange(!resting)}
+            >
+              {resting ? "휴식일 해제" : "휴식일로 설정"}
+            </button>
+          )}
+        </div>
+      )}
       {windows.map((window, i) => (
         <div className="availability-window" key={i}>
           <label>
@@ -306,6 +538,11 @@ function WindowEditor({
           </button>
         </div>
       ))}
+      {error && (
+        <p className="notice" role="alert">
+          {error}
+        </p>
+      )}
       <button
         type="button"
         className="secondary"

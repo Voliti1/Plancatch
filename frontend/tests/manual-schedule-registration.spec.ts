@@ -301,9 +301,9 @@ test("collapsed settings and memo keep their values across mode changes and save
   await expect(page.getByLabel("연결할 마감일", { exact: true })).toHaveValue(
     "deadline-1",
   );
-  await expect(page.getByLabel("작업 유형", { exact: true })).toHaveValue(
-    "fixed",
-  );
+  await expect(
+    page.getByRole("button", { name: "직접 시간 지정", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.getByLabel("예상 소요시간 (분, 선택)").fill("0");
   await page.getByText("상세 설정", { exact: true }).click();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
@@ -313,7 +313,15 @@ test("collapsed settings and memo keep their values across mode changes and save
   await page.getByText("상세 설정", { exact: true }).click();
   await page.getByLabel("예상 소요시간 (분, 선택)").fill("90");
   await page.getByLabel("우선순위", { exact: true }).selectOption("2");
-  await page.getByLabel("작업 유형", { exact: true }).selectOption("flexible");
+  await page
+    .getByRole("button", { name: "시간 미정으로 등록", exact: true })
+    .click();
+  await page
+    .getByLabel("가능 시작 일시 (선택)", { exact: true })
+    .fill("2026-12-31T23:30");
+  await page
+    .getByLabel("가능 종료 일시 (선택)", { exact: true })
+    .fill("2027-01-01T01:00");
   await page.getByLabel("완료한 작업으로 표시").check();
   await page.getByText("상세 설정", { exact: true }).click();
   await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
@@ -321,9 +329,11 @@ test("collapsed settings and memo keep their values across mode changes and save
   await expect(page.getByLabel("메모 (선택)", { exact: true })).toHaveValue(
     "  [테스트] 회의실 A  ",
   );
-  await expect(page.getByLabel("시작 일시", { exact: true })).toHaveValue(
-    "2026-12-31T23:30",
-  );
+  await expect(page.getByLabel("시작 일시", { exact: true })).toBeHidden();
+  await page.getByText("상세 설정", { exact: true }).click();
+  await expect(
+    page.getByLabel("가능 시작 일시 (선택)", { exact: true }),
+  ).toHaveValue("2026-12-31T23:30");
   const sent = page.waitForRequest(
     (request) =>
       request.method() === "POST" && request.url().endsWith("/api/tasks"),

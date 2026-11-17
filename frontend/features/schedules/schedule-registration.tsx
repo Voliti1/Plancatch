@@ -82,6 +82,7 @@ function RegistrationTabs<T extends string>({
 
 function ManualRegistration({
   initialMethod,
+  startWithoutTime,
   enabled,
   manualDraft,
   deadlineId,
@@ -91,6 +92,7 @@ function ManualRegistration({
   onSaveDeadline,
 }: {
   initialMethod: ManualMethod;
+  startWithoutTime?: boolean;
   enabled: boolean;
   manualDraft?: NaturalScheduleDraft;
   deadlineId?: string;
@@ -183,6 +185,7 @@ function ManualRegistration({
           <TaskForm
             {...formProps}
             draft={manualDraft}
+            initialScheduleType={startWithoutTime ? "flexible" : undefined}
             variant="calendar"
             submitLabel="일정 등록"
             disabled={saving}
@@ -214,10 +217,12 @@ export function ScheduleRegistration({
   initialMode = "source",
   deadlineId,
   manualDraft,
+  startWithoutTime,
 }: {
   initialMode?: RegistrationMode | "natural";
   deadlineId?: string;
   manualDraft?: NaturalScheduleDraft;
+  startWithoutTime?: boolean;
 }) {
   const router = useRouter();
   const id = useId();
@@ -320,6 +325,7 @@ export function ScheduleRegistration({
           <ManualRegistration
             enabled={mode === "manual"}
             initialMethod={initialMode === "natural" ? "sentence" : "direct"}
+            startWithoutTime={startWithoutTime}
             manualDraft={manualDraft}
             deadlineId={deadlineId}
             saving={saving}
