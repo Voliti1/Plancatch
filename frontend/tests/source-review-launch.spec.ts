@@ -77,6 +77,22 @@ async function workflow(page: Page, text = false) {
   );
   return {
     state,
+    interruptAnalysis: () => {
+      source = {
+        ...source,
+        processing_status: "extracted",
+        extracted_text: aiSource.extracted_text,
+        extracted_text_hash: "a".repeat(64),
+      };
+      result = {
+        ...readyAnalysis,
+        input_text: source.extracted_text!,
+        source_id: source.id,
+        model: text ? "test-synthetic" : "html:url:v1",
+        status: "failed",
+        error_message: "processing_interrupted",
+      };
+    },
     changeText: () => {
       source = {
         ...source,
@@ -86,6 +102,36 @@ async function workflow(page: Page, text = false) {
     },
   };
 }
+
+test("an interrupted URL review is retried on explicit navigation instead of reopening its failure", async ({
+  page,
+}) => {
+  const { state, interruptAnalysis } = await workflow(page);
+  interruptAnalysis();
+  await login(page);
+  await page.goto("/sources/saved-source/review");
+  await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
+  expect(state).toMatchObject({ creates: 0, extracts: 0, analyses: 1 });
+});
+
+test("an interrupted text review still needs consent before a new external request", async ({
+  page,
+}) => {
+  const { state, interruptAnalysis } = await workflow(page, true);
+  interruptAnalysis();
+  await login(page);
+  await page.goto("/sources/saved-source/review");
+  const button = page.getByRole("button", {
+    name: "동의하고 AI 검토 시작",
+    exact: true,
+  });
+  await expect(button).toBeDisabled();
+  expect(state.analyses).toBe(0);
+  await page.getByRole("checkbox").check();
+  await button.click();
+  await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
+  expect(state.analyses).toBe(1);
+});
 
 test("saving a URL proceeds to HTML review without detail clicks or AI transmission", async ({
   page,

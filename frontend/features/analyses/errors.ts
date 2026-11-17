@@ -1,6 +1,8 @@
 import { ApiError, errorMessage } from "@/lib/api/client";
 
 const messages: Record<string, string> = {
+  processing_interrupted:
+    "서버 작업이 중단되었습니다. 저장한 자료는 유지됩니다. 다시 추출하거나 분석을 다시 시작해 주세요.",
   html_too_complex:
     "페이지 구조를 읽기 어렵습니다. 필요한 내용을 텍스트나 캡처로 등록해 주세요.",
   invalid_or_unreachable_url:

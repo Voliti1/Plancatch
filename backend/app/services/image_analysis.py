@@ -116,9 +116,14 @@ def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
         raise AIError("ai_invalid_result") from exc
 
 
-def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external_ai: bool) -> None:
+def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external_ai: bool,
+                          run_id: uuid.UUID | None = None) -> None:
+    from app.services.processing_recovery import ProcessingLease, finish_processing
+    lease = ProcessingLease(engine, analysis_id=analysis_id, run_id=run_id)
     source_id = None
     try:
+        if not lease.start():
+            return
         with Session(engine) as db:
             analysis = db.get(Analysis, analysis_id)
             if not analysis or analysis.status != "processing":
@@ -157,7 +162,7 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
             # Same parent-before-child locking as source deletion and approval.
             source = db.scalar(select(Source).where(Source.id == source_id).with_for_update())
             analysis = db.scalar(select(Analysis).where(Analysis.id == analysis_id).with_for_update())
-            if (source and analysis and analysis.status == "processing" and source.source_type == source_type
+            if (source and analysis and lease.owns(analysis) and lease.owns(source) and source.source_type == source_type
                     and digest == file_hash(source.storage_key, source_type)):
                 prior_key = metadata_key(source.file_metadata)
                 new_key = metadata_key(metadata)
@@ -177,6 +182,7 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
                         analysis.status = "ready"
                         analysis.source_id = existing.id
                         analysis.reused_analysis_id = canonical.id
+                        finish_processing(analysis)
                         db.flush()
                         db.delete(source)
                         db.commit()
@@ -190,6 +196,8 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
                     "pending" if needs_consent else ("extracted" if values["status"] == "ready" else "failed")
                 )
                 source.error_message = None if needs_consent else values["error_message"]
+                finish_processing(source)
+                finish_processing(analysis)
                 if values["status"] == "ready":
                     source.extracted_text = values["input_text"]
                     source.file_metadata = metadata
@@ -197,4 +205,5 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
                         source.title = metadata["document_title"]
                 db.commit()
     finally:
+        lease.close()
         slots.release()

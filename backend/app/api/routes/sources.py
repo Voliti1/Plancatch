@@ -11,6 +11,7 @@ from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.source import SourceCreate, SourceResponse, SourceUpdate
+from app.services.processing_recovery import begin_processing
 from app.services.source_processing import process_source, slots
 
 router = APIRouter(prefix="/api/sources", tags=["sources"])
@@ -106,9 +107,11 @@ def request_source_analysis(
     if not slots.acquire(blocking=False):
         raise HTTPException(status_code=429, detail="Extraction capacity reached; retry later")
     try:
+        run_id = begin_processing(source)
         result = db.execute(update(Source).where(
             Source.id == source.id, Source.processing_status != "processing",
-        ).values(processing_status="processing", extracted_text=None, error_message=None))
+        ).values(processing_status="processing", extracted_text=None, error_message=None,
+                 processing_run_id=run_id, processing_lease_until=source.processing_lease_until))
         if result.rowcount != 1:
             raise HTTPException(status_code=409, detail="Source is already processing")
         db.commit()
@@ -117,7 +120,7 @@ def request_source_analysis(
         slots.release()
         raise
     db.refresh(source)
-    background_tasks.add_task(process_source, source.id, db.get_bind())
+    background_tasks.add_task(process_source, source.id, db.get_bind(), run_id)
     return source
 
 

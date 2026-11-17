@@ -131,6 +131,7 @@ export function SourceReview({
         const existing = history.find(
           (entry) =>
             entry.input_text === item.extracted_text &&
+            entry.error_message !== "processing_interrupted" &&
             (item.source_type !== "url" || entry.model.startsWith("html:")),
         );
         if (existing) {

@@ -27,6 +27,9 @@ class Analysis(Base):
         Index("uq_analyses_active_source", "source_id", unique=True,
               postgresql_where=text("status = 'processing'"),
               sqlite_where=text("status = 'processing'")),
+        Index("ix_analyses_processing_lease", "processing_lease_until",
+              postgresql_where=text("status = 'processing'"),
+              sqlite_where=text("status = 'processing'")),
     )
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -43,5 +46,7 @@ class Analysis(Base):
     warnings: Mapped[list] = mapped_column(JSON, default=list)
     approved_deadline_ids: Mapped[list] = mapped_column(JSON, default=list)
     error_message: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    processing_run_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    processing_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

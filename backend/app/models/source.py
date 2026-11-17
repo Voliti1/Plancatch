@@ -12,6 +12,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -24,6 +25,9 @@ class Source(Base):
     __tablename__ = "sources"
     __table_args__ = (
         Index("ix_sources_owner_filename", "user_id", "original_filename"),
+        Index("ix_sources_processing_lease", "processing_lease_until",
+              postgresql_where=text("processing_status = 'processing'"),
+              sqlite_where=text("processing_status = 'processing'")),
         CheckConstraint(
             "source_type IN ('url', 'pdf', 'image', 'text')",
             name="ck_sources_source_type",
@@ -53,6 +57,8 @@ class Source(Base):
         server_default="pending",
     )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    processing_run_id: Mapped[uuid.UUID | None] = mapped_column(nullable=True)
+    processing_lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
