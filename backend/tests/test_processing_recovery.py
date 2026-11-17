@@ -73,6 +73,29 @@ def test_file_source_and_analysis_are_recovered_together(engine,kind):
         assert source.storage_key=='keep-private-key'
 
 
+@pytest.mark.parametrize('expire_source', [False, True])
+def test_interrupted_image_correction_keeps_previous_text_usable(engine, expire_source):
+    source_id, analysis_id, token = saved(engine, 'image', with_analysis=True)
+    with Session(engine) as db:
+        source, analysis = db.get(Source, source_id), db.get(Analysis, analysis_id)
+        analysis.model = 'image:corrected-text'
+        analysis.input_text = 'new correction not yet accepted'
+        analysis.processing_lease_until = recovery.now() - timedelta(seconds=1)
+        if expire_source:
+            source.processing_lease_until = analysis.processing_lease_until
+        db.commit()
+    lease = recovery.ProcessingLease(engine, analysis_id=analysis_id, run_id=token)
+    assert recovery.recover_interrupted(engine) == {'sources': 1, 'analyses': 1}
+    with Session(engine) as db:
+        source, analysis = db.get(Source, source_id), db.get(Analysis, analysis_id)
+        assert source.processing_status == 'extracted' and source.error_message is None
+        assert source.extracted_text == 'keep snapshot' and source.title == 'keep title'
+        assert analysis.status == 'failed' and analysis.error_message == recovery.INTERRUPTED
+        assert not lease.owns(source) and not lease.owns(analysis)
+        assert source.processing_run_id is analysis.processing_run_id is None
+    assert recovery.recover_interrupted(engine) == {'sources': 0, 'analyses': 0}
+
+
 def test_healthy_lease_on_another_worker_is_not_recovered_and_renewal_extends_it(engine,monkeypatch):
     source_id,_,token=saved(engine)
     start=recovery.now()

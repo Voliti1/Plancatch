@@ -46,7 +46,12 @@ class ProviderResult(BaseModel):
         return values
 
 
+class FileProposal(Proposal):
+    evidence_page: int | None = Field(default=None, ge=1)
+
+
 class FileResult(ProviderResult):
+    deadlines: list[FileProposal] = Field(max_length=30)
     transcript: str = Field(min_length=1, max_length=40000)
 
 
@@ -73,7 +78,7 @@ class DateChoice(BaseModel):
     time_defaulted: bool = False
 
 
-class Candidate(Proposal):
+class Candidate(FileProposal):
     id: uuid.UUID
     selected: bool
     time_defaulted: bool = False
@@ -111,6 +116,20 @@ class ReviewRequest(BaseModel):
 class DecisionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     revision: int = Field(ge=1)
+
+
+class ImageCorrectionRequest(DecisionRequest):
+    corrected_text: str = Field(min_length=1, max_length=40000)
+    allow_external_ai: bool = Field(strict=True)
+
+    @field_validator("corrected_text")
+    @classmethod
+    def nonblank_text(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Corrected text must not be blank")
+        if "\x00" in value:
+            raise ValueError("Corrected text must not contain null characters")
+        return value.strip()
 
 
 class ApprovalRequest(DecisionRequest):

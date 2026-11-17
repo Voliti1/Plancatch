@@ -13,7 +13,7 @@ from app.models.analysis import Analysis
 from app.models.deadline import Deadline
 from app.models.source import Source
 from app.schemas.analysis import FileResult
-from app.services.ai_analysis import AIError, provider_request, slots
+from app.services.ai_analysis import AIError, analyze_text, provider_request, slots
 from app.services.deadline_dates import (
     UNRESOLVED_FILE_CANDIDATE,
     UNRESOLVED_FILE_TIME,
@@ -116,8 +116,14 @@ def analyze_file(data: bytes, model: str, source_type: str) -> FileResult:
         raise AIError("ai_invalid_result") from exc
 
 
-def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external_ai: bool,
-                          run_id: uuid.UUID | None = None) -> None:
+IMAGE_CORRECTION_MODEL = "image:corrected-text"
+
+
+def process_file_analysis(
+    analysis_id: uuid.UUID, engine: Engine, allow_external_ai: bool,
+    run_id: uuid.UUID | None = None,
+    *, correction_model: str | None = None,
+) -> None:
     from app.services.processing_recovery import ProcessingLease, finish_processing
     lease = ProcessingLease(engine, analysis_id=analysis_id, run_id=run_id)
     source_id = None
@@ -133,6 +139,9 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
             if source is None or source.user_id != analysis.user_id or source.source_type not in FILE_EXTENSIONS:
                 raise AIError("ai_input_invalid")
             source_type = source.source_type
+            corrected_text = analysis.input_text if correction_model is not None else None
+            if corrected_text is not None and (source_type != "image" or not allow_external_ai):
+                raise AIError("ai_input_invalid")
             user_id = source.user_id
             key, model, digest = source.storage_key, analysis.model.removeprefix(f"{source_type}:"), analysis.input_hash
             title_entered = (source.file_metadata or {}).get("title_entered", bool(source.title))
@@ -140,7 +149,11 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
         metadata = None
         try:
             data = read_file(key, source_type)
-            if source_type == "pdf":
+            if corrected_text is not None:
+                parsed = analyze_text(corrected_text, correction_model)
+                result = FileResult(transcript=corrected_text, **parsed.model_dump())
+                output_model = IMAGE_CORRECTION_MODEL
+            elif source_type == "pdf":
                 result, output_model = analyze_pdf(data, allow_external_ai=allow_external_ai)
             else:
                 result = analyze_file(data, model, source_type)
@@ -150,7 +163,9 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
                 for item in result.deadlines:
                     item.title = source_title
             values = {"status":"ready", "model":output_model, "input_text":result.transcript, "candidates":[
-                dict(item.model_dump(mode="json"), id=str(uuid.uuid4()), selected=False)
+                dict(item.model_dump(
+                    mode="json", exclude={"evidence_page"} if source_type == "image" else None,
+                ), id=str(uuid.uuid4()), selected=False)
                 for item in result.deadlines], "warnings":result.warnings, "error_message":None}
         except AIError as exc:
             values = {"status":"failed", "error_message":str(exc)}
@@ -166,7 +181,7 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
                     and digest == file_hash(source.storage_key, source_type)):
                 prior_key = metadata_key(source.file_metadata)
                 new_key = metadata_key(metadata)
-                if (new_key and not prior_key and source.original_filename
+                if (corrected_text is None and new_key and not prior_key and source.original_filename
                         and db.scalar(select(Deadline.id).where(Deadline.source_id == source.id).limit(1)) is None
                         and db.scalar(select(Analysis.id).where(
                             Analysis.source_id == source.id, Analysis.id != analysis.id,
@@ -192,10 +207,15 @@ def process_file_analysis(analysis_id: uuid.UUID, engine: Engine, allow_external
                 for name, value in values.items():
                     setattr(analysis, name, value)
                 needs_consent = values["error_message"] == SCAN_CONSENT_REQUIRED
-                source.processing_status = (
-                    "pending" if needs_consent else ("extracted" if values["status"] == "ready" else "failed")
-                )
-                source.error_message = None if needs_consent else values["error_message"]
+                if corrected_text is not None:
+                    # A failed reanalysis must leave the last successful text usable.
+                    source.processing_status = "extracted"
+                    source.error_message = None
+                else:
+                    source.processing_status = (
+                        "pending" if needs_consent else ("extracted" if values["status"] == "ready" else "failed")
+                    )
+                    source.error_message = None if needs_consent else values["error_message"]
                 finish_processing(source)
                 finish_processing(analysis)
                 if values["status"] == "ready":

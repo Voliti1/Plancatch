@@ -26,7 +26,7 @@ const analysis = {
   warnings: [],
 };
 
-test("review shows summary and brief evidence without full source or a full-source control", async ({
+test("review opens the stored snapshot on demand and preserves candidate edits", async ({
   page,
 }) => {
   const state = await mockAnalyses(page, [analysis], source);
@@ -43,8 +43,8 @@ test("review shows summary and brief evidence without full source or a full-sour
     page.getByRole("heading", { name: "분석에 사용한 원문" }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: /전체.*원문|전체.*추출|자세히 보기/ }),
-  ).toHaveCount(0);
+    page.getByRole("button", { name: "분석 원문 보기", exact: true }),
+  ).toHaveAttribute("aria-expanded", "false");
   await expect(page.locator("main")).not.toContainText(
     "광고 메뉴 추천 공고 숨길 내용",
   );
@@ -56,6 +56,27 @@ test("review shows summary and brief evidence without full source or a full-sour
   await page
     .getByLabel("후보 1 제목", { exact: true })
     .fill("수정한 일정 제목");
+  await page
+    .getByRole("button", { name: "분석 원문 보기", exact: true })
+    .click();
+  const stored = page.getByRole("region", { name: "저장된 분석 원문" });
+  await expect(stored).toContainText("불필요한 전체 원문 끝");
+  await expect(stored).not.toContainText("수정된 다른 회사");
+  await expect(
+    page.getByRole("heading", { name: "분석에 사용한 원문" }),
+  ).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBeTruthy();
+  await page
+    .getByRole("button", { name: "분석 원문 접기", exact: true })
+    .click();
+  await expect(stored).toHaveCount(0);
+  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
+    "수정한 일정 제목",
+  );
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();

@@ -9,6 +9,7 @@ export interface CandidateEdit {
 }
 export interface AnalysisCandidate extends CandidateEdit {
   evidence_text: string;
+  evidence_page?: number | null;
   confidence: number;
   time_defaulted?: boolean;
   suggested_due_at?: string | null;

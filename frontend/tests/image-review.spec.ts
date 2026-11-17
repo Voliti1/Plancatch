@@ -143,6 +143,85 @@ test("image upload requires consent, preserves missing time and original preview
   });
 });
 
+test("image correction requires fresh consent, preserves text after failure and opens a separate review", async ({
+  page,
+}) => {
+  const state = await mockAnalyses(page, [result], image);
+  const corrected = "접수 마감: 2026-11-02 18:00";
+  let requests = 0;
+  await page.route("**/test-api/api/sources/ai-source/image", (route) =>
+    route.fulfill({ body: png, contentType: "image/png" }),
+  );
+  await page.route(
+    "**/test-api/api/ai-analyses/analysis-1/correct-image-text",
+    (route) => {
+      requests++;
+      expect(route.request().postDataJSON()).toEqual({
+        revision: 1,
+        corrected_text: corrected,
+        allow_external_ai: true,
+      });
+      if (requests === 1)
+        return route.fulfill({
+          status: 429,
+          json: { detail: "AI capacity reached" },
+        });
+      const updated = {
+        ...result,
+        id: "analysis-corrected",
+        model: "image:corrected-text",
+        input_text: corrected,
+        warnings: [],
+        date_choices: [],
+        status: "ready" as const,
+        candidates: [
+          {
+            ...result.candidates[0],
+            due_at: "2026-11-02T18:00:00+09:00",
+            evidence_text: corrected,
+          },
+        ],
+      };
+      state.analyses.push(updated);
+      return route.fulfill({
+        status: 202,
+        json: { ...updated, status: "processing", candidates: [] },
+      });
+    },
+  );
+  await login(page);
+  await page.goto("/analyses/analysis-1");
+  await page.getByRole("button", { name: "분석 원문 보기" }).click();
+  await page.getByText("이미지에서 읽은 글 교정", { exact: true }).click();
+  const input = page.getByLabel("교정할 원문");
+  const submit = page.getByRole("button", { name: "교정한 글로 다시 분석" });
+  await expect(input).toHaveValue(result.input_text);
+  await input.fill(corrected);
+  await expect(submit).toBeDisabled();
+  expect(requests).toBe(0);
+  await page
+    .getByRole("checkbox", { name: /교정한 글만 Google Gemini/ })
+    .check();
+  await submit.click();
+  await expect(
+    page.getByRole("form", { name: "이미지 원문 교정" }).getByRole("alert"),
+  ).toContainText("요청 한도");
+  await expect(input).toHaveValue(corrected);
+  await submit.click();
+  await page
+    .getByRole("link", { name: "교정한 글의 검토 결과 보기 →" })
+    .click();
+  await expect(page).toHaveURL(/\/analyses\/analysis-corrected$/);
+  await expect(page.getByLabel("후보 1 마감일 (한국 시간)")).toHaveValue(
+    "2026-11-02T18:00",
+  );
+  await expect(
+    page.getByRole("checkbox", { name: "후보 1 포함" }),
+  ).not.toBeChecked();
+  expect(state.deadlines).toHaveLength(0);
+  expect(requests).toBe(2);
+});
+
 test("text PDF opens review without consent and allows selecting a deadline candidate", async ({
   page,
 }) => {
@@ -161,6 +240,7 @@ test("text PDF opens review without consent and allows selecting a deadline cand
     candidates: readyAnalysis.candidates.map((item, index) => ({
       ...item,
       title: index === 0 ? "서류 접수" : "추가 서류 제출",
+      evidence_page: index === 0 ? 2 : 3,
       due_at:
         index === 0 ? "2026-11-09T18:00:00+09:00" : "2026-11-12T17:00:00+09:00",
       selected: false,
@@ -202,6 +282,8 @@ test("text PDF opens review without consent and allows selecting a deadline cand
   await expect(
     page.getByLabel("후보 2 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-11-12T17:00");
+  await expect(page.getByText("PDF 2페이지", { exact: true })).toBeVisible();
+  await expect(page.getByText("PDF 3페이지", { exact: true })).toBeVisible();
   await expect(
     page.getByRole("button", { name: "동의하고 스캔 읽기" }),
   ).toHaveCount(0);
@@ -214,6 +296,7 @@ test("text PDF opens review without consent and allows selecting a deadline cand
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료" }),
   ).toBeVisible();
+  await expect(page.getByText("PDF 3페이지", { exact: true })).toBeVisible();
   expect(state.deadlines.map((item) => item.title)).toEqual(["추가 서류 제출"]);
 });
 

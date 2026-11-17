@@ -29,6 +29,21 @@ export const analysesApi = {
     api<Analysis>(path(id), { signal }),
   recoverHtml: (id: string) =>
     api<Analysis>(`${path(id)}/recover-html`, { method: "POST" }),
+  correctImageText: (
+    id: string,
+    revision: number,
+    text: string,
+    signal: AbortSignal,
+  ) =>
+    api<Analysis>(`${path(id)}/correct-image-text`, {
+      method: "POST",
+      body: JSON.stringify({
+        revision,
+        corrected_text: text,
+        allow_external_ai: true,
+      }),
+      signal,
+    }),
   review: (
     id: string,
     revision: number,
