@@ -70,6 +70,10 @@ const messages: Record<string, string> = {
   ai_provider_error:
     "AI 서비스에서 분석을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.",
   ai_processing_failed: "AI 분석에 실패했습니다. 잠시 후 다시 분석해 주세요.",
+  image_correction_unchanged: "이미지에서 읽은 글을 먼저 수정해 주세요.",
+  image_correction_consent_required:
+    "교정한 글을 분석하려면 외부 AI 전송에 동의해 주세요.",
+  image_correction_requires_image: "이미지에서 읽은 글만 교정할 수 있습니다.",
   ai_input_invalid:
     "분석 원문을 사용할 수 없거나 자료가 변경됐습니다. 원문 상태를 확인한 뒤 다시 분석해 주세요.",
 };

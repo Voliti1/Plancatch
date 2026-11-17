@@ -74,6 +74,13 @@ export function CandidateEvidence({
   return (
     <div className="candidate-evidence">
       <h4>원문 근거</h4>
+      {model.startsWith("pdf:") && (
+        <p className="small muted">
+          {candidate.evidence_page
+            ? `PDF ${candidate.evidence_page}페이지`
+            : "PDF 근거 페이지를 확인할 수 없습니다."}
+        </p>
+      )}
       <p className="analysis-text">{briefEvidence(candidate.evidence_text)}</p>
       <p className="small muted">
         {isHtmlAnalysis(model)
