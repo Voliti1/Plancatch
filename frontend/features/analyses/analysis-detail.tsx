@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
@@ -58,6 +58,9 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
   const router = useRouter();
   const now = usePeriodClock();
   const [data, setData] = useState(initial);
+  const [showSnapshot, setShowSnapshot] = useState(false);
+  const snapshotId = useId();
+  const hasSnapshot = Boolean(data.input_text.trim());
   const fromHtml = isHtmlAnalysis(data.model);
   const fromPdf = isExtractedPdf(data.model);
   const needsScanConsent =
@@ -260,7 +263,46 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           분석 결과를 전체 거부했습니다. 이 분석으로 생성된 마감일은 없습니다.
         </p>
       )}
-      <div className="analysis-grid">
+      {hasSnapshot && (
+        <button
+          type="button"
+          className="secondary analysis-snapshot-toggle"
+          aria-expanded={showSnapshot}
+          aria-controls={snapshotId}
+          onClick={() => setShowSnapshot((open) => !open)}
+        >
+          {showSnapshot ? "분석 원문 접기" : "분석 원문 보기"}
+        </button>
+      )}
+      <div
+        className={`analysis-grid${hasSnapshot && showSnapshot ? " with-snapshot" : ""}`}
+      >
+        {hasSnapshot && (
+          <section
+            id={snapshotId}
+            className="card analysis-snapshot"
+            aria-labelledby={`${snapshotId}-heading`}
+            hidden={!showSnapshot}
+          >
+            {showSnapshot && (
+              <>
+                <h2 id={`${snapshotId}-heading`}>분석에 사용한 원문</h2>
+                <p className="small muted">
+                  이 결과를 만들 때 저장한 텍스트입니다. PDF나 이미지에서 읽은
+                  텍스트에는 원본의 일부가 빠질 수 있습니다.
+                </p>
+                <div
+                  className="source-text"
+                  tabIndex={0}
+                  role="region"
+                  aria-label="저장된 분석 원문"
+                >
+                  {data.input_text}
+                </div>
+              </>
+            )}
+          </section>
+        )}
         <section className="card analysis-review">
           <h2>마감일 후보</h2>
           <p className="small muted">

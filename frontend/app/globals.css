@@ -144,6 +144,21 @@ html:has(.source-content-dialog[open][data-reserve-gutter="true"]) {
 .analysis-grid .card {
   min-width: 0;
 }
+.analysis-snapshot-toggle {
+  margin-top: 22px;
+}
+.analysis-snapshot-toggle + .analysis-grid {
+  margin-top: 12px;
+}
+@media (min-width: 1120px) {
+  .analysis-grid.with-snapshot {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  }
+  .analysis-snapshot {
+    position: sticky;
+    top: 20px;
+  }
+}
 .analysis-grid h2,
 .analysis-overview h2,
 .analysis-launch h2,
