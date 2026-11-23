@@ -3,7 +3,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useResource } from "@/lib/api/use-resource";
 import { formatSeoul, seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
-import { calendarColors } from "./calendar-colors";
+import { calendarColors, type CalendarColor } from "./calendar-colors";
 import { canChangeTime, readCalendarDescription } from "./calendar-actions";
 import type { TimetableEvent } from "./time-layout";
 import "./calendar-event-popup.css";
@@ -46,20 +46,24 @@ export type CalendarPopupSelection = {
 export function CalendarEventPopup({
   selection,
   color,
+  defaultColor,
   busy,
   error,
   onClose,
   onColor,
+  onDefaultColor,
   onDelete,
   onDuplicate,
   onMove,
 }: {
   selection: CalendarPopupSelection;
   color?: string;
+  defaultColor: { id?: CalendarColor; label: string; value: string };
   busy: boolean;
   error: string;
   onClose: () => void;
-  onColor: (color: (typeof calendarColors)[number]["id"] | null) => void;
+  onColor: (color: CalendarColor | null) => void;
+  onDefaultColor: (color: CalendarColor | null) => void;
   onDelete: () => void;
   onDuplicate: () => void;
   onMove: (start: string, end: string) => void;
@@ -70,6 +74,8 @@ export function CalendarEventPopup({
   const dialog = useRef<HTMLDialogElement>(null);
   const [panel, setPanel] = useState<"main" | "delete" | "time">("main");
   const [palette, showPalette] = useState(mode === "menu");
+  const [editingDefault, setEditingDefault] = useState(false);
+  const defaultPaletteId = useId();
   const [start, setStart] = useState(() =>
     event.start ? toSeoulInput(event.start) : "",
   );
@@ -256,30 +262,88 @@ export function CalendarEventPopup({
           role="group"
           aria-label="일정 색상"
         >
-          {calendarColors.map(({ id, label, value }) => (
+          {!editingDefault &&
+            calendarColors.map(({ id, label, value }) => (
+              <button
+                key={id}
+                type="button"
+                className="calendar-color-option"
+                aria-label={label}
+                title={label}
+                aria-pressed={color === id}
+                style={{ backgroundColor: value }}
+                disabled={busy}
+                onClick={() => onColor(id)}
+              >
+                {color === id ? "✓" : ""}
+              </button>
+            ))}
+          <div className="calendar-default-color-row">
             <button
-              key={id}
               type="button"
-              className="calendar-color-option"
-              aria-label={label}
-              title={label}
-              aria-pressed={color === id}
-              style={{ backgroundColor: value }}
+              className="secondary calendar-color-default"
+              aria-pressed={!color}
               disabled={busy}
-              onClick={() => onColor(id)}
+              onClick={() => onColor(null)}
             >
-              {color === id ? "✓" : ""}
+              기본 색상
             </button>
-          ))}
-          <button
-            type="button"
-            className="secondary calendar-color-default"
-            aria-pressed={!color}
-            disabled={busy}
-            onClick={() => onColor(null)}
-          >
-            기본 색상
-          </button>
+            <span
+              className="calendar-default-color-current"
+              aria-label={`현재 기본 색상: ${defaultColor.label}`}
+            >
+              <span
+                aria-hidden="true"
+                style={{ backgroundColor: defaultColor.value }}
+              />
+              {defaultColor.label}
+            </span>
+            <button
+              className="calendar-icon"
+              type="button"
+              aria-label="기본 색상 수정"
+              title="기본 색상 수정"
+              aria-expanded={editingDefault}
+              aria-controls={editingDefault ? defaultPaletteId : undefined}
+              disabled={busy}
+              onClick={() => setEditingDefault(!editingDefault)}
+            >
+              <Icon name="edit" />
+            </button>
+          </div>
+          {editingDefault && (
+            <div
+              className="calendar-default-palette"
+              id={defaultPaletteId}
+              role="group"
+              aria-label={`${event.kind === "deadline" ? "마감일" : "할 일"} 기본 색상`}
+            >
+              {calendarColors.map(({ id, label, value }) => (
+                <button
+                  key={id}
+                  type="button"
+                  className="calendar-color-option"
+                  aria-label={label}
+                  title={label}
+                  aria-pressed={defaultColor.id === id}
+                  style={{ backgroundColor: value }}
+                  disabled={busy}
+                  onClick={() => onDefaultColor(id)}
+                >
+                  {defaultColor.id === id ? "✓" : ""}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="secondary calendar-color-default"
+                aria-pressed={!defaultColor.id}
+                disabled={busy}
+                onClick={() => onDefaultColor(null)}
+              >
+                처음 색상으로 복원
+              </button>
+            </div>
+          )}
         </div>
       )}
       {panel === "delete" && (

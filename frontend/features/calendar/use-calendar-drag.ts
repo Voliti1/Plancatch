@@ -2,15 +2,18 @@
 import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { toSeoulInput } from "@/lib/date/seoul";
 import { canChangeTime } from "./calendar-actions";
-import { utcMidnight } from "./dates";
+import { addDays, utcMidnight } from "./dates";
 import type { TimetableEvent } from "./time-layout";
 
 export const SLOT_MINUTES = 15;
 export const HOUR_HEIGHT = 56;
+const TIME_AXIS_WIDTH = 52;
+const NEXT_DAY_WIDTH = 22;
 
-type Drop = { day: string; minute: number };
+type Drop = { day: string; minute: number; edge?: "previous" | "next" };
 type Drag = {
   event: TimetableEvent;
+  day: string;
   pointer: number;
   x: number;
   y: number;
@@ -22,6 +25,7 @@ type Drag = {
 
 export function useCalendarDrag(
   blocked: boolean,
+  singleDay: boolean,
   onMove: (event: TimetableEvent, start: string, end: string | null) => void,
 ) {
   const scroller = useRef<HTMLElement>(null);
@@ -53,8 +57,19 @@ export function useCalendarDrag(
     if (!drag || !surface) return;
     const { x, y } = drag.position;
     const viewport = surface.getBoundingClientRect();
+    const withinGrid =
+      x >= viewport.left &&
+      x < viewport.right &&
+      y >= viewport.top + 54 &&
+      y < viewport.bottom;
+    let edge: Drop["edge"];
+    if (singleDay && withinGrid) {
+      if (x < viewport.left + TIME_AXIS_WIDTH) edge = "previous";
+      else if (x >= viewport.right - NEXT_DAY_WIDTH) edge = "next";
+    }
     if (
       canScroll &&
+      !edge &&
       x >= viewport.left &&
       x <= viewport.right &&
       y >= viewport.top &&
@@ -66,12 +81,15 @@ export function useCalendarDrag(
       });
     }
     let destination: Drop | null = null;
-    if (
-      x >= viewport.left + 52 &&
-      x <= viewport.right &&
-      y >= viewport.top + 54 &&
-      y <= viewport.bottom
-    ) {
+    if (edge && drag.event.start) {
+      destination = {
+        edge,
+        day: addDays(drag.day, edge === "previous" ? -1 : 1),
+        minute:
+          (Date.parse(drag.event.start) - Date.parse(utcMidnight(drag.day))) /
+          60000,
+      };
+    } else if (withinGrid && x >= viewport.left + TIME_AXIS_WIDTH) {
       for (const column of surface.querySelectorAll<HTMLElement>(
         "[data-calendar-day]",
       )) {
@@ -96,6 +114,7 @@ export function useCalendarDrag(
     }
     if (
       !drag.moved ||
+      destination?.edge !== drag.drop?.edge ||
       destination?.day !== drag.drop?.day ||
       destination?.minute !== drag.drop?.minute
     ) {
@@ -123,6 +142,7 @@ export function useCalendarDrag(
     const { pointerId, clientX, clientY } = pointer;
     gesture.current = {
       event,
+      day,
       pointer: pointerId,
       x: clientX,
       y: clientY,
