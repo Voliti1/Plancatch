@@ -91,8 +91,11 @@
   position: absolute;
   width: 100%;
   left: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid color-mix(in srgb, var(--line) 52%, transparent);
   display: block;
+}
+.time-slot.is-hour {
+  border-top-color: var(--line);
 }
 .time-slot:hover {
   background: var(--blue-soft);
@@ -113,6 +116,34 @@
   display: block;
   font-size: 12px;
   line-height: 1.35;
+  text-align: left;
+  min-height: 18px;
+}
+.time-event.is-movable {
+  cursor: grab;
+  touch-action: none;
+}
+.time-event.is-moving {
+  opacity: 0.32;
+  cursor: grabbing;
+}
+.time-event.time-drop-preview {
+  left: 2px;
+  width: calc(100% - 4px);
+  pointer-events: none;
+  z-index: 4;
+  border: 2px dashed var(--blue);
+  color: var(--ink);
+  background: var(--blue-soft);
+  min-height: 0;
+}
+.time-drop-preview small {
+  color: var(--ink);
+}
+.time-all-day-event {
+  width: 100%;
+  min-height: 0;
+  text-align: left;
 }
 .time-event strong,
 .time-event small {

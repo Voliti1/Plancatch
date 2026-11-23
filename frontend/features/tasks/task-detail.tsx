@@ -13,13 +13,19 @@ import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 import "./schedule-overview.css";
 import { reminderSummary } from "@/features/google-calendar/reminder-settings";
 import { recurrenceSummary } from "./recurrence-settings";
-export function TaskDetail({ id }: { id: string }) {
+export function TaskDetail({
+  id,
+  startEditing = false,
+}: {
+  id: string;
+  startEditing?: boolean;
+}) {
   const loader = useCallback(() => tasksApi.get(id), [id]);
   const { data, error, loading, reload } = useResource(loader);
   const startsAt = data?.placement?.start_at ?? data?.earliest_start;
   const endsAt = data?.placement?.end_at ?? data?.latest_end;
   const router = useRouter();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState("");

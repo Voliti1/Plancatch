@@ -42,7 +42,7 @@ export const deadlinesApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  update: (id: string, payload: DeadlineInput) =>
+  update: (id: string, payload: Partial<DeadlineInput>) =>
     request<Deadline>(`/api/deadlines/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify(payload),

@@ -42,6 +42,10 @@ def test_event_lifecycle():
         "end_at": "2026-09-20T12:00:00+09:00",
     })
     assert moved.status_code == 200
+    assert moved.json()["start_at"] == "2026-09-20T02:00:00Z"
+    refreshed = client.get("/api/scheduled-events", headers=auth).json()[0]
+    assert refreshed["start_at"] == "2026-09-20T02:00:00Z"
+    assert refreshed["end_at"] == "2026-09-20T03:00:00Z"
     cancelled = client.patch(path, headers=auth, json={"status": "cancelled"})
     assert cancelled.json()["is_user_approved"] is False
     assert client.delete(path, headers=auth).status_code == 204

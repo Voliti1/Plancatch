@@ -4,7 +4,7 @@ import { calendarTask, calendarEvent } from "./calendar-fixtures";
 import {
   layoutDay,
   timetableDays,
-  hourRegistrationHref,
+  slotRegistrationHref,
 } from "../features/calendar/time-layout";
 
 test("time geometry clips midnight, separates overlap and ends at 24:00", () => {
@@ -56,7 +56,7 @@ test("time geometry clips midnight, separates overlap and ends at 24:00", () => 
   expect(rows[1].column).toBe(1);
   expect(rows[2].to).toBe(1440);
   const url = new URL(
-    hourRegistrationHref("2026-11-02", 23),
+    slotRegistrationHref("2026-11-02", 23 * 60),
     "http://localhost",
   );
   expect(url.searchParams.get("start")).toBe("2026-11-02T14:00:00.000Z");

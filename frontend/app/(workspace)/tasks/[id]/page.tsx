@@ -5,13 +5,25 @@ export default async function TaskPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ occurrence?: string | string[] }>;
+  searchParams: Promise<{ occurrence?: string | string[]; edit?: string }>;
 }) {
   const { id } = await params;
-  const { occurrence } = await searchParams;
+  const { occurrence, edit } = await searchParams;
+  const startEditing = edit === "1";
   if (typeof occurrence === "string")
     return (
-      <OccurrenceDetail key={`${id}:${occurrence}`} id={id} at={occurrence} />
+      <OccurrenceDetail
+        key={`${id}:${occurrence}:${startEditing}`}
+        id={id}
+        at={occurrence}
+        startEditing={startEditing}
+      />
     );
-  return <TaskDetail key={id} id={id} />;
+  return (
+    <TaskDetail
+      key={`${id}:${startEditing}`}
+      id={id}
+      startEditing={startEditing}
+    />
+  );
 }

@@ -1,11 +1,14 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
 import { useHydrated } from "@/lib/use-hydrated";
 import { formatSeoul } from "@/lib/date/seoul";
+import { toSeoulInput } from "@/lib/date/seoul";
+import { errorMessage } from "@/lib/api/client";
+import { useAuth } from "@/features/auth/provider";
 import type { ScheduledEvent } from "@/types/scheduled-event";
 import { tasksApi } from "@/features/tasks/api";
 import {
@@ -26,6 +29,7 @@ import {
   addDays,
   calendarDays,
   dayLabel,
+  lockedEvent,
   onDay,
   shiftMonth,
   statusLabel,
@@ -34,6 +38,19 @@ import {
 } from "./dates";
 import { TimeGrid } from "./time-grid";
 import { timetableDays, type TimetableEvent } from "./time-layout";
+import {
+  calendarEventKey,
+  canChangeTime,
+  deleteCalendarEvent,
+  duplicateCalendarEvent,
+  moveCalendarEvent,
+  registrationTarget,
+} from "./calendar-actions";
+import {
+  CalendarEventPopup,
+  type CalendarPopupSelection,
+} from "./calendar-event-popup";
+import { useCalendarColors } from "./calendar-colors";
 import "./calendar.css";
 
 const emptyRegistrations: CalendarRegistration[] = [];
@@ -184,11 +201,23 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
   );
 }
 
-function CalendarBody({ initialDate }: { initialDate?: string }) {
+function CalendarBody({
+  initialDate,
+  userId,
+}: {
+  initialDate?: string;
+  userId?: string;
+}) {
   const [selected, setSelected] = useState(initialDate ?? todaySeoul);
   const [view, setView] = useState<"month" | "week" | "day">("day");
   const [showCancelled, setShowCancelled] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
+  const [popup, setPopup] = useState<CalendarPopupSelection | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [status, setStatus] = useState("");
+  const pending = useRef(false);
+  const { colors, changeColor, swatch } = useCalendarColors(userId);
   const anchor = `${selected.slice(0, 7)}-01`;
   const days = useMemo(
     () =>
@@ -228,6 +257,45 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
     [first, last],
   );
   const registrations = useResource(loadRegistered);
+  function openPopup(selection: CalendarPopupSelection) {
+    if (pending.current) return;
+    setActionError("");
+    setStatus("");
+    setPopup(selection);
+  }
+
+  async function applyChange(action: () => Promise<unknown>, message: string) {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setActionError("");
+    setStatus("");
+    try {
+      await action();
+      setPopup(null);
+      setStatus(message);
+      reload();
+      registrations.reload();
+      if (showGoogle) google.reload();
+    } catch (failure) {
+      setActionError(errorMessage(failure));
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  }
+
+  function move(event: TimetableEvent, start: string, end: string | null) {
+    if (!event.target || !canChangeTime(event)) return;
+    const target = event.target;
+    void applyChange(
+      async () => {
+        await moveCalendarEvent(target, start, end);
+        setSelected(toSeoulInput(start).slice(0, 10));
+      },
+      `${formatSeoul(start)}으로 일정을 옮겼습니다.`,
+    );
+  }
   const registered = registrations.data?.entries ?? emptyRegistrations;
   const registeredDay = registered.filter((item) =>
     registrationOnDay(item, selected),
@@ -285,6 +353,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         start: item.start_at,
         end: item.end_at,
         href: registrationHref(item),
+        target: registrationTarget(item),
       })),
       ...events.map((item) => ({
         id: `placement:${item.id}`,
@@ -294,6 +363,12 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         end: item.end_at,
         href: `/tasks/${encodeURIComponent(item.task_id)}`,
         cancelled: item.status === "cancelled",
+        target: {
+          kind: "placement" as const,
+          id: item.id,
+          taskId: item.task_id,
+          locked: lockedEvent(item),
+        },
       })),
       ...googleRows.map((item) => ({
         id: `google:${item.id}`,
@@ -320,6 +395,16 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         description="등록한 마감일과 할 일을 월간·하루·주간 시간표로 확인하세요."
       />
       <section className="card calendar-card" aria-label="일정 캘린더">
+        {status && (
+          <p className="notice success" role="status">
+            {status}
+          </p>
+        )}
+        {!popup && actionError && (
+          <p className="error" role="alert">
+            {actionError}
+          </p>
+        )}
         <div className="calendar-toolbar">
           <div className="calendar-period">
             <button
@@ -493,15 +578,20 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
               {dayBars.map(({ day, bars }) => {
                 const count = bars.length;
                 return (
-                  <button
+                  <div
                     key={day}
-                    type="button"
                     className={`calendar-day ${day.slice(0, 7) !== selected.slice(0, 7) ? "outside-month" : ""}`}
-                    aria-label={dayLabel(day)}
-                    aria-pressed={day === selected}
-                    aria-current={day === today ? "date" : undefined}
-                    onClick={() => setSelected(day)}
+                    data-selected={day === selected}
+                    data-today={day === today}
                   >
+                    <button
+                      type="button"
+                      className="calendar-date-hit"
+                      aria-label={dayLabel(day)}
+                      aria-pressed={day === selected}
+                      aria-current={day === today ? "date" : undefined}
+                      onClick={() => setSelected(day)}
+                    />
                     <span>{Number(day.slice(8))}</span>
                     {count > 0 && (
                       <>
@@ -510,15 +600,48 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
                           <span className="calendar-count-unit">개 일정</span>
                         </small>
                         <span className="calendar-day-bars">
-                          {bars.slice(0, 3).map((bar) => (
-                            <span
-                              key={bar.key}
-                              title={bar.title}
-                              className={`calendar-event-bar bar-${bar.kind}`}
-                            >
-                              {bar.title}
-                            </span>
-                          ))}
+                          {bars.slice(0, 3).map((bar) => {
+                            const event = timelineEntries.find(
+                              (entry) => entry.id === bar.key,
+                            );
+                            if (!event) return null;
+                            return (
+                              <button
+                                type="button"
+                                key={bar.key}
+                                title={bar.title}
+                                className={`calendar-event-bar bar-${bar.kind}`}
+                                style={{
+                                  backgroundColor: swatch(
+                                    calendarEventKey(event),
+                                  ),
+                                }}
+                                disabled={busy}
+                                onClick={(click) => {
+                                  const bounds =
+                                    click.currentTarget.getBoundingClientRect();
+                                  openPopup({
+                                    event,
+                                    mode: "detail",
+                                    x: bounds.left,
+                                    y: bounds.bottom + 8,
+                                  });
+                                }}
+                                onContextMenu={(click) => {
+                                  if (!event.target) return;
+                                  click.preventDefault();
+                                  openPopup({
+                                    event,
+                                    mode: "menu",
+                                    x: click.clientX,
+                                    y: click.clientY,
+                                  });
+                                }}
+                              >
+                                {bar.title}
+                              </button>
+                            );
+                          })}
                           {count > 3 && (
                             <span className="calendar-more">
                               +{count - 3}개 더 보기
@@ -527,7 +650,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
                         </span>
                       </>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -538,9 +661,51 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             events={timelineEntries}
             selected={selected}
             onSelect={setSelected}
+            onOpen={openPopup}
+            onMove={move}
+            colorFor={swatch}
+            busy={busy}
           />
         )}
       </section>
+      {popup && (
+        <CalendarEventPopup
+          key={`${popup.event.id}:${popup.mode}`}
+          selection={popup}
+          color={colors[calendarEventKey(popup.event)]}
+          busy={busy}
+          error={actionError}
+          onClose={() => {
+            setPopup(null);
+            setActionError("");
+          }}
+          onColor={(color) => changeColor(calendarEventKey(popup.event), color)}
+          onMove={(start, end) => move(popup.event, start, end)}
+          onDelete={() => {
+            const { event } = popup;
+            const target = event.target;
+            if (!target) return;
+            void applyChange(async () => {
+              await deleteCalendarEvent(target);
+              changeColor(calendarEventKey(event), null);
+            }, "일정을 삭제했습니다.");
+          }}
+          onDuplicate={() => {
+            const { event } = popup;
+            const target = event.target;
+            if (!target) return;
+            void applyChange(async () => {
+              const copy = await duplicateCalendarEvent(target, event);
+              const color = colors[calendarEventKey(event)];
+              if (color)
+                changeColor(
+                  calendarEventKey({ ...event, target: copy }),
+                  color,
+                );
+            }, "일정을 복제했습니다.");
+          }}
+        />
+      )}
       <section
         className="card calendar-selected"
         aria-labelledby="selected-day-title"
@@ -581,5 +746,10 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
 }
 export function CalendarPage({ initialDate }: { initialDate?: string }) {
   const hydrated = useHydrated();
-  return hydrated ? <CalendarBody initialDate={initialDate} /> : <Loading />;
+  const userId = useAuth().user?.id;
+  return hydrated ? (
+    <CalendarBody key={userId} initialDate={initialDate} userId={userId} />
+  ) : (
+    <Loading />
+  );
 }

@@ -10,10 +10,18 @@ import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 
-export function OccurrenceDetail({ id, at }: { id: string; at: string }) {
+export function OccurrenceDetail({
+  id,
+  at,
+  startEditing = false,
+}: {
+  id: string;
+  at: string;
+  startEditing?: boolean;
+}) {
   const loader = useCallback(() => tasksApi.occurrence(id, at), [id, at]);
   const { data, loading, error, reload } = useResource(loader);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState("");
