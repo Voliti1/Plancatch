@@ -192,7 +192,7 @@ def test_recovery_is_bounded_and_preserves_ready_and_approved_analysis_history(e
 
 
 def test_application_lifespan_recovers_stale_jobs_without_any_external_replay(engine,monkeypatch):
-    import time
+    from threading import Event
     from types import SimpleNamespace
 
     from fastapi import FastAPI
@@ -206,12 +206,19 @@ def test_application_lifespan_recovers_stale_jobs_without_any_external_replay(en
     monkeypatch.setattr(main,'get_settings',lambda:SimpleNamespace(db_host='test-only'))
     monkeypatch.setattr(main,'get_engine',lambda:engine)
     monkeypatch.setattr('app.services.google_sync.run_batch',lambda _:None)
+    finished = Event()
+    recover = recovery.recover_interrupted
+
+    def recover_and_signal(database):
+        counts = recover(database)
+        finished.set()
+        return counts
+
+    monkeypatch.setattr(recovery, "recover_interrupted", recover_and_signal)
     with TestClient(FastAPI(lifespan=main.lifespan)):
-        for _ in range(100):
-            with Session(engine) as db:
-                if db.get(Source,identity).processing_status=='failed':break
-            time.sleep(0.01)
-        else:pytest.fail('Startup recovery was not run')
+        assert finished.wait(timeout=5), "Startup recovery was not run"
+        with Session(engine) as db:
+            assert db.get(Source, identity).processing_status == "failed"
 
 
 def test_nullable_lease_migration_preserves_existing_rows_and_roundtrips_in_disposable_db():
