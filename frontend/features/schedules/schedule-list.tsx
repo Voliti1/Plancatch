@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { PageHeading } from "@/components/page-heading";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { Pagination } from "@/components/pagination";
@@ -229,6 +229,13 @@ function ScheduleResults({
     [page, query, kinds.deadline, kinds.task],
   );
   const { data, loading, error, reload } = useResource(loader);
+  const refreshAt = data?.refresh_at;
+  useEffect(() => {
+    if (!refreshAt || deletion.mode || deletion.busy) return;
+    const delay = Math.max(1000, Date.parse(refreshAt) - Date.now());
+    const timer = window.setTimeout(reload, Math.min(delay, 2_147_483_647));
+    return () => window.clearTimeout(timer);
+  }, [refreshAt, deletion.mode, deletion.busy, reload]);
   if (loading) return <Loading />;
   if (error) return <ErrorNotice message={error} retry={reload} />;
   return (
@@ -246,14 +253,14 @@ function ScheduleResults({
               ? "검색 결과가 없습니다"
               : !kinds.deadline && !kinds.task
                 ? "표시할 일정 종류를 선택해 주세요"
-                : "아직 일정이 없습니다"
+                : "예정된 일정이 없습니다"
           }
         >
           {query
             ? "다른 제목으로 검색해 보세요."
             : !kinds.deadline && !kinds.task
               ? "마감일 또는 할 일을 체크하면 목록에 표시됩니다."
-              : "첫 일정을 등록해 보세요."}
+              : "등록한 일정은 예정된 동안 여기에 표시됩니다."}
         </Empty>
       )}
       <Pagination

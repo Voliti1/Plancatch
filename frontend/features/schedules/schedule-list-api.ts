@@ -6,7 +6,11 @@ import type { Task } from "@/types/task";
 
 export type ScheduleEntry =
   { kind: "deadline"; item: Deadline } | { kind: "task"; item: Task };
-export type SchedulePage = { entries: ScheduleEntry[]; has_more: boolean };
+export type SchedulePage = {
+  entries: ScheduleEntry[];
+  has_more: boolean;
+  refresh_at?: string;
+};
 export function listSchedules(
   offset: number,
   query: string,
@@ -20,6 +24,7 @@ export function listSchedules(
     q: query,
     include_deadlines: String(deadlines),
     include_tasks: String(tasks),
+    hide_past: "true",
   });
   return api<SchedulePage>(`/api/schedules?${params}`, { signal });
 }

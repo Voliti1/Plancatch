@@ -1,9 +1,11 @@
 """Mixed schedule pagination must preserve ownership and literal search."""
 
 import uuid
+from datetime import UTC, datetime
 
 import pytest
 
+from app.api.routes import schedules
 from tests.test_sources import auth_headers, client, configure_test_jwt  # noqa: F401
 
 
@@ -81,6 +83,44 @@ def test_equal_timestamps_have_stable_order_and_read_only():
     assert [row["kind"] for row in first] == ["deadline"] * 3 + ["task"] * 3
     assert len(client.get("/api/deadlines", headers=auth).json()) == 3
     assert len(client.get("/api/tasks", headers=auth).json()) == 3
+
+
+def test_upcoming_filter_precedes_paging_and_keeps_ongoing_and_recurring_tasks(monkeypatch):
+    class FixedClock(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2026, 11, 3, 10, tzinfo=UTC).astimezone(tz)
+
+    monkeypatch.setattr(schedules, "datetime", FixedClock)
+    auth = owner()
+    create(auth, "deadlines", "지난 마감", 2)
+    create(auth, "deadlines", "현재 시각에 끝난 마감", 3)
+    future = create(auth, "deadlines", "예정된 마감", 4)
+    undated = create(auth, "tasks", "시간 미정")
+
+    def fixed(title, start, end, recurrence=None):
+        result = client.post("/api/tasks", headers=auth, json={
+            "title": title, "schedule_type": "fixed",
+            "earliest_start": start, "latest_end": end, "recurrence": recurrence,
+        })
+        assert result.status_code == 201, result.text
+        return result.json()
+
+    start = "2026-11-01T09:00:00Z"
+    end = "2026-11-01T11:00:00Z"
+    fixed("지난 할 일", start, end)
+    fixed("끝난 반복", start, end, {"frequency": "daily", "count": 2})
+    ongoing_repeat = fixed("진행 중인 반복", start, end, {"frequency": "daily", "count": 3})
+    ongoing = fixed("진행 중인 할 일", "2026-11-03T09:00:00Z", "2026-11-03T12:00:00Z")
+    first = client.get("/api/schedules?hide_past=true&limit=2", headers=auth).json()
+    assert [row["item"]["id"] for row in first["entries"]] == [ongoing_repeat["id"], ongoing["id"]]
+    assert first["has_more"]
+    assert datetime.fromisoformat(first["refresh_at"]) == datetime(2026, 11, 3, 11, tzinfo=UTC)
+    second = client.get("/api/schedules?hide_past=true&limit=2&offset=2", headers=auth).json()
+    assert [row["item"]["id"] for row in second["entries"]] == [future["id"], undated["id"]]
+    assert not second["has_more"]
+    assert client.get("/api/schedules?hide_past=true&q=지난", headers=auth).json()["entries"] == []
+    assert len(client.get("/api/schedules", headers=auth).json()["entries"]) == 8
 
 
 @pytest.mark.parametrize(
