@@ -155,7 +155,7 @@ test("weekly timetable shows each occurrence of the same series", async ({
   await expect(
     page
       .getByRole("region", { name: "주간 시간표" })
-      .getByRole("link", { name: /매일 회의/ }),
+      .getByRole("button", { name: /매일 회의/ }),
   ).toHaveCount(3);
   expect(errors.filter((error) => /same key|unique.*key/i.test(error))).toEqual(
     [],

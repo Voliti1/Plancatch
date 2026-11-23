@@ -5,7 +5,7 @@ export const tasksApi = {
     api<Task>(
       `/api/tasks/${encodeURIComponent(id)}/occurrences?${new URLSearchParams({ original_start: at })}`,
     ),
-  updateOccurrence: (id: string, at: string, payload: TaskInput) => {
+  updateOccurrence: (id: string, at: string, payload: Partial<TaskInput>) => {
     const allowed = new Set([
       "title",
       "description",

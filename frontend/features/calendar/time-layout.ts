@@ -9,7 +9,12 @@ export type TimetableEvent = {
   startDate?: string | null;
   endDate?: string | null;
   cancelled?: boolean;
+  target?: CalendarTarget;
 };
+export type CalendarTarget =
+  | { kind: "deadline"; id: string }
+  | { kind: "task"; id: string; occurrence?: string }
+  | { kind: "placement"; id: string; taskId: string; locked: boolean };
 export function timetableDays(day: string, view: "day" | "week") {
   if (view === "day") return [day];
   const offset = (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
@@ -31,7 +36,7 @@ export function layoutDay(entries: TimetableEvent[], day: string) {
         end <= start
       )
         return [];
-      const from = Math.min(1415, Math.max(0, (start - first) / 60000));
+      const from = Math.max(0, (start - first) / 60000);
       return [
         {
           event,
@@ -67,8 +72,8 @@ export function layoutDay(entries: TimetableEvent[], day: string) {
   finish();
   return rows;
 }
-export function hourRegistrationHref(day: string, hour: number) {
-  const start = new Date(Date.parse(utcMidnight(day)) + hour * 3600000);
+export function slotRegistrationHref(day: string, minute: number) {
+  const start = new Date(Date.parse(utcMidnight(day)) + minute * 60000);
   return (
     "/sources/new?" +
     new URLSearchParams({

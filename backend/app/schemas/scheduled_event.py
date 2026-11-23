@@ -4,7 +4,15 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, model_validator
+from pydantic import (
+    AwareDatetime,
+    BaseModel,
+    ConfigDict,
+    field_validator,
+    model_validator,
+)
+
+from app.services.recurrence import utc
 
 EditableStatus = Literal["recommended", "approved", "cancelled"]
 
@@ -54,3 +62,8 @@ class ScheduledEventResponse(BaseModel):
     sync_error: str | None
     created_at: datetime
     updated_at: datetime
+
+    @field_validator("start_at", "end_at")
+    @classmethod
+    def calendar_times_in_utc(cls, value: datetime) -> datetime:
+        return utc(value)
