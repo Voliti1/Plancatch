@@ -67,7 +67,7 @@ test("URL and text source registration and empty list", async ({ page }) => {
 test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   await login(page);
   await page.getByRole("link", { name: "일정", exact: true }).click();
-  await expect(page.getByText("아직 일정이 없습니다")).toBeVisible();
+  await expect(page.getByText("예정된 일정이 없습니다")).toBeVisible();
   await page.getByRole("link", { name: "＋ 일정 등록" }).click();
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
   await page
@@ -108,7 +108,38 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인" }).click();
   await expect(page).toHaveURL(/\/deadlines$/);
-  await expect(page.getByText("아직 일정이 없습니다")).toBeVisible();
+  await expect(page.getByText("예정된 일정이 없습니다")).toBeVisible();
+});
+test("schedule list asks for upcoming items and refreshes when one ends", async ({
+  page,
+}) => {
+  await login(page);
+  let count = 0;
+  await page.route("**/test-api/api/schedules?**", async (route) => {
+    expect(new URL(route.request().url()).searchParams.get("hide_past")).toBe(
+      "true",
+    );
+    const due = new Date(Date.now() + 2500).toISOString();
+    await route.fulfill({
+      json:
+        count++ === 0
+          ? {
+              entries: [
+                {
+                  kind: "deadline",
+                  item: { id: "expiry-test", title: "곧 마감", due_at: due },
+                },
+              ],
+              has_more: false,
+              refresh_at: due,
+            }
+          : { entries: [], has_more: false },
+    });
+  });
+  await page.goto("/deadlines");
+  await expect(page.getByText("곧 마감", { exact: true })).toBeVisible();
+  await expect(page.getByText("예정된 일정이 없습니다")).toBeVisible();
+  expect(count).toBe(2);
 });
 test("backend error, retry and expired session", async ({ page }) => {
   await login(page);
