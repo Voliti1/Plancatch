@@ -137,17 +137,21 @@ test("reveals a missing date before asking for input", async ({ page }) => {
   ).toHaveCount(0);
 });
 
-test("saved availability ignores disabled custom hours and weekdays", async ({
+test("saved availability stays selected with editable hours and weekdays", async ({
   page,
 }) => {
   await open(page);
-  const saved = page.getByLabel("저장한 가능 시간과 날짜별 예외 사용");
-  await saved.uncheck();
-  await page.getByLabel("하루 작업 시작").selectOption("1200");
-  for (const weekday of ["월", "화", "수", "목", "금"]) {
-    await page.getByRole("checkbox", { name: weekday, exact: true }).uncheck();
-  }
-  await saved.check();
+  await expect(
+    page.getByText(/저장한 가능 시간과 날짜별 예외 적용 중/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: /저장한 가능 시간/ }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("하루 작업 시작")).toBeEnabled();
+  await expect(page.getByLabel("하루 작업 종료")).toBeEnabled();
+  await expect(
+    page.getByRole("checkbox", { name: "월", exact: true }),
+  ).toBeEnabled();
   await page.route("**/test-api/api/scheduling/preview", (route) =>
     route.fulfill({ json: plan() }),
   );
@@ -165,11 +169,38 @@ test("saved availability ignores disabled custom hours and weekdays", async ({
   ).toBeVisible();
 });
 
+test("editing a weekday applies the custom conditions for this preview", async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByRole("checkbox", { name: "월", exact: true }).uncheck();
+  await expect(
+    page.getByText("이번 추천에 직접 입력한 시간과 요일을 적용합니다."),
+  ).toBeVisible();
+  await page.route("**/test-api/api/scheduling/preview", (route) =>
+    route.fulfill({ json: plan() }),
+  );
+  const sent = page.waitForRequest("**/test-api/api/scheduling/preview");
+  await page
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
+    .click();
+  const payload = (await sent).postDataJSON();
+  expect(payload).toMatchObject({
+    day_start_minutes: 540,
+    day_end_minutes: 1080,
+    weekdays: [1, 2, 3, 4],
+  });
+  expect(payload).not.toHaveProperty("use_saved_availability");
+  await expect(
+    page.getByRole("heading", { name: "추천 시간 확인" }),
+  ).toBeVisible();
+});
+
 test("preview does not write calendar blocks and edited times are explicitly approved", async ({
   page,
 }) => {
   await open(page);
-  await page.getByLabel("저장한 가능 시간과 날짜별 예외 사용").uncheck();
+  await page.getByLabel("하루 작업 시작").selectOption("570");
   let current = plan(),
     previews = 0,
     approvals = 0,
@@ -184,6 +215,7 @@ test("preview does not write calendar blocks and edited times are explicitly app
       task_ids: [task.id],
       start_at: "2026-11-15T15:00:00.000Z",
       end_at: "2026-11-16T15:00:00.000Z",
+      day_start_minutes: 570,
       weekdays: [0, 1, 2, 3, 4],
       include_google: true,
     });

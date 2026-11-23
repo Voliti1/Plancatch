@@ -72,11 +72,11 @@ test("saved weekly hours and date exception survive navigation and enable accoun
   await page.getByRole("link", { name: "이 조건으로 시간 추천받기" }).click();
   await page.getByText("추천 조건", { exact: true }).click();
   await expect(
-    page.getByLabel("저장한 가능 시간과 날짜별 예외 사용"),
-  ).toBeChecked();
+    page.getByText(/저장한 가능 시간과 날짜별 예외 적용 중/),
+  ).toBeVisible();
   await expect(
     page.getByRole("combobox", { name: "하루 작업 시작", exact: true }),
-  ).toBeDisabled();
+  ).toBeEnabled();
   await page.getByRole("link", { name: "가능 시간 설정", exact: true }).click();
   await expect(page.getByLabel("월요일 1 시작", { exact: true })).toHaveValue(
     "10:30",
