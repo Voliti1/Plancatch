@@ -217,7 +217,8 @@ function CalendarBody({
   const [actionError, setActionError] = useState("");
   const [status, setStatus] = useState("");
   const pending = useRef(false);
-  const { colors, changeColor, swatch } = useCalendarColors(userId);
+  const { colors, changeColor, changeDefaultColor, defaultColor, swatch } =
+    useCalendarColors(userId);
   const anchor = `${selected.slice(0, 7)}-01`;
   const days = useMemo(
     () =>
@@ -612,9 +613,12 @@ function CalendarBody({
                                 title={bar.title}
                                 className={`calendar-event-bar bar-${bar.kind}`}
                                 style={{
-                                  backgroundColor: swatch(
-                                    calendarEventKey(event),
-                                  ),
+                                  backgroundColor: event.target
+                                    ? swatch(
+                                        calendarEventKey(event),
+                                        event.kind,
+                                      )
+                                    : undefined,
                                 }}
                                 disabled={busy}
                                 onClick={(click) => {
@@ -673,6 +677,7 @@ function CalendarBody({
           key={`${popup.event.id}:${popup.mode}`}
           selection={popup}
           color={colors[calendarEventKey(popup.event)]}
+          defaultColor={defaultColor(popup.event.kind)}
           busy={busy}
           error={actionError}
           onClose={() => {
@@ -680,6 +685,9 @@ function CalendarBody({
             setActionError("");
           }}
           onColor={(color) => changeColor(calendarEventKey(popup.event), color)}
+          onDefaultColor={(color) =>
+            changeDefaultColor(popup.event.kind, color)
+          }
           onMove={(start, end) => move(popup.event, start, end)}
           onDelete={() => {
             const { event } = popup;

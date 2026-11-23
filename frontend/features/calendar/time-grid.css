@@ -4,6 +4,40 @@
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+.time-grid-host {
+  position: relative;
+}
+.time-day-edge-zones {
+  position: absolute;
+  inset: 54px 0 1px;
+  pointer-events: none;
+  z-index: 7;
+}
+.time-day-edge-zones > span {
+  position: absolute;
+  inset-block: 0;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--blue);
+  border-radius: 6px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 11px;
+  font-weight: 700;
+}
+.time-day-edge-zones [data-edge="previous"] {
+  left: 1px;
+  width: 50px;
+}
+.time-day-edge-zones [data-edge="next"] {
+  right: 1px;
+  width: 20px;
+  writing-mode: vertical-rl;
+}
+.time-day-edge-zones [data-active="true"] {
+  background: var(--blue);
+  color: white;
+}
 .time-grid {
   display: grid;
   align-items: start;
@@ -118,6 +152,7 @@
   line-height: 1.35;
   text-align: left;
   min-height: 18px;
+  height: var(--calendar-block-height);
 }
 .time-event.is-movable {
   cursor: grab;
@@ -155,6 +190,39 @@
 .time-event small {
   font-size: 10px;
   color: #fff;
+}
+.time-grid-scroll.is-week .time-event:not(.time-drop-preview) {
+  container-type: inline-size;
+  padding: 2px 4px;
+  line-height: 1.2;
+}
+.time-grid-scroll.is-week .time-event .time-event-title {
+  font-size: clamp(11px, 16cqi, 13px);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.time-grid-scroll.is-week .time-event .time-event-clock {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 4px;
+  margin-top: 1px;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: clamp(10px, 13cqi, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+@container (max-width: 42px) {
+  .time-event-clock-end > span {
+    display: none;
+  }
+}
+.time-grid-scroll.is-week
+  .time-event:not(.is-moving, .time-drop-preview):is(:hover, :focus-visible) {
+  min-height: max(18px, var(--calendar-block-height));
+  height: auto;
+  z-index: 4;
 }
 .time-event.schedule-kind-task,
 .time-all-day-event.schedule-kind-task {

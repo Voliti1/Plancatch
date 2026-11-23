@@ -83,9 +83,43 @@
   outline-offset: 2px;
 }
 .calendar-popup .calendar-color-default {
-  flex-basis: 100%;
   padding: 5px 8px;
   min-height: 34px;
+  font-size: 13px;
+}
+.calendar-default-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.calendar-default-color-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+.calendar-default-color-current > span {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+.calendar-popup .calendar-default-color-row .calendar-icon {
+  min-width: 34px;
+  min-height: 34px;
+  margin-left: auto;
+}
+.calendar-default-palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+}
+.calendar-default-palette .calendar-color-default {
+  flex-basis: 100%;
 }
 .calendar-popup-confirm {
   margin-top: 12px;

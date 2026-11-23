@@ -11,6 +11,68 @@ const task = {
   latest_end: "2026-11-23T01:00:00Z",
 };
 
+test("editing the default color updates only items using the default and persists it", async ({
+  page,
+}) => {
+  const custom = { ...task, id: "custom-color-task", title: "개별 색상 회의" };
+  await mockApi(page, [], { tasks: [task, custom] });
+  await login(page);
+  await page.goto("/calendar?date=2026-11-23");
+  const defaultCard = page
+    .locator(".time-event")
+    .filter({ hasText: task.title });
+  const customCard = page
+    .locator(".time-event")
+    .filter({ hasText: custom.title });
+  await customCard.click();
+  await page.getByRole("button", { name: "색상 변경", exact: true }).click();
+  await page.getByRole("button", { name: "청록" }).click();
+  await page.getByRole("button", { name: "닫기" }).click();
+  await defaultCard.click();
+  await page.getByRole("button", { name: "색상 변경", exact: true }).click();
+  await expect(page.getByLabel("현재 기본 색상: 파랑")).toBeVisible();
+  await page.getByRole("button", { name: "기본 색상 수정" }).click();
+  await page
+    .getByRole("group", { name: "할 일 기본 색상" })
+    .getByRole("button", { name: "보라" })
+    .click();
+  await expect(page.getByLabel("현재 기본 색상: 보라")).toBeVisible();
+  await page.getByRole("button", { name: "닫기" }).click();
+  await expect(defaultCard).toHaveCSS("background-color", "rgb(112, 69, 165)");
+  await expect(customCard).toHaveCSS("background-color", "rgb(23, 111, 107)");
+  await page.reload();
+  await expect(defaultCard).toHaveCSS("background-color", "rgb(112, 69, 165)");
+  await customCard.click();
+  await page.getByRole("button", { name: "색상 변경", exact: true }).click();
+  await page.getByRole("button", { name: "기본 색상", exact: true }).click();
+  await page.getByRole("button", { name: "닫기" }).click();
+  await expect(customCard).toHaveCSS("background-color", "rgb(112, 69, 165)");
+});
+
+test("narrow overlapping weekly cards wrap the title and show both times", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 1100 });
+  const long = { ...task, title: "프로젝트 회의" };
+  const parallel = { ...task, id: "parallel-task", title: "겹친 일정" };
+  await mockApi(page, [], { tasks: [long, parallel] });
+  await login(page);
+  await page.goto("/calendar?date=2026-11-23");
+  await page.getByRole("button", { name: "주간", exact: true }).click();
+  const card = page.locator(".time-event").filter({ hasText: long.title });
+  const title = card.locator(".time-event-title");
+  const hours = card.locator(".time-event-clock > span");
+  await expect(title).toHaveCSS("white-space", "normal");
+  await expect(hours.first()).toHaveText("09:00");
+  await expect(hours.last()).toContainText("10:00");
+  const first = (await hours.first().boundingBox())!;
+  const last = (await hours.last().boundingBox())!;
+  const block = (await card.boundingBox())!;
+  expect(last.y).toBeGreaterThan(first.y);
+  expect(last.y + last.height).toBeLessThanOrEqual(block.y + block.height);
+  expect((await title.boundingBox())!.height).toBeGreaterThan(18);
+});
+
 test("calendar details, edit, duplicate, persistent color and confirmed deletion", async ({
   page,
 }) => {
@@ -125,4 +187,52 @@ test("dragging snaps to a quarter hour on the same day and a different day", asy
     "2026-11-24T01:30:00.000Z",
     "2026-11-24T02:30:00.000Z",
   );
+});
+
+test("day view edge drops move to the adjacent date without changing the Seoul time", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "desktop", "Uses an actual mouse");
+  const dated = {
+    ...task,
+    earliest_start: "2026-11-23T00:07:00Z",
+    latest_end: "2026-11-23T01:07:00Z",
+  };
+  await mockApi(page, [], { tasks: [dated] });
+  await login(page);
+  await page.goto("/calendar?date=2026-11-23");
+  const grid = page.getByRole("region", { name: "하루 시간표" });
+  const card = grid.locator(".time-event").filter({ hasText: task.title });
+
+  for (const [edge, day] of [
+    ["previous", "2026-11-22"],
+    ["next", "2026-11-23"],
+  ] as const) {
+    await card.scrollIntoViewIfNeeded();
+    const block = (await card.boundingBox())!;
+    const surface = (await grid.boundingBox())!;
+    const x =
+      edge === "previous" ? surface.x + 22 : surface.x + surface.width - 7;
+    await page.mouse.move(block.x + block.width / 2, block.y + 8);
+    await page.mouse.down();
+    await page.mouse.move(x, block.y + 8, { steps: 12 });
+    await expect(
+      page.locator(`.time-day-edge-zones [data-edge="${edge}"]`),
+    ).toHaveAttribute("data-active", "true");
+    const changed = page.waitForRequest(
+      (request) =>
+        request.method() === "PATCH" &&
+        request.url().endsWith("/api/tasks/" + task.id),
+    );
+    await page.mouse.up();
+    expect((await changed).postDataJSON()).toEqual({
+      earliest_start: `${day}T00:07:00.000Z`,
+      latest_end: `${day}T01:07:00.000Z`,
+    });
+    await expect(page.getByLabel("기준 날짜")).toHaveValue(day);
+    await expect(
+      grid.locator(`[data-calendar-day="${day}"] .time-event`),
+    ).toContainText("09:07");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+  }
 });
