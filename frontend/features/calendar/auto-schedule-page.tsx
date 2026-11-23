@@ -363,20 +363,11 @@ export function AutoSchedulePage({
                 <p>
                   <Link href="/planning/availability">가능 시간 설정</Link>
                 </p>
-                <label className="checkbox-row">
-                  <input
-                    type="checkbox"
-                    checked={useSaved}
-                    onChange={(e) => setUseSaved(e.target.checked)}
-                  />
-                  저장한 가능 시간과 날짜별 예외 사용
-                </label>
-                {useSaved && (
-                  <p className="small muted">
-                    계정에 저장한 시간과 날짜별 예외를 반영합니다. 처음에는 평일
-                    09:00~18:00입니다.
-                  </p>
-                )}
+                <p className="small muted" role="status">
+                  {useSaved
+                    ? "저장한 가능 시간과 날짜별 예외 적용 중. 아래 시간이나 요일을 바꾸면 이번 추천에 직접 입력한 조건을 적용합니다."
+                    : "이번 추천에 직접 입력한 시간과 요일을 적용합니다."}
+                </p>
                 <div className="form-grid">
                   <label>
                     추천 기간 시작일
@@ -401,8 +392,10 @@ export function AutoSchedulePage({
                     하루 작업 시작
                     <select
                       value={begin}
-                      disabled={useSaved}
-                      onChange={(e) => setBegin(Number(e.target.value))}
+                      onChange={(e) => {
+                        setBegin(Number(e.target.value));
+                        setUseSaved(false);
+                      }}
                     >
                       {Array.from({ length: 48 }, (_, i) => i * 30).map((m) => (
                         <option key={m} value={m}>
@@ -415,8 +408,10 @@ export function AutoSchedulePage({
                     하루 작업 종료
                     <select
                       value={end}
-                      disabled={useSaved}
-                      onChange={(e) => setEnd(Number(e.target.value))}
+                      onChange={(e) => {
+                        setEnd(Number(e.target.value));
+                        setUseSaved(false);
+                      }}
                     >
                       {Array.from({ length: 48 }, (_, i) => (i + 1) * 30).map(
                         (m) => (
@@ -438,14 +433,14 @@ export function AutoSchedulePage({
                       <input
                         type="checkbox"
                         checked={weekdays.includes(i)}
-                        disabled={useSaved}
-                        onChange={(e) =>
+                        onChange={(e) => {
                           setWeekdays((current) =>
                             e.target.checked
                               ? [...current, i]
                               : current.filter((d) => d !== i),
-                          )
-                        }
+                          );
+                          setUseSaved(false);
+                        }}
                       />
                       {day}
                     </label>
