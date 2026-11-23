@@ -25,7 +25,7 @@ from app.services.file_source_metadata import (
     lock_file_owner,
     metadata_key,
     reusable_files,
-    reusable_review,
+    reusable_review_id,
 )
 from app.services.pdf_analysis import SCAN_CONSENT_REQUIRED, analyze_pdf
 from app.services.source_images import (
@@ -191,12 +191,12 @@ def process_file_analysis(
                         if (existing.id == source.id or metadata_key(existing.file_metadata) != new_key
                                 or (source_title and source_title != existing.title)):
                             continue
-                        canonical = reusable_review(db, existing)
-                        if canonical is None:
+                        canonical_id = reusable_review_id(db, existing)
+                        if canonical_id is None:
                             continue
                         analysis.status = "ready"
                         analysis.source_id = existing.id
-                        analysis.reused_analysis_id = canonical.id
+                        analysis.reused_analysis_id = canonical_id
                         finish_processing(analysis)
                         db.flush()
                         db.delete(source)

@@ -1,6 +1,7 @@
 """Summarize analyzed files and find reusable records owned by the uploader."""
 import re
 import unicodedata
+import uuid
 from datetime import timezone
 
 from sqlalchemy import case, select
@@ -10,7 +11,7 @@ from app.models.analysis import Analysis
 from app.models.source import Source
 from app.models.user import User
 from app.schemas.analysis import FileResult
-from app.services.source_images import file_hash
+from app.services.source_images import file_hash, read_file
 
 HEADING = re.compile(r"^(?:\[[^\]]{1,20}\]\s*)?20\d{2}(?:\s*년(?:도)?)?\s+.{0,150}(?:채용|모집|공모|공채)(?:\s|$)")
 EMPLOYER = re.compile(
@@ -89,11 +90,18 @@ def reusable_files(db: Session, user_id, source_type: str, filename: str):
     ).order_by(Source.created_at, Source.id).with_for_update(skip_locked=True))
 
 
-def reusable_review(db: Session, source: Source) -> Analysis | None:
-    return db.scalar(select(Analysis).where(
+def reusable_review_id(db: Session, source: Source) -> uuid.UUID | None:
+    review_id = db.scalar(select(Analysis.id).where(
         Analysis.source_id == source.id, Analysis.user_id == source.user_id,
         Analysis.input_hash == file_hash(source.storage_key, source.source_type),
         Analysis.model.startswith(f"{source.source_type}:"),
         Analysis.status.in_(("ready", "approved")), Analysis.reused_analysis_id.is_(None),
         (Analysis.status == "approved") | (Analysis.input_text == source.extracted_text),
     ).order_by(case((Analysis.status == "approved", 0), else_=1), Analysis.created_at.desc(), Analysis.id).limit(1))
+    if review_id is not None:
+        # A matching database row alone cannot replace the newly uploaded original.
+        try:
+            read_file(source.storage_key, source.source_type)
+        except (OSError, TypeError, ValueError):
+            return None
+    return review_id
