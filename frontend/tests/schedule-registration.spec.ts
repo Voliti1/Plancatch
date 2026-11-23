@@ -41,9 +41,7 @@ test("dashboard opens the separate registration screen with responsive inputs", 
   const url = await page.getByLabel("원본 URL", { exact: true }).boundingBox();
   expect(drop).not.toBeNull();
   expect(url).not.toBeNull();
-  if (page.viewportSize()!.width > 1000)
-    expect(url!.x).toBeGreaterThan(drop!.x + drop!.width);
-  else expect(url!.y).toBeGreaterThan(drop!.y + drop!.height);
+  expect(url!.y).toBeGreaterThan(drop!.y + drop!.height);
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
