@@ -61,13 +61,13 @@ export function TimeGrid({
     <div className="time-grid-host">
       <section
         ref={scroller}
-        className={`time-grid-scroll ${week ? "is-week" : "is-day"}`}
+        className={`time-grid-scroll ${week ? "is-week" : "is-day"}${moving ? " is-dragging" : ""}`}
         aria-label={week ? "주간 시간표" : "하루 시간표"}
       >
         <div
           className="time-grid"
           style={{
-            gridTemplateColumns: `52px repeat(${days.length}, minmax(0, 1fr))`,
+            gridTemplateColumns: `var(--time-rail-width) repeat(${days.length}, minmax(0, 1fr))${week ? "" : " var(--time-rail-width)"}`,
           }}
         >
           <div className="time-grid-corner">시간</div>
@@ -94,6 +94,12 @@ export function TimeGrid({
               </button>
             ))}
           </div>
+          {!week && (
+            <div
+              aria-hidden="true"
+              className="time-grid-corner time-next-day-header"
+            />
+          )}
           <div className="time-grid-all-day-label">종일</div>
           {days.map((day) => (
             <div key={day} className="time-all-day">
@@ -127,12 +133,28 @@ export function TimeGrid({
                 ))}
             </div>
           ))}
-          <div className="time-axis" style={{ height: 24 * HOUR + 24 }}>
+          {!week && (
+            <div
+              aria-hidden="true"
+              className="time-all-day time-next-day-all-day"
+            />
+          )}
+          <div
+            className="time-axis"
+            style={{ height: 24 * HOUR + 24 }}
+            data-day-drop-edge={week ? undefined : "previous"}
+            data-active={drop?.edge === "previous"}
+          >
             {Array.from({ length: 25 }, (_, hour) => (
               <span key={hour} style={{ top: hour * HOUR }}>
                 {String(hour).padStart(2, "0")}:00
               </span>
             ))}
+            {!week && moving && (
+              <div aria-hidden="true" className="time-day-edge-label">
+                전날로 이동
+              </div>
+            )}
           </div>
           {days.map((day) => (
             <div
@@ -266,18 +288,21 @@ export function TimeGrid({
               )}
             </div>
           ))}
+          {!week && (
+            <div
+              aria-hidden="true"
+              className="time-next-day-rail"
+              style={{ height: 24 * HOUR + 24 }}
+              data-day-drop-edge="next"
+              data-active={drop?.edge === "next"}
+            >
+              {moving && (
+                <div className="time-day-edge-label">다음 날로 이동</div>
+              )}
+            </div>
+          )}
         </div>
       </section>
-      {!week && moving && (
-        <div aria-hidden="true" className="time-day-edge-zones">
-          <span data-edge="previous" data-active={drop?.edge === "previous"}>
-            전날로 이동
-          </span>
-          <span data-edge="next" data-active={drop?.edge === "next"}>
-            다음 날로 이동
-          </span>
-        </div>
-      )}
     </div>
   );
 }

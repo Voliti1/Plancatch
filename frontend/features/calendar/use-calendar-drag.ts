@@ -8,7 +8,6 @@ import type { TimetableEvent } from "./time-layout";
 export const SLOT_MINUTES = 15;
 export const HOUR_HEIGHT = 56;
 const TIME_AXIS_WIDTH = 52;
-const NEXT_DAY_WIDTH = 22;
 
 type Drop = { day: string; minute: number; edge?: "previous" | "next" };
 type Drag = {
@@ -64,8 +63,12 @@ export function useCalendarDrag(
       y < viewport.bottom;
     let edge: Drop["edge"];
     if (singleDay && withinGrid) {
-      if (x < viewport.left + TIME_AXIS_WIDTH) edge = "previous";
-      else if (x >= viewport.right - NEXT_DAY_WIDTH) edge = "next";
+      const rail = document
+        .elementFromPoint(x, y)
+        ?.closest<HTMLElement>("[data-day-drop-edge]");
+      if (rail && surface.contains(rail)) {
+        edge = rail.dataset.dayDropEdge === "previous" ? "previous" : "next";
+      }
     }
     if (
       canScroll &&

@@ -203,6 +203,14 @@ test("day view edge drops move to the adjacent date without changing the Seoul t
   await page.goto("/calendar?date=2026-11-23");
   const grid = page.getByRole("region", { name: "하루 시간표" });
   const card = grid.locator(".time-event").filter({ hasText: task.title });
+  const previous = grid.locator('[data-day-drop-edge="previous"]');
+  const next = grid.locator('[data-day-drop-edge="next"]');
+  const previousBounds = (await previous.boundingBox())!;
+  const nextBounds = (await next.boundingBox())!;
+  const dayBounds = (await grid.locator("[data-calendar-day]").boundingBox())!;
+  expect(previousBounds.width).toBeGreaterThan(40);
+  expect(nextBounds.width).toBe(previousBounds.width);
+  expect(nextBounds.x).toBeCloseTo(dayBounds.x + dayBounds.width, 0);
 
   for (const [edge, day] of [
     ["previous", "2026-11-22"],
@@ -210,15 +218,17 @@ test("day view edge drops move to the adjacent date without changing the Seoul t
   ] as const) {
     await card.scrollIntoViewIfNeeded();
     const block = (await card.boundingBox())!;
-    const surface = (await grid.boundingBox())!;
-    const x =
-      edge === "previous" ? surface.x + 22 : surface.x + surface.width - 7;
+    const rail = edge === "previous" ? previous : next;
+    const target = (await rail.boundingBox())!;
+    const x = target.x + target.width / 2;
     await page.mouse.move(block.x + block.width / 2, block.y + 8);
     await page.mouse.down();
     await page.mouse.move(x, block.y + 8, { steps: 12 });
-    await expect(
-      page.locator(`.time-day-edge-zones [data-edge="${edge}"]`),
-    ).toHaveAttribute("data-active", "true");
+    await expect(rail).toHaveAttribute("data-active", "true");
+    await expect(rail.locator(".time-day-edge-label")).toHaveText(
+      edge === "previous" ? "전날로 이동" : "다음 날로 이동",
+    );
+    await expect(rail.locator(".time-day-edge-label")).toBeInViewport();
     const changed = page.waitForRequest(
       (request) =>
         request.method() === "PATCH" &&
