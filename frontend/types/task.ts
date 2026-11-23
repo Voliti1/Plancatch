@@ -16,6 +16,8 @@ export interface TaskInput {
   is_completed: boolean;
 }
 export interface Task extends TaskInput {
+  placement?: { start_at: string; end_at: string; block_count: number } | null;
+  placement_blocks?: { id: string; start_at: string; end_at: string }[];
   series_id?: string | null;
   original_start?: string | null;
   exception_count?: number;

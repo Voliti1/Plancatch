@@ -34,6 +34,64 @@ const deadline: Deadline = {
   updated_at: "2026-10-20T00:00:00Z",
 };
 
+test("approved time blocks appear in the schedule list and detail without changing editable availability", async ({
+  page,
+}) => {
+  const blocks = [
+    {
+      id: "first",
+      start_at: "2026-11-23T01:00:00Z",
+      end_at: "2026-11-23T02:00:00Z",
+    },
+    {
+      id: "second",
+      start_at: "2026-11-24T04:00:00Z",
+      end_at: "2026-11-24T05:00:00Z",
+    },
+  ];
+  const scheduled: Task = {
+    ...task,
+    schedule_type: "flexible",
+    earliest_start: null,
+    latest_end: null,
+    estimated_minutes: 120,
+    placement: {
+      start_at: blocks[0].start_at,
+      end_at: blocks[1].end_at,
+      block_count: 2,
+    },
+    placement_blocks: blocks,
+  };
+  await mockApi(page, [], { tasks: [scheduled] });
+  await login(page);
+  await expect(
+    page.getByRole("region", { name: "등록한 일정" }).locator("time").first(),
+  ).toHaveAttribute("datetime", blocks[0].start_at);
+  await page.goto("/deadlines");
+  const row = page.getByRole("link").filter({ hasText: scheduled.title });
+  await expect(row).toContainText("캘린더에 배치한 시간 · 2개 구간");
+  await expect(row.locator("time").last()).toHaveAttribute(
+    "datetime",
+    blocks[1].end_at,
+  );
+  await row.click();
+  await expect(page.getByText("배치 시작 일시")).toBeVisible();
+  const detail = page
+    .locator(".task-description")
+    .filter({ hasText: "캘린더에 배치한 시간" });
+  await expect(detail.getByRole("listitem")).toHaveCount(2);
+  await expect(detail.locator("time").nth(2)).toHaveAttribute(
+    "datetime",
+    blocks[1].start_at,
+  );
+  await expect(
+    page.getByRole("link", { name: "배치 시간 다시 추천받기" }),
+  ).toHaveAttribute("href", /mode=replan/);
+  await page.getByRole("button", { name: "일정 수정" }).click();
+  await expect(page.getByLabel("시작 일시")).toHaveValue("");
+  await expect(page.getByLabel("종료 일시")).toHaveValue("");
+});
+
 test("dashboard separates deadlines and the five newest schedules, including undated and completed items", async ({
   page,
 }) => {
