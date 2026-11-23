@@ -25,6 +25,7 @@ def candidates(
     q: Annotated[str, Query(max_length=255)] = "",
     offset: Annotated[int, Query(ge=0, le=1000000)] = 0,
     replace_existing: bool = False,
+    ids: Annotated[list[uuid.UUID] | None, Query(max_length=20)] = None,
 ):
     response.headers["Cache-Control"] = "no-store"
     active = exists().where(
@@ -53,7 +54,7 @@ def candidates(
         ),
     )
     query = (
-        select(Task, sort_at.label("sort_at"))
+        select(Task, sort_at.label("sort_at"), limit_at.label("completion_due_at"))
         .outerjoin(
             Deadline,
             and_(Deadline.id == Task.deadline_id, Deadline.user_id == current_user.id),
@@ -69,6 +70,8 @@ def candidates(
     )
     if q.strip():
         query = query.where(Task.title.icontains(q.strip(), autoescape=True))
+    if ids is not None:
+        query = query.where(Task.id.in_(ids))
     tasks = list(
         db.execute(
             query.order_by(sort_at.asc().nulls_last(), Task.title.asc(), Task.id)
@@ -81,8 +84,9 @@ def candidates(
             {
                 **TaskResponse.model_validate(task).model_dump(),
                 "sort_at": service.stamp(at),
+                "completion_due_at": service.stamp(due),
             }
-            for task, at in tasks[:100]
+            for task, at, due in tasks[:100]
         ],
         "has_more": len(tasks) > 100,
         "next_offset": offset + 100 if len(tasks) > 100 else None,

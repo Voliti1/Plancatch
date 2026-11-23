@@ -108,7 +108,9 @@ test("history pages, filters and refresh are read only and reflect changed/delet
   await expect(region).toContainText("보고서 latest");
   await region.getByLabel("기록 상태", { exact: true }).selectOption("expired");
   await expect(region).toContainText("유효 시간 지남");
-  await expect(region).toContainText("1페이지");
+  await expect(region.getByRole("button", { name: "다음 기록" })).toHaveCount(
+    0,
+  );
   await expect(
     region.getByRole("link", { name: "만료된 기록 보기", exact: true }),
   ).toHaveAttribute("href", "/planning?plan=expired");
@@ -145,11 +147,14 @@ test("history errors retry and empty filters have no leftover rows", async ({
   );
   await page.getByRole("button", { name: "새로고침", exact: true }).click();
   await expect(page.getByRole("main")).toContainText(
-    "해당 상태의 시간 추천 기록이 없습니다.",
+    "아직 시간 추천 기록이 없어요",
   );
   await expect(
+    page.getByRole("link", { name: "첫 시간 추천받기", exact: true }),
+  ).toHaveAttribute("href", "/planning");
+  await expect(
     page.getByRole("button", { name: "다음 기록", exact: true }),
-  ).toBeDisabled();
+  ).toHaveCount(0);
 });
 
 test("approved history reopens receipt and current placement management without approving or recreating deleted blocks", async ({
@@ -206,6 +211,75 @@ test("approved history reopens receipt and current placement management without 
   expect(writes).toBe(0);
 });
 
+test("saved history shows its times and reopens eligible tasks for a new recommendation", async ({
+  page,
+}) => {
+  await mockApi(page);
+  await login(page);
+  const saved = entry("saved-plan");
+  const agreed = receipt();
+  let selectedFromHistory = false;
+  await page.route("**/test-api/api/scheduling/plans?*", (route) =>
+    route.fulfill({
+      json: {
+        entries: [
+          {
+            ...saved,
+            calendar_date: "2026-11-18",
+            suggested_times: agreed.blocks,
+            saved_state: { ...saved.saved_state, active_count: 1 },
+          },
+        ],
+        next_cursor: null,
+      },
+    }),
+  );
+  await page.route("**/test-api/api/scheduling/plans/saved-plan", (route) =>
+    route.fulfill({
+      json: {
+        ...agreed,
+        request: { ...agreed.request, task_ids: ["old-task"] },
+      },
+    }),
+  );
+  await page.route("**/test-api/api/scheduling/tasks?*", (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    if (params.has("ids"))
+      selectedFromHistory =
+        params.get("ids") === "old-task" &&
+        params.get("replace_existing") === "true";
+    return route.fulfill({
+      json: {
+        entries: [
+          {
+            id: "old-task",
+            title: "보고서 준비",
+            estimated_minutes: 60,
+            schedule_type: "flexible",
+          },
+        ],
+        has_more: false,
+      },
+    });
+  });
+  await page.goto("/planning/history");
+  await expect(
+    page.getByRole("link", { name: "캘린더에서 보기" }),
+  ).toHaveAttribute("href", "/calendar?date=2026-11-18");
+  await expect(page.getByText(/오전 10:00 ~.*오전 11:00/)).toBeVisible();
+  await page.getByRole("link", { name: "다시 추천받기", exact: true }).click();
+  await expect(
+    page.getByRole("checkbox", { name: /보고서 준비/ }),
+  ).toBeChecked();
+  await expect(
+    page.getByRole("button", { name: "새 시간 추천 보기", exact: true }),
+  ).toBeEnabled();
+  expect(selectedFromHistory).toBe(true);
+  await expect(
+    page.getByRole("region", { name: "추천 시간 미리보기" }),
+  ).toHaveCount(0);
+});
+
 test("expired preview can only be read and never sends an approval", async ({
   page,
 }) => {
@@ -232,9 +306,7 @@ test("expired preview can only be read and never sends an approval", async ({
       exact: true,
     }),
   ).toBeVisible();
-  await expect(
-    result.getByLabel("보고서 준비 1 시작", { exact: true }),
-  ).toBeDisabled();
+  await expect(result.getByText("시간 수정", { exact: true })).toHaveCount(0);
   await expect(
     result.getByRole("button", { name: "캘린더에 저장", exact: true }),
   ).toBeDisabled();

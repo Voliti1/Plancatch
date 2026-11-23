@@ -191,8 +191,12 @@ export function TaskDetail({ id }: { id: string }) {
                   </p>
                   <div className="form-actions">
                     {data.schedule_type === "flexible" &&
-                      !data.is_completed && (
-                        <Link className="button secondary" href="/planning">
+                      !data.is_completed &&
+                      Boolean(data.estimated_minutes) && (
+                        <Link
+                          className="button"
+                          href={`/planning?task=${encodeURIComponent(data.id)}`}
+                        >
                           할 일 시간 추천받기
                         </Link>
                       )}

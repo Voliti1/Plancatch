@@ -1,326 +1,299 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { ErrorNotice, Loading } from "@/components/feedback";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { api, errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { toSeoulInput } from "@/lib/date/seoul";
+import { formatSeoul, toSeoulInput } from "@/lib/date/seoul";
 import type { Task } from "@/types/task";
+import { dayLabel } from "./dates";
 
-type Candidate = Task & { sort_at?: string | null };
+export type PlanningTask = Task & {
+  sort_at?: string | null;
+  completion_due_at?: string | null;
+};
 type Page = {
-  entries: Candidate[];
+  entries: PlanningTask[];
   has_more: boolean;
   next_offset?: number | null;
 };
 const korean = new Intl.Collator("ko-KR");
-const moment = (task: Candidate) => {
-  const value = task.sort_at ?? task.latest_end ?? task.earliest_start;
-  return value && Number.isFinite(Date.parse(value)) ? value : null;
-};
-const stamp = (task: Candidate) => {
-  const value = moment(task);
-  return value ? toSeoulInput(value) : null;
-};
+function sortTime(task: PlanningTask) {
+  const time = Date.parse(
+    task.sort_at ?? task.latest_end ?? task.earliest_start ?? "",
+  );
+  return Number.isFinite(time) ? time : Infinity;
+}
+
+export const newPlanningTask = "/sources/new?mode=manual&timing=flexible";
+
+export function loadPlanningTasks(
+  replaceExisting: boolean,
+  signal: AbortSignal,
+  query = "",
+  offset = 0,
+  ids: string[] = [],
+) {
+  const params = new URLSearchParams({ q: query });
+  if (offset) params.set("offset", String(offset));
+  if (replaceExisting) params.set("replace_existing", "true");
+  ids.forEach((id) => params.append("ids", id));
+  return api<Page>("/api/scheduling/tasks?" + params, { signal });
+}
+
+function TaskTiming({ task }: { task: PlanningTask }) {
+  const due = task.completion_due_at ?? task.latest_end;
+  return (
+    <small>
+      {task.estimated_minutes ? task.estimated_minutes + "분" : "소요시간 미정"}
+      {" · "}
+      {due ? "완료 기한 " + formatSeoul(due) : "마감일 없음"}
+    </small>
+  );
+}
 
 export function PlanningTaskPicker({
   selected,
   onChange,
-  onEdit,
-  replaceExisting = false,
+  replaceExisting,
 }: {
-  selected: string[];
-  onChange: (ids: string[]) => void;
-  onEdit: () => void;
-  replaceExisting?: boolean;
+  selected: PlanningTask[];
+  onChange: (tasks: PlanningTask[]) => void;
+  replaceExisting: boolean;
 }) {
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
-  const [open, setOpen] = useState(false);
   const [extra, setExtra] = useState<{
-    query: string;
     base: Page;
-    entries: Candidate[];
+    entries: PlanningTask[];
     has_more: boolean;
     offset: number;
   } | null>(null);
-  const [moreBusy, setMoreBusy] = useState(false);
-  const [moreError, setMoreError] = useState("");
-  const root = useRef<HTMLDivElement>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const inFlight = useRef<AbortController | null>(null);
-  const requestKey = useRef(query);
-  const panel = useId();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const more = useRef<AbortController | null>(null);
   useEffect(() => {
     const timer = setTimeout(() => setQuery(search.trim()), 250);
     return () => clearTimeout(timer);
   }, [search]);
-  useEffect(() => {
-    requestKey.current = query;
-    inFlight.current?.abort();
-    return () => inFlight.current?.abort();
-  }, [query]);
+  useEffect(() => () => more.current?.abort(), []);
   const tasks = useResource(
     useCallback(
       (signal: AbortSignal) =>
-        api<Page>(
-          `/api/scheduling/tasks?${new URLSearchParams({ q: query, ...(replaceExisting ? { replace_existing: "true" } : {}) })}`,
-          { signal },
-        ),
+        loadPlanningTasks(replaceExisting, signal, query),
       [query, replaceExisting],
     ),
   );
-  const close = () => setOpen(false);
-  useEffect(() => {
-    if (!open) return;
-    const outside = (event: Event) => {
-      if (!root.current?.contains(event.target as Node)) setOpen(false);
-    };
-    document.addEventListener("pointerdown", outside);
-    document.addEventListener("focusin", outside);
-    return () => {
-      document.removeEventListener("pointerdown", outside);
-      document.removeEventListener("focusin", outside);
-    };
-  }, [open]);
-  const currentExtra =
-    extra?.query === query && extra.base === tasks.data ? extra : null;
-  const entries = [
-    ...(tasks.data?.entries ?? []),
-    ...(currentExtra?.entries ?? []),
-  ];
-  const sorted = [...new Map(entries.map((t) => [t.id, t])).values()].sort(
+  const current = extra?.base === tasks.data ? extra : null;
+  const rows = new Map(
+    [...(tasks.data?.entries ?? []), ...(current?.entries ?? [])].map(
+      (task) => [task.id, task],
+    ),
+  );
+  const groups = new Map<string, PlanningTask[]>();
+  const sorted = [...rows.values()].sort(
     (a, b) =>
-      (moment(a) ? Date.parse(moment(a)!) : Infinity) -
-        (moment(b) ? Date.parse(moment(b)!) : Infinity) ||
+      sortTime(a) - sortTime(b) ||
       korean.compare(a.title, b.title) ||
       a.id.localeCompare(b.id),
   );
-  const groups = new Map<string, Candidate[]>();
-  for (const task of sorted) {
-    const date = stamp(task)?.slice(0, 10) ?? "날짜 미정";
-    groups.set(date, [...(groups.get(date) ?? []), task]);
+  sorted.forEach((task) => {
+    const value = task.sort_at ?? task.latest_end ?? task.earliest_start;
+    const day =
+      value && Number.isFinite(Date.parse(value))
+        ? toSeoulInput(value).slice(0, 10)
+        : "";
+    const group = groups.get(day);
+    if (group) group.push(task);
+    else groups.set(day, [task]);
+  });
+  const visible = search.trim() === query;
+  const hasMore = current?.has_more ?? tasks.data?.has_more;
+
+  async function nextPage() {
+    const base = tasks.data;
+    if (!base || more.current) return;
+    const controller = new AbortController();
+    const offset = current?.offset ?? base.next_offset ?? 100;
+    more.current = controller;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await loadPlanningTasks(
+        replaceExisting,
+        controller.signal,
+        query,
+        offset,
+      );
+      if (!controller.signal.aborted) {
+        setExtra({
+          base,
+          entries: [...(current?.entries ?? []), ...next.entries],
+          has_more: next.has_more,
+          offset: next.next_offset ?? offset + 100,
+        });
+      }
+    } catch (err) {
+      if (!controller.signal.aborted) setError(errorMessage(err));
+    } finally {
+      if (more.current === controller) {
+        more.current = null;
+        setBusy(false);
+      }
+    }
   }
-  const hasMore = currentExtra?.has_more ?? tasks.data?.has_more;
-  const waiting = search.trim() !== query;
-  const pickerAction = open
-    ? selected.length
-      ? "선택 완료"
-      : "목록 닫기"
-    : "목록 열기";
+
   return (
-    <div
-      className="planning-picker"
-      ref={root}
-      onKeyDown={(e) => {
-        if (e.key === "Escape" && open) {
-          e.preventDefault();
-          e.stopPropagation();
-          close();
-          input.current?.focus();
-        }
-      }}
-    >
-      <label htmlFor={`${panel}-search`}>할 일 제목 검색</label>
-      <div className="planning-picker-bar">
+    <div className="planning-picker">
+      <label>
+        할 일 제목 검색
         <input
-          ref={input}
-          id={`${panel}-search`}
-          role="combobox"
           type="search"
           autoComplete="off"
           placeholder="할 일 제목을 입력하세요"
-          aria-expanded={open}
-          aria-controls={panel}
-          aria-haspopup="dialog"
           value={search}
           maxLength={255}
-          onFocus={(e) => {
-            if (!root.current?.contains(e.relatedTarget as Node | null))
-              setOpen(true);
-          }}
-          onClick={() => setOpen(true)}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setOpen(true);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "ArrowDown") {
-              e.preventDefault();
-              setOpen(true);
-              root.current
-                ?.querySelector<HTMLInputElement>(
-                  ".planning-picker-panel input",
-                )
-                ?.focus();
-            }
+          onChange={(event) => {
+            more.current?.abort();
+            more.current = null;
+            setBusy(false);
+            setError("");
+            setSearch(event.target.value);
           }}
         />
-        <button
-          type="button"
-          className="secondary"
-          aria-label={`할 일 ${pickerAction}`}
-          aria-expanded={open}
-          aria-controls={panel}
-          onClick={() => setOpen(!open)}
-        >
-          {pickerAction}
-        </button>
-        {open && (
-          <div
-            id={panel}
-            role="dialog"
-            aria-label="시간을 정할 할 일 선택"
-            className="planning-picker-panel"
+      </label>
+      <section
+        className="planning-picker-list"
+        aria-label="시간을 정할 할 일 목록"
+      >
+        {tasks.loading || !visible ? (
+          <Loading />
+        ) : tasks.error ? (
+          <ErrorNotice message={tasks.error} retry={tasks.reload} />
+        ) : rows.size ? (
+          <>
+            {[...groups].map(([day, items]) => (
+              <div key={day} className="planning-picker-group">
+                <h3>{day ? dayLabel(day) : "날짜 미정"}</h3>
+                <ul className="planning-tasks">
+                  {items.map((task) => {
+                    const checked = selected.some(
+                      (item) => item.id === task.id,
+                    );
+                    return (
+                      <li key={task.id} data-selected={checked || undefined}>
+                        <label className="checkbox-row">
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            disabled={
+                              !checked &&
+                              (selected.length >= 20 || !task.estimated_minutes)
+                            }
+                            onChange={(event) =>
+                              onChange(
+                                event.target.checked
+                                  ? [...selected, task]
+                                  : selected.filter(
+                                      (item) => item.id !== task.id,
+                                    ),
+                              )
+                            }
+                          />
+                          <span>
+                            <strong>{task.title}</strong>
+                            <TaskTiming task={task} />
+                          </span>
+                        </label>
+                        {!task.estimated_minutes && (
+                          <Link href={"/tasks/" + encodeURIComponent(task.id)}>
+                            소요시간 설정
+                          </Link>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            ))}
+            {error && <ErrorNotice message={error} />}
+            {hasMore && (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={nextPage}
+              >
+                {busy ? "불러오는 중…" : "할 일 더 보기"}
+              </button>
+            )}
+          </>
+        ) : (
+          <Empty
+            title={
+              query
+                ? "검색 결과가 없습니다"
+                : replaceExisting
+                  ? "시간을 다시 정할 할 일이 없습니다"
+                  : "아직 시간을 정할 할 일이 없습니다"
+            }
           >
-            <p className="small muted">
-              완료 기한 기준 · 기한이 없으면 시작 가능일 · 한국 시간
-            </p>
-            {tasks.loading || waiting ? (
-              <Loading />
-            ) : tasks.error ? (
-              <>
-                <ErrorNotice message={tasks.error} />
+            {query ? (
+              "다른 제목으로 검색해 보세요."
+            ) : replaceExisting ? (
+              "캘린더에 저장한 시간이 아직 시작되지 않은 할 일을 선택할 수 있어요."
+            ) : (
+              <span className="planning-picker-empty-action">
+                <span>
+                  시간 미정 할 일을 만들면 여기에서 바로 선택할 수 있어요.
+                </span>
+                <Link href={newPlanningTask} className="button secondary">
+                  새 할 일 만들기
+                </Link>
+              </span>
+            )}
+          </Empty>
+        )}
+      </section>
+      {!replaceExisting && (rows.size > 0 || Boolean(query)) && (
+        <p className="small">
+          <Link href={newPlanningTask}>새 할 일 만들기</Link>
+        </p>
+      )}
+      {selected.length > 0 && (
+        <div className="planning-selected">
+          <div className="section-header">
+            <h3>선택한 할 일 {selected.length}개</h3>
+            <button
+              type="button"
+              className="text-button"
+              onClick={() => onChange([])}
+            >
+              모두 해제
+            </button>
+          </div>
+          <ul className="planning-selected-list">
+            {selected.map((task) => (
+              <li key={task.id}>
+                <span>
+                  <strong>{task.title}</strong>
+                  <TaskTiming task={task} />
+                </span>
                 <button
                   type="button"
-                  className="secondary"
-                  onClick={tasks.reload}
+                  className="text-button"
+                  aria-label={task.title + " 선택 해제"}
+                  onClick={() =>
+                    onChange(selected.filter((item) => item.id !== task.id))
+                  }
                 >
-                  다시 시도
+                  해제
                 </button>
-              </>
-            ) : (
-              <>
-                {!sorted.length && (
-                  <p className="notice">
-                    {replaceExisting
-                      ? "시간을 다시 정할 할 일이 없습니다. 검색어를 바꾸거나 아직 시작하지 않은 확정 배치가 있는 유동 할 일을 확인해 주세요."
-                      : "검색 결과가 없습니다. 다른 제목을 입력하거나 유동 작업을 등록해 주세요."}
-                  </p>
-                )}
-                {Array.from(groups, ([date, items]) => (
-                  <section
-                    key={date}
-                    aria-label={date}
-                    className="planning-picker-group"
-                  >
-                    <h3>
-                      {date === "날짜 미정"
-                        ? date
-                        : `${date.slice(0, 4)}년 ${Number(date.slice(5, 7))}월 ${Number(date.slice(8, 10))}일`}
-                    </h3>
-                    <ul className="planning-tasks">
-                      {items.map((task) => (
-                        <li key={task.id}>
-                          <label className="checkbox-row">
-                            <input
-                              type="checkbox"
-                              checked={selected.includes(task.id)}
-                              onChange={(e) => {
-                                onChange(
-                                  e.target.checked
-                                    ? [...selected, task.id]
-                                    : selected.filter((id) => id !== task.id),
-                                );
-                                onEdit();
-                              }}
-                            />
-                            <span>
-                              {task.title}
-                              <small>
-                                {stamp(task)?.slice(11) ?? "시간 미정"} ·{" "}
-                                {task.estimated_minutes
-                                  ? `${task.estimated_minutes}분`
-                                  : "소요시간 입력 필요"}{" "}
-                                · 우선순위 {task.priority}
-                              </small>
-                            </span>
-                          </label>
-                          <Link
-                            href={`/tasks/${encodeURIComponent(task.id)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            설정 ↗
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  </section>
-                ))}
-                {moreError && <ErrorNotice message={moreError} />}
-                {hasMore && (
-                  <button
-                    type="button"
-                    className="secondary"
-                    disabled={moreBusy}
-                    onClick={async () => {
-                      if (inFlight.current && !inFlight.current.signal.aborted)
-                        return;
-                      const controller = new AbortController();
-                      inFlight.current = controller;
-                      const key = query;
-                      setMoreBusy(true);
-                      setMoreError("");
-                      try {
-                        const offset =
-                          currentExtra?.offset ??
-                          tasks.data?.next_offset ??
-                          100;
-                        const next = await api<Page>(
-                          `/api/scheduling/tasks?${new URLSearchParams({ q: key, offset: String(offset), ...(replaceExisting ? { replace_existing: "true" } : {}) })}`,
-                          { signal: controller.signal },
-                        );
-                        if (
-                          !controller.signal.aborted &&
-                          requestKey.current === key &&
-                          tasks.data
-                        )
-                          setExtra({
-                            query: key,
-                            base: tasks.data,
-                            entries: [
-                              ...(currentExtra?.entries ?? []),
-                              ...next.entries,
-                            ],
-                            has_more: next.has_more,
-                            offset: next.next_offset ?? offset + 100,
-                          });
-                      } catch (error) {
-                        if (
-                          !controller.signal.aborted &&
-                          requestKey.current === key
-                        )
-                          setMoreError(errorMessage(error));
-                      } finally {
-                        if (inFlight.current === controller) {
-                          inFlight.current = null;
-                          setMoreBusy(false);
-                        }
-                      }
-                    }}
-                  >
-                    {moreBusy ? "불러오는 중…" : "할 일 더 보기"}
-                  </button>
-                )}
-              </>
-            )}
-          </div>
-        )}
-      </div>
-      <p className="small">
-        {selected.length}개 선택{" "}
-        <button
-          type="button"
-          className="text-button"
-          onClick={() => {
-            onChange([]);
-            onEdit();
-          }}
-        >
-          선택 해제
-        </button>
-      </p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

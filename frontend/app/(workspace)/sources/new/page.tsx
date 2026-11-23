@@ -9,6 +9,7 @@ export default async function NewSourcePage({
     deadline_id?: string | string[];
     start?: string | string[];
     end?: string | string[];
+    timing?: string | string[];
   }>;
 }) {
   const params = await searchParams;
@@ -48,10 +49,13 @@ export default async function NewSourcePage({
   }
   const initialMode =
     params.mode === "natural" && !manualDraft ? "natural" : mode;
+  const startWithoutTime =
+    initialMode === "manual" && !manualDraft && params.timing === "flexible";
   return (
     <ScheduleRegistration
-      key={`${entry}:${initialMode}:${deadlineId ?? ""}:${manualDraft?.start_at ?? ""}:${manualDraft?.end_at ?? ""}`}
+      key={`${entry}:${initialMode}:${deadlineId ?? ""}:${manualDraft?.start_at ?? ""}:${manualDraft?.end_at ?? ""}:${startWithoutTime}`}
       initialMode={initialMode}
+      startWithoutTime={startWithoutTime}
       deadlineId={deadlineId}
       manualDraft={manualDraft}
     />

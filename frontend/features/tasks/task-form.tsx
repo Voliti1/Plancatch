@@ -58,6 +58,7 @@ export function TaskForm({
   cancelPreservesInput = false,
   reminderNotice,
   variant = "task",
+  initialScheduleType,
 }: {
   initial?: Task;
   draft?: NaturalScheduleDraft;
@@ -72,6 +73,7 @@ export function TaskForm({
   cancelPreservesInput?: boolean;
   reminderNotice?: ReactNode;
   variant?: "task" | "calendar";
+  initialScheduleType?: ScheduleType;
 }) {
   const simple = variant === "calendar";
   const singleOccurrence = Boolean(initial?.series_id);
@@ -103,8 +105,14 @@ export function TaskForm({
   );
   const [priority, setPriority] = useState(initial?.priority ?? 3);
   const [scheduleType, setScheduleType] = useState<ScheduleType>(
-    initial?.schedule_type ?? (simple ? "fixed" : "flexible"),
+    initial?.schedule_type ??
+      initialScheduleType ??
+      (simple ? "fixed" : "flexible"),
   );
+  const withoutTime =
+    canChooseKind && !isDeadline && scheduleType === "flexible";
+  const [possibleStart, setPossibleStart] = useState("");
+  const [possibleEnd, setPossibleEnd] = useState("");
   const requireTimes =
     simple && scheduleType === "fixed" && (!initial || singleOccurrence);
   const [start, setStart] = useState(
@@ -124,7 +132,10 @@ export function TaskForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const endTooEarly =
-    canChooseKind && !isDeadline && Boolean(start && end && end < start);
+    canChooseKind &&
+    !isDeadline &&
+    !withoutTime &&
+    Boolean(start && end && end < start);
   const submitting = useRef(false);
   const overlap = useOverlapCheck();
   const { markSaved, confirmDiscard } = useUnsavedChanges(
@@ -136,6 +147,8 @@ export function TaskForm({
       minutes,
       priority,
       scheduleType,
+      possibleStart,
+      possibleEnd,
       start,
       end,
       completed,
@@ -197,6 +210,8 @@ export function TaskForm({
       if (scheduleType === "fixed" && recurrence?.until === "")
         throw new Error("반복 종료일을 선택해 주세요.");
       const estimated = minutes === "" ? null : Number(minutes);
+      if (withoutTime && estimated === null)
+        throw new Error("시간 미정 할 일의 예상 소요시간을 입력해 주세요.");
       if (
         estimated !== null &&
         (!Number.isInteger(estimated) ||
@@ -208,14 +223,15 @@ export function TaskForm({
         throw new Error(
           "연결할 마감일을 다시 선택하거나 연결 안 함을 선택해 주세요.",
         );
-      const earliest = optionalUtc(
-        start,
-        initial?.earliest_start ?? draft?.start_at ?? null,
-      );
-      const latest = optionalUtc(
-        end,
-        initial?.latest_end ?? draft?.end_at ?? null,
-      );
+      const earliest = withoutTime
+        ? optionalUtc(possibleStart, null)
+        : optionalUtc(
+            start,
+            initial?.earliest_start ?? draft?.start_at ?? null,
+          );
+      const latest = withoutTime
+        ? optionalUtc(possibleEnd, null)
+        : optionalUtc(end, initial?.latest_end ?? draft?.end_at ?? null);
       if (earliest && latest && new Date(earliest) >= new Date(latest))
         throw new Error(
           simple
@@ -282,13 +298,14 @@ export function TaskForm({
   const durationAndPriority = (
     <div className="form-grid">
       <label>
-        예상 소요시간 (분, 선택)
+        {withoutTime ? "예상 소요시간 (분, 필수)" : "예상 소요시간 (분, 선택)"}
         <input
           name="estimated_minutes"
           type="number"
           min={1}
           max={MAX_ESTIMATED_MINUTES}
           step={1}
+          required={withoutTime}
           inputMode={canChooseKind ? "numeric" : undefined}
           value={minutes}
           onChange={(event) => {
@@ -316,45 +333,50 @@ export function TaskForm({
       </label>
     </div>
   );
+  const deadlineField = (
+    <label>
+      <span id={deadlineLabelId}>연결할 마감일</span>
+      <select
+        name="deadline_id"
+        aria-labelledby={deadlineLabelId}
+        value={deadline}
+        onChange={(event) => setDeadline(event.target.value)}
+      >
+        <option value="">연결 안 함</option>
+        {deadline && !options.data?.some((item) => item.id === deadline) && (
+          <option value={deadline}>
+            마감일을 확인할 수 없습니다 — 다시 선택해 주세요
+          </option>
+        )}
+        {options.data?.map((item) => (
+          <option key={item.id} value={item.id}>
+            {item.title}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
   const settings = (
     <>
-      <label>
-        <span id={deadlineLabelId}>연결할 마감일</span>
-        <select
-          name="deadline_id"
-          aria-labelledby={deadlineLabelId}
-          value={deadline}
-          onChange={(event) => setDeadline(event.target.value)}
-        >
-          <option value="">연결 안 함</option>
-          {deadline && !options.data?.some((item) => item.id === deadline) && (
-            <option value={deadline}>
-              마감일을 확인할 수 없습니다 — 다시 선택해 주세요
-            </option>
-          )}
-          {options.data?.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.title}
-            </option>
-          ))}
-        </select>
-      </label>
+      {!withoutTime && deadlineField}
       {!simple && durationAndPriority}
-      <label>
-        <span id={typeLabelId}>작업 유형</span>
-        <select
-          name="schedule_type"
-          aria-labelledby={typeLabelId}
-          value={scheduleType}
-          disabled={singleOccurrence}
-          onChange={(event) =>
-            setScheduleType(event.target.value as ScheduleType)
-          }
-        >
-          <option value="flexible">유동 작업</option>
-          <option value="fixed">고정 일정</option>
-        </select>
-      </label>
+      {!canChooseKind && (
+        <label>
+          <span id={typeLabelId}>작업 유형</span>
+          <select
+            name="schedule_type"
+            aria-labelledby={typeLabelId}
+            value={scheduleType}
+            disabled={singleOccurrence}
+            onChange={(event) =>
+              setScheduleType(event.target.value as ScheduleType)
+            }
+          >
+            <option value="flexible">유동 작업</option>
+            <option value="fixed">고정 일정</option>
+          </select>
+        </label>
+      )}
     </>
   );
   const times = (
@@ -475,7 +497,7 @@ export function TaskForm({
           <p className="small muted">
             {isDeadline
               ? "제출이나 신청처럼 기한이 있는 일정이에요."
-              : "시작과 종료가 있는 일정을 등록해요."}
+              : "시간을 직접 정하거나 나중에 추천받을 수 있어요."}
           </p>
         </div>
       )}
@@ -521,7 +543,41 @@ export function TaskForm({
         </label>
         {simple ? (
           <>
-            {canChooseKind && (
+            {canChooseKind && !isDeadline && (
+              <div className="registration-kind-field">
+                <h3>시간 지정</h3>
+                <div
+                  className="manual-registration-kind"
+                  role="group"
+                  aria-label="할 일 시간 지정"
+                >
+                  {(
+                    [
+                      ["fixed", "직접 시간 지정"],
+                      ["flexible", "시간 미정으로 등록"],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className={
+                        scheduleType === value ? "selected" : "secondary"
+                      }
+                      aria-pressed={scheduleType === value}
+                      onClick={() => {
+                        setScheduleType(value);
+                        setError("");
+                        overlap.clear();
+                        onUserEdit?.();
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+            {canChooseKind && !withoutTime && (
               <div className="registration-time-heading">
                 <div className="registration-label">
                   <h3>{isDeadline ? "마감 시간" : "일정 시간"}</h3>
@@ -534,7 +590,7 @@ export function TaskForm({
                 </p>
               </div>
             )}
-            {times}
+            {!withoutTime && times}
             {endTooEarly && (
               <p
                 id={timeErrorId}
@@ -550,6 +606,7 @@ export function TaskForm({
               </p>
             )}
             {!isDeadline && durationAndPriority}
+            {withoutTime && deadlineField}
             {canChooseKind && (
               <h3 className="registration-extras-heading">추가 설정</h3>
             )}
@@ -559,6 +616,30 @@ export function TaskForm({
                 <summary>상세 설정</summary>
                 <div>
                   {settings}
+                  {withoutTime && (
+                    <div className="form-grid">
+                      <label>
+                        가능 시작 일시 (선택)
+                        <input
+                          type="datetime-local"
+                          value={possibleStart}
+                          onChange={(event) =>
+                            setPossibleStart(event.target.value)
+                          }
+                        />
+                      </label>
+                      <label>
+                        가능 종료 일시 (선택)
+                        <input
+                          type="datetime-local"
+                          value={possibleEnd}
+                          onChange={(event) =>
+                            setPossibleEnd(event.target.value)
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
                   {completion}
                 </div>
               </details>
@@ -591,8 +672,9 @@ export function TaskForm({
         )}
         {!isDeadline && scheduleType === "flexible" && (
           <p className="notice">
-            시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면
-            할 일 시간 추천에서 빈 시간을 제안받을 수 있습니다.
+            {withoutTime
+              ? "저장 후 이 할 일에 맞는 시간을 추천받을 수 있어요."
+              : "시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면 빈 시간을 추천받을 수 있습니다."}
           </p>
         )}
         {Boolean(initial?.exception_count) && (

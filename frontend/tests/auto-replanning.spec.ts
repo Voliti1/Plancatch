@@ -84,9 +84,7 @@ async function open(page: Page, deepLink = false) {
   await expect(
     page.getByRole("button", { name: "저장한 시간 다시 정하기", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("combobox", { name: "할 일 제목 검색" }).click();
   await page.getByRole("checkbox", { name: /다시 배치할 보고서/ }).check();
-  await page.getByRole("button", { name: "할 일 선택 완료" }).click();
   await page.getByText("추천 조건", { exact: true }).click();
   await page.getByLabel("추천 기간 시작일", { exact: true }).fill("2026-11-16");
   await page.getByLabel("추천 기간 종료일", { exact: true }).fill("2026-11-16");
@@ -155,7 +153,9 @@ test("replacement compares old and new times and only explicit approval sends a 
     .getByRole("button", { name: "시간 다시 정하기", exact: true })
     .click();
   await expect(result).toHaveCount(0);
-  await expect(page.locator(".planning-picker > p")).toContainText("0개 선택");
+  await expect(page.getByRole("heading", { name: /선택한 할 일/ })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("button", { name: "저장한 시간 다시 정하기", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
@@ -216,9 +216,13 @@ test("stale replacement never deletes directly and changing mode drops old previ
     "기존 배치가 변경됐습니다",
   );
   expect(approvals).toBe(1);
-  await page.getByRole("button", { name: "새 시간 찾기", exact: true }).click();
+  await page
+    .getByRole("button", { name: "시간 미정 할 일", exact: true })
+    .click();
   await expect(result).toHaveCount(0);
-  await expect(page.locator(".planning-picker > p")).toContainText("0개 선택");
+  await expect(page.getByRole("heading", { name: /선택한 할 일/ })).toHaveCount(
+    0,
+  );
   await expect(
     page.getByRole("button", { name: "추천 시간 보기", exact: true }),
   ).toBeDisabled();

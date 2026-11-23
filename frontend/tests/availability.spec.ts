@@ -118,6 +118,47 @@ test("stale save preserves draft and reload can discard it deliberately", async 
   expect(state.puts).toBe(1);
 });
 
+test("presets preview before applying; bulk edits keep exceptions and save explicit rest days", async ({
+  page,
+}) => {
+  const state = await setup(page);
+  await page.getByRole("button", { name: "날짜 추가", exact: true }).click();
+  await page.getByLabel("기본 시간 프리셋").selectOption("evening");
+  await expect(page.getByText(/월~금 18:00~22:00/)).toBeVisible();
+  await expect(page.getByLabel("월요일 1 시작", { exact: true })).toHaveValue(
+    "09:00",
+  );
+  expect(state.puts).toBe(0);
+  await page.getByRole("button", { name: "이 기본 시간 적용" }).click();
+  await expect(page.getByLabel("월요일 1 시작", { exact: true })).toHaveValue(
+    "18:00",
+  );
+  await expect(
+    page.getByRole("group", { name: "일요일", exact: true }),
+  ).toContainText("휴식일");
+  await page.getByText("여러 요일에 같은 시간 적용", { exact: true }).click();
+  await page.getByRole("checkbox", { name: "월요일", exact: true }).check();
+  await page.getByRole("checkbox", { name: "화요일", exact: true }).check();
+  await page.getByLabel("일괄 적용 시작").fill("19:00");
+  await page.getByLabel("일괄 적용 종료").fill("21:00");
+  await page.getByRole("button", { name: "선택한 요일에 적용" }).click();
+  await expect(page.getByLabel("화요일 1 시작", { exact: true })).toHaveValue(
+    "19:00",
+  );
+  await expect(page.getByLabel("수요일 1 시작", { exact: true })).toHaveValue(
+    "18:00",
+  );
+  await page
+    .getByRole("button", { name: "가능 시간 저장", exact: true })
+    .click();
+  await expect(page.getByText(/가능 시간을 저장했습니다/)).toBeVisible();
+  await page.reload();
+  await expect(
+    page.getByRole("group", { name: "일요일", exact: true }),
+  ).toContainText("휴식일");
+  await expect(page.getByRole("button", { name: /예외 삭제/ })).toBeVisible();
+});
+
 test("automatic preview explicitly uses account hours when selected", async ({
   page,
 }) => {
@@ -167,9 +208,7 @@ test("automatic preview explicitly uses account hours when selected", async ({
     });
   });
   await page.getByRole("link", { name: "이 조건으로 시간 추천받기" }).click();
-  await page.getByRole("combobox", { name: "할 일 제목 검색" }).focus();
   await page.getByRole("checkbox", { name: /가능 시간 검사/ }).check();
-  await page.getByRole("button", { name: "할 일 선택 완료" }).click();
   await page
     .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
