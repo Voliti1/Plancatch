@@ -328,10 +328,9 @@ def local_state(db, owner, request):
     }
     if request.use_saved_availability:
         state["availability"] = availability.read(db, owner)
-    retained_task_ids = placed_ids - {event.task_id for event in replacement_rows}
     edges = dependencies.edges(db, owner)
     parents, finishes, dependency_state = dependencies.context(
-        db, owner, tasks, retained_task_ids=retained_task_ids, rows=edges
+        db, owner, tasks, placed_task_ids=placed_ids, rows=edges
     )
     successor_starts = dependencies.successor_starts(db, owner, request.task_ids, edges)
     if dependency_state:

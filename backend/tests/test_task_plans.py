@@ -268,8 +268,9 @@ def test_replanning_both_tasks_allows_moving_successor_and_checks_partial_approv
     assert link(auth, child, [parent]).status_code == 200
     before = events(auth)
     options = {'replace_existing': True, 'include_google': False, 'day_start_minutes': 780}
-    # One hour fits the parent alone, but its later placement would invalidate the retained child.
-    assert not preview(auth, [parent, child], day_end_minutes=840, **options).json()['blocks']
+    # Moving the parent alone would violate the old child. The child alone can still move after the old parent.
+    short = preview(auth, [parent, child], day_end_minutes=840, **options).json()
+    assert [block['task_id'] for block in short['blocks']] == [child['id']]
     plan = preview(auth, [parent, child], day_end_minutes=900, **options).json()
     assert [b['task_id'] for b in plan['blocks']] == [parent['id'], child['id']]
     first = {key: plan['blocks'][0][key] for key in ('id', 'start_at', 'end_at')}
@@ -277,6 +278,22 @@ def test_replanning_both_tasks_allows_moving_successor_and_checks_partial_approv
     assert events(auth) == before
     assert approve(auth, plan).status_code == 200
     assert len(events(auth)) == 2
+
+
+def test_approving_only_the_new_child_can_use_the_eligible_parent_reservation_left_in_place():
+    auth = owner()
+    parent, child = (task(auth, estimated_minutes=60) for _ in range(2))
+    old_parent = placed(auth, parent, '2026-11-16T11:00:00+09:00', '2026-11-16T12:00:00+09:00')
+    placed(auth, child, '2026-11-16T14:00:00+09:00', '2026-11-16T15:00:00+09:00')
+    assert link(auth, child, [parent]).status_code == 200
+    plan = preview(auth, [parent, child], replace_existing=True, include_google=False).json()
+    child_only = [{k: plan['blocks'][1][k] for k in ('id', 'start_at', 'end_at')}]
+    before = events(auth)
+    # Preview moved the parent to 9am. Omitting that move means the real parent still ends at noon.
+    assert approve(auth, plan, child_only).status_code == 422 and events(auth) == before
+    child_only[0].update(start_at='2026-11-16T12:00:00+09:00', end_at='2026-11-16T13:00:00+09:00')
+    assert approve(auth, plan, child_only).status_code == 200
+    assert {e['id'] for e in events(auth)} == {old_parent['id'], child_only[0]['id']}
 
 
 def test_dependency_order_preserves_input_ties_and_immediately_prioritizes_newly_ready_tasks():

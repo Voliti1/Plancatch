@@ -138,7 +138,7 @@ def successor_starts(db, owner, selected_ids, rows):
             for identity, children in descendants.items() if not children.isdisjoint(earliest)}
 
 
-def context(db, owner, selected, *, retained_task_ids=(), rows=None):
+def context(db, owner, selected, *, placed_task_ids=(), rows=None):
     if rows is None:
         rows = edges(db, owner)
     mapping = {}
@@ -156,9 +156,9 @@ def context(db, owner, selected, *, retained_task_ids=(), rows=None):
     tasks = list(db.scalars(select(Task).options(load_only(*CONTEXT_FIELDS)).where(Task.user_id == owner, Task.id.in_(closure))))
     if len(tasks) != len(closure) or any(not simple(t) for t in tasks if t.id in linked_ids):
         raise HTTPException(409, "작업 순서에 연결된 할 일을 확인해 주세요.")
-    # Existing reservations can satisfy a prerequisite even if the user selected it too.
-    # Selected placements being replaced must instead pass the new plan's order checks.
-    selected_to_plan = {t.id for t in selected}.difference(retained_task_ids)
+    # The original finish still applies to a task omitted from the final replacement.
+    # Preview and approval overwrite it only when the task's new blocks are included.
+    selected_to_plan = {t.id for t in selected}.difference(placed_task_ids)
     reservation_parent_ids = {parent for _, parent in related if parent not in selected_to_plan}
     deadline_ids = {t.deadline_id for t in tasks if t.id in reservation_parent_ids and t.deadline_id}
     deadlines = {d.id: d for d in db.scalars(select(Deadline).options(load_only(
