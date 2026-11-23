@@ -28,6 +28,44 @@ async function setup(page: Page, result = draft) {
   return writes;
 }
 
+test("selecting the same example keeps the pending read and subsequent edits", async ({
+  page,
+}) => {
+  const writes = await setup(page);
+  let finish!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    finish = resolve;
+  });
+  let reads = 0;
+  await page.route("**/api/schedules/interpret", async (route) => {
+    reads++;
+    await pending;
+    await route.fulfill({ json: draft });
+  });
+  const example = page.getByRole("button", {
+    name: "내일 오후 3시부터 4시까지 회의",
+    exact: true,
+  });
+  const sent = page.waitForRequest("**/api/schedules/interpret");
+  await example.click();
+  await sent;
+  try {
+    await example.click();
+  } finally {
+    finish();
+  }
+  const preview = page.getByRole("region", { name: "일정 입력", exact: true });
+  const title = preview.getByLabel("일정명", { exact: true });
+  await expect(title).toHaveValue(draft.title);
+  await title.fill("검토한 회의");
+  await example.click();
+  await expect(title).toHaveValue("검토한 회의");
+  await preview.getByRole("button", { name: "일정 등록", exact: true }).click();
+  await expect(page).toHaveURL(/\/tasks\/task-1$/);
+  expect(reads).toBe(1);
+  expect(writes.map((write) => write.body.title)).toEqual(["검토한 회의"]);
+});
+
 test("sentence preview is not a write, starts in Seoul time, stays editable and creates one fixed task", async ({
   page,
 }) => {

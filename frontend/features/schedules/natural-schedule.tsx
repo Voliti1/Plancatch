@@ -53,6 +53,7 @@ export function NaturalSchedule({
     timer.current = null;
   }
   function editSentence(value: string) {
+    if (value === text) return;
     cancelReading();
     // A new sentence replaces a previous proposal; clearing it keeps editable fields.
     if (value.trim() && (currentDraft.current || manualEdit.current)) {

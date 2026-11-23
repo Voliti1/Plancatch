@@ -224,12 +224,15 @@ export function AutoSchedulePage({
                 task_ids: selected.map((task) => task.id),
                 start_at: utcMidnight(first),
                 end_at: utcMidnight(addDays(last, 1)),
-                day_start_minutes: begin,
-                day_end_minutes: end,
-                weekdays,
                 chunk_minutes: chunk,
                 include_google: google,
-                ...(useSaved ? { use_saved_availability: true } : {}),
+                ...(useSaved
+                  ? { use_saved_availability: true }
+                  : {
+                      day_start_minutes: begin,
+                      day_end_minutes: end,
+                      weekdays,
+                    }),
                 ...(replace ? { replace_existing: true } : {}),
               }),
             });
