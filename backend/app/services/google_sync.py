@@ -67,7 +67,10 @@ def enqueue(db, user_id, kind, item_id, desired, task_id=None, *, force=False):
         return
     row = db.scalar(select(GoogleExport).where(GoogleExport.user_id == user_id,
         GoogleExport.kind == kind, GoogleExport.item_id == item_id).with_for_update())
-    bound = transport.binding(connection)
+    _queue_change(db, user_id, kind, item_id, desired, task_id, row, transport.binding(connection), force)
+
+
+def _queue_change(db, user_id, kind, item_id, desired, task_id, row, bound, force):
     if row is None:
         if desired is None:
             return
@@ -104,26 +107,44 @@ def enqueue_deadline(db, user_id, item_id, *, force=False):
 
 def enqueue_task(db, user_id, task_id, *, force=False):
     db.flush()
-    if sync_connection(db, user_id) is None:
+    connection = sync_connection(db, user_id)
+    if connection is None:
         return
-    item = db.scalar(select(Task).where(Task.id == task_id, Task.user_id == user_id))
-    events = list(db.scalars(select(ScheduledEvent).where(ScheduledEvent.task_id == task_id,
-        ScheduledEvent.user_id == user_id)))
+    bound = transport.binding(connection)
+    item = db.execute(select(
+        Task.title, Task.schedule_type, Task.earliest_start, Task.latest_end,
+        Task.google_reminders, Task.recurrence, Task.excluded_starts,
+    ).where(Task.id == task_id, Task.user_id == user_id)).one_or_none()
+    task_events = (ScheduledEvent.task_id == task_id, ScheduledEvent.user_id == user_id)
+    events = db.execute(select(
+        ScheduledEvent.id, ScheduledEvent.start_at, ScheduledEvent.end_at,
+        ScheduledEvent.status, ScheduledEvent.is_user_approved, ScheduledEvent.google_event_id,
+    ).where(*task_events)).all()
+    # Match current events by identity as well as earlier exports whose local events were removed.
+    master = (GoogleExport.kind == "task") & (GoogleExport.item_id == task_id)
+    current_or_previous_events = (GoogleExport.kind == "event") & or_(
+        GoogleExport.task_id == task_id,
+        GoogleExport.item_id.in_(select(ScheduledEvent.id).where(*task_events)),
+    )
+    exports = db.scalars(select(GoogleExport).where(
+        GoogleExport.user_id == user_id,
+        or_(master, current_or_previous_events),
+    ).with_for_update())
+    existing = {(row.kind, row.item_id): row for row in exports}
     desired = None
     if item and not events and item.schedule_type == "fixed" and item.earliest_start and item.latest_end:
         desired = payload(item.title, item.earliest_start, item.latest_end, item.google_reminders)
         if desired and item.recurrence:
             desired["recurrence"] = google_rule(item.recurrence, item.excluded_starts)
-    enqueue(db, user_id, "task", task_id, desired, task_id, force=force)
-    known = {event.id for event in events}
+    master_export = existing.pop(("task", task_id), None)
+    _queue_change(db, user_id, "task", task_id, desired, task_id, master_export, bound, force)
     for event in events:
         desired = (payload(item.title, event.start_at, event.end_at, item.google_reminders) if item and event.status == "approved"
             and event.is_user_approved and not event.google_event_id else None)
-        enqueue(db, user_id, "event", event.id, desired, task_id, force=force)
-    for identity in db.scalars(select(GoogleExport.item_id).where(GoogleExport.user_id == user_id,
-            GoogleExport.kind == "event", GoogleExport.task_id == task_id)):
-        if identity not in known:
-            enqueue(db, user_id, "event", identity, None, task_id, force=force)
+        event_export = existing.pop(("event", event.id), None)
+        _queue_change(db, user_id, "event", event.id, desired, task_id, event_export, bound, force)
+    for row in existing.values():
+        _queue_change(db, user_id, "event", row.item_id, None, task_id, row, bound, force)
 
 
 def failure(row, code):

@@ -81,7 +81,7 @@ def preview_change(target: ChangeTarget, current_user: CurrentUser, db: Database
         payload = payload_for(db, current_user.id, target)[0] if target.action == "update" else row.payload
         if target.action == "update" and digest(payload) == row.payload_hash:
             return ChangePreview(action=target.action, before=before, after=before, state="unchanged", preview_token=None,
-                                 note="플랜캐치에 저장한 제목·시간과 마지막으로 보낸 내용이 같습니다.")
+                                 note="플랜캐치의 일정이 마지막으로 Google에 보낸 내용과 같습니다.")
         try:
             token = access(config, connection, current_user.id)
             item = changes.read_copy(token, row)
@@ -94,7 +94,7 @@ def preview_change(target: ChangeTarget, current_user: CurrentUser, db: Database
         intent = {"id": uuid.uuid4().hex, "action": target.action, "payload": payload,
                       "etag": item["etag"] if item else None, "state": "pending"}
         state = "ready"
-        note = ("플랜캐치에 저장한 제목·시간만 Google에 반영합니다. Google에서 추가한 메모·알림은 유지합니다."
+        note = ("플랜캐치의 일정 변경과 선택한 알림 설정을 Google에 반영합니다. Google에 작성한 메모는 유지됩니다."
                 if target.action == "update" else "이 Google 일정과 Google에서 추가한 메모·알림을 삭제합니다. 플랜캐치 자료는 유지됩니다.")
         if item is None:
             note = "Google에 일정이 없는 것을 확인했습니다. 확인 버튼을 누르면 삭제 상태를 기록합니다. 플랜캐치 자료는 유지됩니다."
