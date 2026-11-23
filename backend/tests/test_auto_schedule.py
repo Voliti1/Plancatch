@@ -112,6 +112,22 @@ def test_preview_respects_safety_and_busy_times_then_approves_once_and_never_rec
     assert result.status_code == 200, result.text
     saved = result.json()
     assert saved["approved_at"] and len(saved["approved_event_ids"]) == 2
+    task_url = "/api/tasks/" + item["id"]
+    detail = client.get(task_url, headers=auth).json()
+    assert detail["earliest_start"] is None and detail["latest_end"] is None
+    assert detail["placement"]["block_count"] == 2
+    assert [block["id"] for block in detail["placement_blocks"]] == saved["approved_event_ids"]
+    assert detail["placement"]["start_at"] == detail["placement_blocks"][0]["start_at"]
+    assert detail["placement"]["end_at"] == detail["placement_blocks"][-1]["end_at"]
+    # The placed task sorts on its real time, ahead of its linked deadline.
+    overview = client.get("/api/schedules?offset=1&limit=1", headers=auth).json()
+    assert overview["entries"][0]["item"]["id"] == item["id"]
+    assert overview["entries"][0]["item"]["placement"] == detail["placement"]
+    dashboard = client.get("/api/tasks", headers=auth).json()
+    assert next(row for row in dashboard if row["id"] == item["id"])["placement"] == detail["placement"]
+    other = owner()
+    assert client.get(task_url, headers=other).status_code == 404
+    assert not client.get("/api/schedules", headers=other).json()["entries"]
     assert all(
         e["status"] == "approved" and e["is_user_approved"] for e in events(auth)
     )
@@ -127,6 +143,7 @@ def test_preview_respects_safety_and_busy_times_then_approves_once_and_never_rec
             == 204
         )
     assert approve(auth, plan).status_code == 200 and events(auth) == []
+    assert client.get(task_url, headers=auth).json()["placement"] is None
 
 
 def test_stale_tasks_deadlines_and_local_calendar_are_rechecked_before_any_write():

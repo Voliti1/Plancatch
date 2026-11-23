@@ -256,8 +256,11 @@ def test_fixed_task_placement_transition_and_cascade_deletion_keep_no_old_copies
     event = setup.client.post('/api/scheduled-events', headers=auth, json={'task_id': item['id'],
         'start_at': '2026-11-15T12:00:00+09:00', 'end_at': '2026-11-15T13:00:00+09:00', 'status': 'approved'})
     assert event.status_code == 201
+    target = {'kind': 'task', 'item_id': item['id']}
+    assert state(setup, auth, target)['state'] == 'pending'
     drain(force_retry=True)
     assert old_id not in remote and len(remote) == 1
+    assert state(setup, auth, target)['state'] == 'synced'
     assert writes == ['POST', 'DELETE', 'POST']
     assert setup.client.delete('/api/scheduled-events/' + event.json()['id'], headers=auth).status_code == 204
     drain(force_retry=True)

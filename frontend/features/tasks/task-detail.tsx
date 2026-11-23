@@ -16,6 +16,8 @@ import { recurrenceSummary } from "./recurrence-settings";
 export function TaskDetail({ id }: { id: string }) {
   const loader = useCallback(() => tasksApi.get(id), [id]);
   const { data, error, loading, reload } = useResource(loader);
+  const startsAt = data?.placement?.start_at ?? data?.earliest_start;
+  const endsAt = data?.placement?.end_at ?? data?.latest_end;
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [saved, setSaved] = useState("");
@@ -82,26 +84,34 @@ export function TaskDetail({ id }: { id: string }) {
                 </p>
               )}
               {editing ? (
-                <TaskForm
-                  initial={data}
-                  variant="calendar"
-                  onCancel={() => setEditing(false)}
-                  onSave={async (payload) => {
-                    await tasksApi.update(id, payload);
-                    setEditing(false);
-                    setSaved("변경 사항을 저장했습니다.");
-                    reload();
-                  }}
-                />
+                <>
+                  {data.placement && (
+                    <p className="small muted">
+                      아래 시작·종료 일시는 작업이 가능한 기간입니다. 캘린더에
+                      배치한 시간을 바꾸려면 배치 시간을 다시 추천받으세요.
+                    </p>
+                  )}
+                  <TaskForm
+                    initial={data}
+                    variant="calendar"
+                    onCancel={() => setEditing(false)}
+                    onSave={async (payload) => {
+                      await tasksApi.update(id, payload);
+                      setEditing(false);
+                      setSaved("변경 사항을 저장했습니다.");
+                      reload();
+                    }}
+                  />
+                </>
               ) : (
                 <>
                   <dl className="task-details-grid">
                     <div>
-                      <dt>시작 일시</dt>
+                      <dt>{data.placement ? "배치 시작 일시" : "시작 일시"}</dt>
                       <dd>
-                        {data.earliest_start ? (
-                          <time dateTime={data.earliest_start}>
-                            {formatSeoul(data.earliest_start)}
+                        {startsAt ? (
+                          <time dateTime={startsAt}>
+                            {formatSeoul(startsAt)}
                           </time>
                         ) : (
                           "설정 안 함"
@@ -109,18 +119,35 @@ export function TaskDetail({ id }: { id: string }) {
                       </dd>
                     </div>
                     <div>
-                      <dt>종료 일시</dt>
+                      <dt>{data.placement ? "배치 종료 일시" : "종료 일시"}</dt>
                       <dd>
-                        {data.latest_end ? (
-                          <time dateTime={data.latest_end}>
-                            {formatSeoul(data.latest_end)}
-                          </time>
+                        {endsAt ? (
+                          <time dateTime={endsAt}>{formatSeoul(endsAt)}</time>
                         ) : (
                           "설정 안 함"
                         )}
                       </dd>
                     </div>
                   </dl>
+                  {data.placement_blocks &&
+                    data.placement_blocks.length > 1 && (
+                      <div className="task-description">
+                        <h3>캘린더에 배치한 시간</h3>
+                        <ul>
+                          {data.placement_blocks.map((block) => (
+                            <li key={block.id}>
+                              <time dateTime={block.start_at}>
+                                {formatSeoul(block.start_at)}
+                              </time>
+                              {" → "}
+                              <time dateTime={block.end_at}>
+                                {formatSeoul(block.end_at)}
+                              </time>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   <div className="task-description">
                     <h3>메모</h3>
                     <p className="source-text">
@@ -185,9 +212,11 @@ export function TaskDetail({ id }: { id: string }) {
                     구글 캘린더 알림: {reminderSummary(data.google_reminders)}
                   </p>
                   <p className="muted small schedule-window-note">
-                    {data.schedule_type === "fixed"
-                      ? "입력한 시작·종료 시간으로 캘린더에 표시됩니다."
-                      : "유동 작업의 가능 기간입니다. 고정 일정으로 바꾸면 입력한 시간에 캘린더에 표시됩니다."}
+                    {data.placement
+                      ? "캘린더에 저장된 배치 시간입니다."
+                      : data.schedule_type === "fixed"
+                        ? "입력한 시작·종료 시간으로 캘린더에 표시됩니다."
+                        : "유동 작업의 가능 기간입니다. 고정 일정으로 바꾸면 입력한 시간에 캘린더에 표시됩니다."}
                   </p>
                   <div className="form-actions">
                     {data.schedule_type === "flexible" &&
@@ -195,9 +224,11 @@ export function TaskDetail({ id }: { id: string }) {
                       Boolean(data.estimated_minutes) && (
                         <Link
                           className="button"
-                          href={`/planning?task=${encodeURIComponent(data.id)}`}
+                          href={`/planning?task=${encodeURIComponent(data.id)}${data.placement ? "&mode=replan" : ""}`}
                         >
-                          할 일 시간 추천받기
+                          {data.placement
+                            ? "배치 시간 다시 추천받기"
+                            : "할 일 시간 추천받기"}
                         </Link>
                       )}
                     <button

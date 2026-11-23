@@ -19,6 +19,7 @@ from app.schemas.google_export import ExportTarget
 from app.services import google_calendar as google
 from app.services import google_export as transport
 from app.services import google_sync as sync
+from app.services.task_placements import confirmed_events
 
 router = APIRouter(prefix=google.PREFIX + "/auto-sync", tags=["google-calendar"])
 MESSAGES = {
@@ -55,6 +56,34 @@ def delivery_state(row, connection):
         return {"state": "failed", "note": MESSAGES.get(row.error_code, "Google 반영을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."), "retryable": True}
     if row and row.deleted_at:
         return {"state": "deleted", "note": "Google 캘린더에서도 삭제되었습니다.", "retryable": False}
+
+
+def placement_delivery(db, owner, task_id, connection):
+    blocks = db.execute(confirmed_events(owner).add_columns(GoogleExport).outerjoin(
+        GoogleExport,
+        and_(GoogleExport.user_id == owner, GoogleExport.kind == "event",
+             GoogleExport.item_id == ScheduledEvent.id),
+    ).where(ScheduledEvent.task_id == task_id))
+    states = []
+    for event, export in blocks:
+        state = delivery_state(export, connection)
+        if state and state["state"] != "deleted":
+            states.append(state)
+        elif (export and export.status == "sent" and not export.deleted_at) or event.google_event_id:
+            states.append({
+                "state": "synced", "note": "캘린더에 배치한 시간이 Google 캘린더에도 반영되었습니다.",
+                "retryable": False,
+            })
+        elif event.status == "approved" and event.is_user_approved:
+            states.append({
+                "state": "ready", "note": "캘린더에 배치한 시간을 Google 캘린더에 반영할 수 있습니다.",
+                "retryable": True,
+            })
+    for name in ("failed", "retrying", "pending", "ready", "synced"):
+        matching = [state for state in states if state["state"] == name]
+        if matching:
+            return {**matching[0], "retryable": any(state["retryable"] for state in matching)}
+    return None
 
 
 @router.get("/deletions")
@@ -95,6 +124,10 @@ def status(current_user: CurrentUser, db: DatabaseSession, response: Response,
     response.headers.update(SAFE_HEADERS)
     local, row = owned(db, current_user.id, kind, item_id)
     connection = db.get(GoogleCalendarConnection, current_user.id)
+    if kind == "task" and local and connection:
+        scheduled = placement_delivery(db, current_user.id, local.id, connection)
+        if scheduled:
+            return scheduled
     state = delivery_state(row, connection)
     if state is not None:
         return state

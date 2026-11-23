@@ -17,12 +17,16 @@ from app.schemas.task import (
     OccurrenceUpdate,
     ScheduleType,
     TaskCreate,
+    TaskDetailResponse,
+    TaskPlacementBlock,
     TaskResponse,
     TaskUpdate,
 )
 from app.services import google_sync as sync
 from app.services import task_occurrences as single
+from app.services.recurrence import utc
 from app.services.recurrence import validate as validate_recurrence
+from app.services.task_placements import confirmed_events, placement, placement_summary
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -56,27 +60,47 @@ def create_task(payload: TaskCreate, current_user: CurrentUser, db: DatabaseSess
 def list_tasks(
     current_user: CurrentUser,
     db: DatabaseSession,
+    response: Response,
     deadline_id: uuid.UUID | None = None,
     is_completed: bool | None = None,
     schedule_type: ScheduleType | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
-) -> list[Task]:
-    statement = select(Task).where(Task.user_id == current_user.id)
+) -> list[TaskResponse]:
+    response.headers["Cache-Control"] = "no-store"
+    summary = placement_summary(current_user.id)
+    statement = select(Task, summary.c.start_at, summary.c.end_at, summary.c.block_count).outerjoin(
+        summary, summary.c.task_id == Task.id,
+    ).where(Task.user_id == current_user.id)
     if deadline_id is not None:
         statement = statement.where(Task.deadline_id == deadline_id)
     if is_completed is not None:
         statement = statement.where(Task.is_completed == is_completed)
     if schedule_type is not None:
         statement = statement.where(Task.schedule_type == schedule_type)
-    return list(db.scalars(
-        statement.order_by(Task.created_at.desc(), Task.id).limit(limit).offset(offset),
-    ))
+    rows = db.execute(statement.order_by(Task.created_at.desc(), Task.id).limit(limit).offset(offset))
+    return [
+        TaskResponse.model_validate(task).model_copy(update={"placement": placement(start, end, count)})
+        for task, start, end, count in rows
+    ]
 
 
-@router.get("/{task_id}", response_model=TaskResponse)
-def read_task(task_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession) -> Task:
-    return get_owned_task(task_id, current_user.id, db)
+@router.get("/{task_id}", response_model=TaskDetailResponse)
+def read_task(task_id: uuid.UUID, current_user: CurrentUser, db: DatabaseSession, response: Response) -> TaskDetailResponse:
+    response.headers["Cache-Control"] = "no-store"
+    task = get_owned_task(task_id, current_user.id, db)
+    events = db.execute(
+        confirmed_events(current_user.id)
+        .with_only_columns(ScheduledEvent.id, ScheduledEvent.start_at, ScheduledEvent.end_at)
+        .where(ScheduledEvent.task_id == task.id)
+        .order_by(ScheduledEvent.start_at, ScheduledEvent.end_at, ScheduledEvent.id)
+    )
+    blocks = [TaskPlacementBlock(id=identity, start_at=utc(start), end_at=utc(end)) for identity, start, end in events]
+    result = TaskDetailResponse.model_validate(task)
+    if blocks:
+        result.placement = placement(blocks[0].start_at, max(block.end_at for block in blocks), len(blocks))
+        result.placement_blocks = blocks
+    return result
 
 
 @router.patch("/{task_id}", response_model=TaskResponse)

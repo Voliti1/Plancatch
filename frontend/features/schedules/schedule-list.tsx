@@ -18,7 +18,7 @@ import {
   type ListDeletion,
 } from "@/components/list-deletion";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
+import { TaskTimes } from "@/features/tasks/task-times";
 import { DeadlineTimes } from "@/features/deadlines/deadline-times";
 import {
   listSchedules,
@@ -57,25 +57,13 @@ function ScheduleRows({
               ) : (
                 <>
                   <span>
-                    {entry.item.earliest_start ? (
-                      <time dateTime={entry.item.earliest_start}>
-                        {formatSeoul(entry.item.earliest_start)}
-                      </time>
-                    ) : (
-                      "시작 미정"
-                    )}
-                    {" → "}
-                    {entry.item.latest_end ? (
-                      <time dateTime={entry.item.latest_end}>
-                        {formatSeoul(entry.item.latest_end)}
-                      </time>
-                    ) : (
-                      "종료 미정"
-                    )}
+                    <TaskTimes task={entry.item} />
                   </span>
                   {entry.item.schedule_type === "flexible" && (
                     <span className="small muted">
-                      가능 기간 · 실제 배치 시간은 상세에서 확인하세요.
+                      {entry.item.placement
+                        ? `캘린더에 배치한 시간 · ${entry.item.placement.block_count}개 구간`
+                        : "가능 기간 · 캘린더 배치 전"}
                     </span>
                   )}
                   {entry.item.recurrence && (

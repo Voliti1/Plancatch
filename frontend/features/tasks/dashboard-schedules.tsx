@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
+import { TaskTimes } from "./task-times";
 import "./schedule-overview.css";
 
 const loadSchedules = () => tasksApi.list();
@@ -41,21 +41,10 @@ export function DashboardSchedules() {
                 <div className="dashboard-schedule-summary">
                   <strong>{task.title}</strong>
                   <span className="small muted">
-                    {task.earliest_start ? (
-                      <time dateTime={task.earliest_start}>
-                        {formatSeoul(task.earliest_start)}
-                      </time>
-                    ) : (
-                      "시작 미정"
-                    )}
-                    {" → "}
-                    {task.latest_end ? (
-                      <time dateTime={task.latest_end}>
-                        {formatSeoul(task.latest_end)}
-                      </time>
-                    ) : (
-                      "종료 미정"
-                    )}
+                    <TaskTimes task={task} />
+                    {task.placement && task.placement.block_count > 1
+                      ? ` · ${task.placement.block_count}개 구간`
+                      : null}
                   </span>
                 </div>
                 <span className={`tag ${task.is_completed ? "confirmed" : ""}`}>
