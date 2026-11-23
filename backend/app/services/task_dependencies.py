@@ -2,10 +2,11 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+from heapq import heapify, heappop, heappush
 from itertools import pairwise
 
 from fastapi import HTTPException
-from sqlalchemy import delete, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import load_only
 
 from app.models import Deadline, ScheduledEvent, Task, TaskDependency
@@ -79,24 +80,67 @@ def replace(db, owner, identity, payload):
 
 
 def order(tasks, mapping, key):
-    ids = {t.id for t in tasks}
-    pending = {t.id: set(mapping.get(t.id, [])) & ids for t in tasks}
-    by_id = {t.id: t for t in tasks}
+    by_id = {task.id: task for task in tasks}
+    input_order = {identity: position for position, identity in enumerate(by_id)}
+    children = {}
+    remaining = {}
+    ready = []
+    for identity, task in by_id.items():
+        parents = {parent for parent in mapping.get(identity, ()) if parent in by_id}
+        remaining[identity] = len(parents)
+        for parent in parents:
+            children.setdefault(parent, []).append(identity)
+        if not parents:
+            ready.append((key(task), input_order[identity], identity))
+
+    heapify(ready)
     result = []
-    while pending:
-        ready = sorted((i for i, parents in pending.items() if not parents), key=lambda i: key(by_id[i]))
-        if not ready:
-            raise HTTPException(409, "작업 순서가 서로 맞물려 있습니다. 연결을 확인해 주세요.")
-        # Select one node at a time so a newly-ready urgent task wins over later deadlines.
-        identity = ready[0]
-        result.append(by_id[identity]); del pending[identity]
-        for parents in pending.values():
-            parents.discard(identity)
+    while ready:
+        _, _, identity = heappop(ready)
+        result.append(by_id[identity])
+        for child in children.get(identity, ()):
+            remaining[child] -= 1
+            if not remaining[child]:
+                heappush(ready, (key(by_id[child]), input_order[child], child))
+    if len(result) != len(by_id):
+        raise HTTPException(409, "작업 순서가 서로 맞물려 있습니다. 연결을 확인해 주세요.")
     return result
 
 
-def context(db, owner, selected):
-    rows = edges(db, owner)
+def successor_starts(db, owner, selected_ids, rows):
+    children = {}
+    for child, parent in rows:
+        children.setdefault(parent, []).append(child)
+    descendants = {}
+    reachable = set()
+    for identity in selected_ids:
+        found = set()
+        stack = list(children.get(identity, ()))
+        while stack:
+            child = stack.pop()
+            if child not in found:
+                found.add(child)
+                stack.extend(children.get(child, ()))
+        if found:
+            descendants[identity] = found
+            reachable.update(found)
+    if not reachable:
+        return {}
+    # A split successor starts with its first active block, even outside the preview dates.
+    earliest = dict(db.execute(
+        select(ScheduledEvent.task_id, func.min(ScheduledEvent.start_at))
+        .join(Task, Task.id == ScheduledEvent.task_id)
+        .where(Task.user_id == owner, ScheduledEvent.user_id == owner, ScheduledEvent.task_id.in_(reachable),
+               ScheduledEvent.status.in_(["approved", "synced"]))
+        .group_by(ScheduledEvent.task_id)
+    ).all())
+    return {identity: {child: utc(earliest[child]) for child in children if child in earliest}
+            for identity, children in descendants.items() if not children.isdisjoint(earliest)}
+
+
+def context(db, owner, selected, *, retained_task_ids=(), rows=None):
+    if rows is None:
+        rows = edges(db, owner)
     mapping = {}
     for a, b in rows:
         mapping.setdefault(a, []).append(b)
@@ -108,18 +152,22 @@ def context(db, owner, selected):
     related = [(a, b) for a, b in rows if a in closure]
     if not related:
         return {}, {}, None
+    linked_ids = {identity for edge in related for identity in edge}
     tasks = list(db.scalars(select(Task).options(load_only(*CONTEXT_FIELDS)).where(Task.user_id == owner, Task.id.in_(closure))))
-    if len(tasks) != len(closure) or any(not simple(t) for t in tasks):
+    if len(tasks) != len(closure) or any(not simple(t) for t in tasks if t.id in linked_ids):
         raise HTTPException(409, "작업 순서에 연결된 할 일을 확인해 주세요.")
-    ids = {t.id for t in selected}
-    deadline_ids = {t.deadline_id for t in tasks if t.id not in ids and t.deadline_id}
+    # Existing reservations can satisfy a prerequisite even if the user selected it too.
+    # Selected placements being replaced must instead pass the new plan's order checks.
+    selected_to_plan = {t.id for t in selected}.difference(retained_task_ids)
+    reservation_parent_ids = {parent for _, parent in related if parent not in selected_to_plan}
+    deadline_ids = {t.deadline_id for t in tasks if t.id in reservation_parent_ids and t.deadline_id}
     deadlines = {d.id: d for d in db.scalars(select(Deadline).options(load_only(
         Deadline.id, Deadline.due_at, Deadline.safety_buffer_minutes)).where(
         Deadline.user_id == owner, Deadline.id.in_(deadline_ids)))} if deadline_ids else {}
     placed = list(db.scalars(select(ScheduledEvent).options(load_only(
         ScheduledEvent.id, ScheduledEvent.task_id, ScheduledEvent.start_at, ScheduledEvent.end_at,
         ScheduledEvent.status)).where(ScheduledEvent.user_id == owner,
-        ScheduledEvent.task_id.in_(closure - ids), ScheduledEvent.status.in_(["approved", "synced"]))
+        ScheduledEvent.task_id.in_(reservation_parent_ids), ScheduledEvent.status.in_(["approved", "synced"]))
         .order_by(ScheduledEvent.start_at, ScheduledEvent.id).limit(1001)))
     if len(placed) > 1000:
         raise HTTPException(409, "먼저 할 작업의 배치를 모두 확인하지 못했습니다.")
@@ -130,7 +178,7 @@ def context(db, owner, selected):
     for task in order(tasks, mapping, lambda t: str(t.id)):
         if task.is_completed:
             finishes[task.id] = utc(task.completed_at) if task.completed_at else datetime.now(UTC)
-        elif task.id not in ids:
+        elif task.id in reservation_parent_ids:
             blocks = blocks_by_task.get(task.id, [])
             parents = mapping.get(task.id, [])
             deadline = deadlines.get(task.deadline_id)
