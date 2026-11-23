@@ -1,13 +1,15 @@
 import json
 import uuid
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 
 from app.models import Task
 from app.services import ai_analysis as ai
-from app.services import task_plans
+from app.services import auto_schedule, task_dependencies, task_plans
 from tests.test_auth import TestingSession
+from tests.test_auto_replanning import placed
 from tests.test_auto_schedule import (  # noqa: F401
     approve,
     clock,
@@ -168,6 +170,149 @@ def test_already_fully_placed_predecessor_allows_later_child_and_changed_placeme
     identity=events(auth)[0]['id']
     assert client.delete('/api/scheduled-events/'+identity,headers=auth).status_code==204
     assert approve(auth,plan).status_code==409
+
+
+def test_selecting_already_reserved_parent_alongside_child_uses_its_existing_finish(monkeypatch):
+    auth = owner()
+    parent = task(auth, estimated_minutes=60)
+    child = task(auth, estimated_minutes=60)
+    existing = preview(auth, [parent], include_google=False).json()
+    assert approve(auth, existing).status_code == 200
+    assert link(auth, child, [parent]).status_code == 200
+    calls = []
+    original = task_dependencies.context
+
+    def counted(*args, **kwargs):
+        calls.append(1)
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(task_dependencies, 'context', counted)
+    response = preview(auth, [parent, child], include_google=False)
+    assert response.status_code == 201, response.text
+    plan = response.json()
+    assert [b['task_id'] for b in plan['blocks']] == [child['id']]
+    assert plan['blocks'][0]['start_at'] == existing['blocks'][0]['end_at']
+    assert len(calls) == 1
+    assert approve(auth, plan).status_code == 200
+    assert len(calls) == 2
+    assert len(events(auth)) == 2
+
+
+def test_mixed_task_selection_skips_only_unrelated_fixed_task_when_others_have_dependencies():
+    auth = owner()
+    parent = task(auth, estimated_minutes=60)
+    child = task(auth, estimated_minutes=60)
+    fixed = task(auth, schedule_type='fixed', earliest_start='2026-11-16T09:00:00+09:00',
+                 latest_end='2026-11-16T10:00:00+09:00')
+    assert link(auth, child, [parent]).status_code == 200
+    response = preview(auth, [child, fixed, parent], include_google=False)
+    assert response.status_code == 201, response.text
+    plan = response.json()
+    assert [b['task_id'] for b in plan['blocks']] == [parent['id'], child['id']]
+    assert [item['task_id'] for item in plan['details']['unplaced']] == [fixed['id']]
+    assert approve(auth, plan).status_code == 200
+
+
+@pytest.mark.parametrize('sufficient', [True, False])
+def test_replanning_honors_a_selected_parent_whose_reservation_is_already_underway(monkeypatch, sufficient):
+    auth = owner()
+    parent = task(auth, estimated_minutes=60 if sufficient else 120)
+    child = task(auth, estimated_minutes=60)
+    old_parent = placed(auth, parent, '2026-11-16T09:00:00+09:00', '2026-11-16T10:00:00+09:00')
+    old_child = placed(auth, child, '2026-11-16T12:00:00+09:00', '2026-11-16T13:00:00+09:00')
+    assert link(auth, child, [parent]).status_code == 200
+    monkeypatch.setattr(auto_schedule, 'now', lambda: datetime(2026, 11, 16, 0, 30, tzinfo=UTC))
+    response = preview(auth, [parent, child], replace_existing=True, include_google=False)
+    assert response.status_code == 201, response.text
+    plan = response.json()
+    if sufficient:
+        assert [b['task_id'] for b in plan['blocks']] == [child['id']]
+        assert plan['blocks'][0]['start_at'] == '2026-11-16T01:00:00+00:00'
+        assert approve(auth, plan).status_code == 200
+        assert {e['id'] for e in events(auth)} == {old_parent['id'], plan['blocks'][0]['id']}
+    else:
+        assert not plan['blocks']
+        assert {e['id'] for e in events(auth)} == {old_parent['id'], old_child['id']}
+
+
+@pytest.mark.parametrize('indirect', [False, True])
+def test_kept_successor_constrains_parent_preview_and_edited_approval(indirect):
+    auth = owner()
+    parent, child = (task(auth, estimated_minutes=60) for _ in range(2))
+    placed(auth, parent, '2026-11-16T09:00:00+09:00', '2026-11-16T10:00:00+09:00')
+    placed(auth, child, '2026-11-16T11:00:00+09:00', '2026-11-16T12:00:00+09:00')
+    predecessor = parent
+    if indirect:
+        predecessor = task(auth, estimated_minutes=60)
+        assert link(auth, predecessor, [parent]).status_code == 200
+    assert link(auth, child, [predecessor]).status_code == 200
+    before = events(auth)
+    options = {'replace_existing': True, 'include_google': False}
+    assert not preview(auth, [parent], day_start_minutes=780, **options).json()['blocks']
+    tomorrow = preview(auth, [parent], start_at='2026-11-17T00:00:00+09:00',
+                       end_at='2026-11-18T00:00:00+09:00', **options)
+    assert tomorrow.status_code == 201 and not tomorrow.json()['blocks']
+    plan = preview(auth, [parent], **options).json()
+    assert len(plan['blocks']) == 1
+    later = [{'id': plan['blocks'][0]['id'], 'start_at': '2026-11-16T13:00:00+09:00',
+              'end_at': '2026-11-16T14:00:00+09:00'}]
+    assert approve(auth, plan, later).status_code == 422
+    assert events(auth) == before
+
+
+def test_replanning_both_tasks_allows_moving_successor_and_checks_partial_approval():
+    auth = owner()
+    parent, child = (task(auth, estimated_minutes=60) for _ in range(2))
+    placed(auth, parent, '2026-11-16T09:00:00+09:00', '2026-11-16T10:00:00+09:00')
+    placed(auth, child, '2026-11-16T11:00:00+09:00', '2026-11-16T12:00:00+09:00')
+    assert link(auth, child, [parent]).status_code == 200
+    before = events(auth)
+    options = {'replace_existing': True, 'include_google': False, 'day_start_minutes': 780}
+    # Moving the parent alone would violate the old child. The child alone can still move after the old parent.
+    short = preview(auth, [parent, child], day_end_minutes=840, **options).json()
+    assert [block['task_id'] for block in short['blocks']] == [child['id']]
+    plan = preview(auth, [parent, child], day_end_minutes=900, **options).json()
+    assert [b['task_id'] for b in plan['blocks']] == [parent['id'], child['id']]
+    first = {key: plan['blocks'][0][key] for key in ('id', 'start_at', 'end_at')}
+    assert approve(auth, plan, [first]).status_code == 422
+    assert events(auth) == before
+    assert approve(auth, plan).status_code == 200
+    assert len(events(auth)) == 2
+
+
+def test_approving_only_the_new_child_can_use_the_eligible_parent_reservation_left_in_place():
+    auth = owner()
+    parent, child = (task(auth, estimated_minutes=60) for _ in range(2))
+    old_parent = placed(auth, parent, '2026-11-16T11:00:00+09:00', '2026-11-16T12:00:00+09:00')
+    placed(auth, child, '2026-11-16T14:00:00+09:00', '2026-11-16T15:00:00+09:00')
+    assert link(auth, child, [parent]).status_code == 200
+    plan = preview(auth, [parent, child], replace_existing=True, include_google=False).json()
+    child_only = [{k: plan['blocks'][1][k] for k in ('id', 'start_at', 'end_at')}]
+    before = events(auth)
+    # Preview moved the parent to 9am. Omitting that move means the real parent still ends at noon.
+    assert approve(auth, plan, child_only).status_code == 422 and events(auth) == before
+    child_only[0].update(start_at='2026-11-16T12:00:00+09:00', end_at='2026-11-16T13:00:00+09:00')
+    assert approve(auth, plan, child_only).status_code == 200
+    assert {e['id'] for e in events(auth)} == {old_parent['id'], child_only[0]['id']}
+
+
+def test_dependency_order_preserves_input_ties_and_immediately_prioritizes_newly_ready_tasks():
+    tasks = [SimpleNamespace(id=i, priority=p) for i, p in enumerate([1, 1, 0, 1, 0, 2], start=1)]
+    graph = {1: [2], 3: [4], 5: [2, 2], 6: [99]}
+    assert [t.id for t in task_dependencies.order(tasks, graph, lambda t: t.priority)] == [2, 5, 1, 4, 3, 6]
+
+
+def test_large_dependency_order_evaluates_priority_once_per_task():
+    tasks = [SimpleNamespace(id=i) for i in range(1000)]
+    graph = {t.id: [0] for t in tasks[1:]}
+    evaluations = []
+
+    def priority(task):
+        evaluations.append(task.id)
+        return -task.id
+
+    assert [t.id for t in task_dependencies.order(tasks, graph, priority)] == [0, *range(999, 0, -1)]
+    assert len(evaluations) == len(tasks)
 
 
 @pytest.mark.parametrize('envelope', [

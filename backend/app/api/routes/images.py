@@ -27,7 +27,7 @@ from app.services.file_source_metadata import (
     lock_file_owner,
     metadata_key,
     reusable_files,
-    reusable_review,
+    reusable_review_id,
 )
 from app.services.image_analysis import process_file_analysis
 from app.services.pdf_analysis import LOCAL_MODEL, SCAN_CONSENT_REQUIRED
@@ -77,11 +77,7 @@ def upload_file(current_user, db, file: UploadFile, title: str, source_type: str
     digest = hashlib.sha256(data).hexdigest()
     for existing in reusable_files(db, current_user.id, source_type, filename):
         if (metadata_key(existing.file_metadata) and file_hash(existing.storage_key, source_type) == digest
-                and (not entered_title or entered_title == existing.title) and reusable_review(db, existing)):
-            try:
-                read_file(existing.storage_key, source_type)
-            except (OSError, ValueError, TypeError):
-                continue
+                and (not entered_title or entered_title == existing.title) and reusable_review_id(db, existing)):
             return existing
     key = store_file(data, source_type)
     source = Source(user_id=current_user.id, source_type=source_type, title=entered_title or filename,

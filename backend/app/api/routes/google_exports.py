@@ -211,7 +211,7 @@ def preview(
         token = google.encrypt(
             config, current_user.id, "export-preview", json.dumps(claims)
         )
-    note = "현재 연결된 Google 기본 캘린더에 제목·시간만 보냅니다. 메모·원문·참석자·알림은 보내지 않습니다."
+    note = "연결된 Google 기본 캘린더에 일정 제목과 시간을 보냅니다. 반복이나 알림을 설정했다면 함께 반영됩니다."
     if target.kind == "deadline":
         note += " 마감 시각부터 1분 길이의 표시로 등록합니다."
     if changed:

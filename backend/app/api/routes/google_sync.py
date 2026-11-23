@@ -26,6 +26,8 @@ MESSAGES = {
     "connection_changed": "Google 연결이 바뀌었습니다. 이전 계정의 일정은 Google에서 직접 확인해 주세요.",
     "access_denied": "Google 캘린더 권한을 확인하고 계정을 다시 연결해 주세요.",
     "credentials_unavailable": "Google 계정을 다시 연결해 주세요.",
+}
+RETRY_MESSAGES = {
     "rate_limited": "Google 요청이 잠시 제한되었습니다. 저장한 일정은 유지하며 자동으로 다시 시도합니다.",
     "uncertain": "Google 반영 결과를 다시 확인하고 있습니다. 같은 일정이 중복 생성되지 않도록 처리합니다.",
 }
@@ -48,7 +50,7 @@ def delivery_state(row, connection):
         return {"state": "failed", "note": MESSAGES["connection_changed"], "retryable": False}
     if row and row.sync_pending:
         return {"state": "retrying" if row.error_code else "pending",
-            "note": MESSAGES.get(row.error_code, "저장한 변경 내용을 Google 캘린더에 반영하고 있습니다."), "retryable": False}
+            "note": RETRY_MESSAGES.get(row.error_code, "저장한 변경 내용을 Google 캘린더에 반영하고 있습니다."), "retryable": False}
     if row and row.error_code:
         return {"state": "failed", "note": MESSAGES.get(row.error_code, "Google 반영을 완료하지 못했습니다. 잠시 후 다시 시도해 주세요."), "retryable": True}
     if row and row.deleted_at:
