@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import {
   DISCARD_NAVIGATION_EVENT,
   useUnsavedChanges,
@@ -6,7 +7,7 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
-import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
+import { localInput, zonedInputToUtc } from "@/lib/date/time-zones";
 import type {
   Analysis,
   AnalysisCandidate,
@@ -32,22 +33,26 @@ type Draft = {
   chosenDue?: string;
   suggestionTouched?: boolean;
 };
-const draftOf = (candidate: AnalysisCandidate): Draft => ({
+const draftOf = (candidate: AnalysisCandidate, zone: string): Draft => ({
   id: candidate.id,
   title: candidate.title,
-  due: candidate.due_at ? toSeoulInput(candidate.due_at) : "",
+  due: candidate.due_at ? localInput(candidate.due_at, zone) : "",
   description: candidate.description ?? "",
   selected: candidate.selected,
 });
-function suggestedDraftOf(candidate: AnalysisCandidate): Draft {
-  const draft = draftOf(candidate);
+function suggestedDraftOf(candidate: AnalysisCandidate, zone: string): Draft {
+  const draft = draftOf(candidate, zone);
   if (candidate.suggested_due_at) {
-    draft.due = toSeoulInput(candidate.suggested_due_at);
+    draft.due = localInput(candidate.suggested_due_at, zone);
     draft.chosenDue = candidate.suggested_due_at;
   }
   return draft;
 }
-function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
+function payloadOf(
+  draft: Draft,
+  original: AnalysisCandidate,
+  zone: string,
+): CandidateEdit {
   if (!draft.title.trim())
     throw new Error("제외한 후보를 포함해 모든 후보의 제목을 입력해 주세요.");
   return {
@@ -55,11 +60,11 @@ function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
     title: draft.title.trim(),
     due_at: !draft.due
       ? null
-      : draft.chosenDue && draft.due === toSeoulInput(draft.chosenDue)
+      : draft.chosenDue && draft.due === localInput(draft.chosenDue, zone)
         ? draft.chosenDue
-        : original.due_at && draft.due === toSeoulInput(original.due_at)
+        : original.due_at && draft.due === localInput(original.due_at, zone)
           ? original.due_at
-          : seoulInputToUtc(draft.due),
+          : zonedInputToUtc(draft.due, zone),
     description: draft.description.trim() || null,
     selected: draft.selected,
   };
@@ -101,9 +106,10 @@ export function ReviewEditor({
   now: number | null;
   onUpdated: (data: Analysis, message: string) => void;
 }) {
+  const { toLocalInput, fromLocalInput, zoneLabel, zone } = useScheduleTime();
   const [analysis, setAnalysis] = useState(initialAnalysis);
   const [drafts, setDrafts] = useState(() =>
-    analysis.candidates.map(suggestedDraftOf),
+    analysis.candidates.map((candidate) => suggestedDraftOf(candidate, zone)),
   );
   const [reminders, setReminders] = useState(newReminderSettings);
   const { markSaved } = useUnsavedChanges(JSON.stringify([drafts, reminders]));
@@ -131,7 +137,10 @@ export function ReviewEditor({
   }, []);
   const formId = useId();
   const dirty =
-    JSON.stringify(drafts) !== JSON.stringify(analysis.candidates.map(draftOf));
+    JSON.stringify(drafts) !==
+    JSON.stringify(
+      analysis.candidates.map((candidate) => draftOf(candidate, zone)),
+    );
   const selected = drafts.filter((item) => item.selected);
   const canApprove =
     selected.length > 0 &&
@@ -160,7 +169,7 @@ export function ReviewEditor({
           analysis.id,
           analysis.revision,
           drafts.map((draft, index) =>
-            payloadOf(draft, analysis.candidates[index]),
+            payloadOf(draft, analysis.candidates[index], zone),
           ),
           controller.signal,
         );
@@ -168,7 +177,9 @@ export function ReviewEditor({
         // Keep the acknowledged revision locally so a failed approval can retry
         // without re-saving an older revision or losing the user's edits.
         setAnalysis(current);
-        const savedDrafts = current.candidates.map(suggestedDraftOf);
+        const savedDrafts = current.candidates.map((candidate) =>
+          suggestedDraftOf(candidate, zone),
+        );
         setDrafts(savedDrafts);
         markSaved(JSON.stringify([savedDrafts, newReminderSettings()]));
       }
@@ -179,7 +190,7 @@ export function ReviewEditor({
               analysis.id,
               analysis.revision,
               drafts.map((draft, index) =>
-                payloadOf(draft, analysis.candidates[index]),
+                payloadOf(draft, analysis.candidates[index], zone),
               ),
               controller.signal,
             )
@@ -194,7 +205,9 @@ export function ReviewEditor({
               ? await analysesApi.reject(analysis.id, analysis.revision)
               : await analysesApi.get(analysis.id);
       if (!active.current || controller.signal.aborted) return;
-      const savedDrafts = result.candidates.map(suggestedDraftOf);
+      const savedDrafts = result.candidates.map((candidate) =>
+        suggestedDraftOf(candidate, zone),
+      );
       const defaultReminders = newReminderSettings();
       setAnalysis(result);
       setDrafts(savedDrafts);
@@ -248,11 +261,11 @@ export function ReviewEditor({
               : undefined;
           const dateChanged =
             draft.due !==
-            (original.due_at ? toSeoulInput(original.due_at) : "");
+            (original.due_at ? toLocalInput(original.due_at) : "");
           let countdownDate = original.due_at;
           if (dateChanged) {
             try {
-              countdownDate = draft.due ? seoulInputToUtc(draft.due) : null;
+              countdownDate = draft.due ? fromLocalInput(draft.due) : null;
             } catch {
               countdownDate = null;
             }
@@ -283,7 +296,7 @@ export function ReviewEditor({
                 }
               />
               <label htmlFor={`${formId}-${index}-due`}>
-                후보 {index + 1} 마감일 (한국 시간)
+                후보 {index + 1} 마감일 ({zoneLabel})
               </label>
               <input
                 id={`${formId}-${index}-due`}
@@ -317,13 +330,13 @@ export function ReviewEditor({
                         className="secondary"
                         aria-pressed={Boolean(
                           choice.due_at &&
-                          draft.due === toSeoulInput(choice.due_at),
+                          draft.due === toLocalInput(choice.due_at),
                         )}
                         onClick={() => {
                           update(index, {
                             due:
                               choice.due_at && !analysis.is_open_ended
-                                ? toSeoulInput(choice.due_at)
+                                ? toLocalInput(choice.due_at)
                                 : "",
                             selected: true,
                             chosenDue: !analysis.is_open_ended

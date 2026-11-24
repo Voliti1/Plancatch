@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { PageHeading } from "@/components/page-heading";
@@ -6,7 +7,7 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { api, errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
-import { formatSeoul, seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
+import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import type { Deadline } from "@/types/api";
 import "../calendar/auto-schedule.css";
 
@@ -64,6 +65,7 @@ function Planner({
     history: { entries: Proposal[]; has_more: boolean };
   };
 }) {
+  const { formatLocal } = useScheduleTime();
   const [notes, setNotes] = useState("");
   const [consent, setConsent] = useState(false);
   const [history, setHistory] = useState(initial.history.entries);
@@ -119,7 +121,7 @@ function Planner({
       <PageHeading
         eyebrow="AI TASK PLANNING"
         title="마감일까지 작업 계획"
-        description={`${initial.deadline.title} · 마감 ${formatSeoul(initial.deadline.safe_due_at || initial.deadline.due_at)}`}
+        description={`${initial.deadline.title} · 마감 ${formatLocal(initial.deadline.safe_due_at || initial.deadline.due_at)}`}
       />
       <form
         className="card"
@@ -393,7 +395,7 @@ function Planner({
                   );
               }}
             >
-              {formatSeoul(p.created_at)} ·{" "}
+              {formatLocal(p.created_at)} ·{" "}
               {p.status === "approved"
                 ? "등록 완료"
                 : p.status === "ready"

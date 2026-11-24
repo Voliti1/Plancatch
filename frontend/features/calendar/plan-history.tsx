@@ -1,11 +1,11 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { PageHeading } from "@/components/page-heading";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { api } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import "./auto-schedule.css";
 
 type Cursor = { created_at: string; id: string };
@@ -50,6 +50,7 @@ export function SavedStateNotice({ state }: { state: SavedState }) {
 }
 
 export function PlanHistory() {
+  const { formatLocal } = useScheduleTime();
   const [state, setState] = useState("all");
   const [cursors, setCursors] = useState<Cursor[]>([]);
   const cursor = cursors.at(-1);
@@ -132,21 +133,21 @@ export function PlanHistory() {
                       : ""}
                   </h2>
                   <p className="small muted">
-                    생성 {formatSeoul(entry.created_at)} ·{" "}
+                    생성 {formatLocal(entry.created_at)} ·{" "}
                     {entry.approved_at
-                      ? `저장 ${formatSeoul(entry.approved_at)}`
-                      : `유효 시간 ${formatSeoul(entry.expires_at)}`}
+                      ? `저장 ${formatLocal(entry.approved_at)}`
+                      : `유효 시간 ${formatLocal(entry.expires_at)}`}
                   </p>
                   <p className="small muted">
-                    추천 범위 · {formatSeoul(entry.start_at)} ~{" "}
-                    {formatSeoul(entry.end_at)}
+                    추천 범위 · {formatLocal(entry.start_at)} ~{" "}
+                    {formatLocal(entry.end_at)}
                   </p>
                   {Boolean(entry.suggested_times?.length) && (
                     <ul className="planning-history-times">
                       {entry.suggested_times?.map((time, i) => (
                         <li key={i}>
-                          {formatSeoul(time.start_at)} ~{" "}
-                          {formatSeoul(time.end_at)}
+                          {formatLocal(time.start_at)} ~{" "}
+                          {formatLocal(time.end_at)}
                         </li>
                       ))}
                       {entry.block_count > 3 && (

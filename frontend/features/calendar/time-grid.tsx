@@ -1,8 +1,9 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import type { CSSProperties } from "react";
-import { dayLabel, todaySeoul } from "./dates";
-import { formatSeoul } from "@/lib/date/seoul";
+import { clockTime } from "@/lib/date/time-zones";
+import { dayLabel, todayInZone } from "./dates";
 import {
   slotRegistrationHref,
   layoutDay,
@@ -16,12 +17,6 @@ import {
   useCalendarDrag,
 } from "./use-calendar-drag";
 import "./time-grid.css";
-const clock = new Intl.DateTimeFormat("ko-KR", {
-  timeZone: "Asia/Seoul",
-  hour: "2-digit",
-  minute: "2-digit",
-  hourCycle: "h23",
-});
 export function TimeGrid({
   days,
   events,
@@ -41,6 +36,7 @@ export function TimeGrid({
   colorFor: (key: string, kind: TimetableEvent["kind"]) => string | undefined;
   busy: boolean;
 }) {
+  const { formatLocal, zone } = useScheduleTime();
   const week = days.length > 1;
   const {
     scroller,
@@ -50,7 +46,7 @@ export function TimeGrid({
     pointerUp,
     cancel,
     suppressClick,
-  } = useCalendarDrag(busy, !week, onMove);
+  } = useCalendarDrag(busy, !week, zone, onMove);
   const drop = preview?.drop;
   const moving = preview?.event;
   const duration =
@@ -87,7 +83,7 @@ export function TimeGrid({
                 type="button"
                 aria-label={dayLabel(day)}
                 aria-pressed={selected === day}
-                aria-current={day === todaySeoul() ? "date" : undefined}
+                aria-current={day === todayInZone(zone) ? "date" : undefined}
                 onClick={() => onSelect(day)}
               >
                 {`${Number(day.slice(5, 7))}/${Number(day.slice(8))} (${["일", "월", "화", "수", "목", "금", "토"][new Date(day + "T00:00:00Z").getUTCDay()]})`}
@@ -172,24 +168,24 @@ export function TimeGrid({
                     className={`time-slot${minute % 60 === 0 ? " is-hour" : ""}`}
                     key={minute}
                     style={{ height: HOUR / 4, top: (minute * HOUR) / 60 }}
-                    href={slotRegistrationHref(day, minute)}
+                    href={slotRegistrationHref(day, minute, zone)}
                     prefetch={false}
                     tabIndex={minute % 60 === 0 ? 0 : -1}
                     aria-label={`${dayLabel(day)} ${clockLabel}에 할 일 등록`}
                   />
                 );
               })}
-              {layoutDay(events, day).map(
+              {layoutDay(events, day, zone).map(
                 ({ event, from, to, column, columns }) => {
                   const startText = event.start
-                    ? clock.format(new Date(event.start))
+                    ? clockTime(new Date(event.start), zone)
                     : "";
                   const endText = event.end
-                    ? clock.format(new Date(event.end))
+                    ? clockTime(new Date(event.end), zone)
                     : "";
                   const interval = [event.start, event.end]
                     .filter(Boolean)
-                    .map((time) => formatSeoul(time!))
+                    .map((time) => formatLocal(time!))
                     .join(" → ");
                   const content = (
                     <>

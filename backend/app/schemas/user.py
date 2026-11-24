@@ -38,6 +38,7 @@ class UserResponse(BaseModel):
     display_name: str | None
     is_active: bool
     created_at: datetime
+    time_zone: str
 
 
 class UserLogin(BaseModel):
@@ -67,3 +68,57 @@ class PasswordChange(BaseModel):
     model_config = ConfigDict(extra="forbid")
     current_password: str = Field(min_length=1, max_length=128)
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class TimeZoneUpdate(BaseModel):
+    """A supported IANA time zone from the workspace picker."""
+
+    model_config = ConfigDict(extra="forbid")
+    time_zone: str = Field(max_length=64)
+
+    @field_validator("time_zone")
+    @classmethod
+    def supported_zone(cls, value: str) -> str:
+        if value not in SUPPORTED_TIME_ZONES:
+            raise ValueError("지원하는 시간대를 선택해 주세요.")
+        return value
+
+
+# Keep this list aligned with frontend/lib/date/time-zones.ts.
+SUPPORTED_TIME_ZONES = frozenset({
+    "Pacific/Honolulu",
+    "America/Anchorage",
+    "America/Los_Angeles",
+    "America/Denver",
+    "America/Phoenix",
+    "America/Chicago",
+    "America/Mexico_City",
+    "America/New_York",
+    "America/Toronto",
+    "America/Sao_Paulo",
+    "UTC",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Europe/Athens",
+    "Africa/Johannesburg",
+    "Europe/Istanbul",
+    "Asia/Dubai",
+    "Asia/Karachi",
+    "Asia/Kolkata",
+    "Asia/Kathmandu",
+    "Asia/Dhaka",
+    "Asia/Bangkok",
+    "Asia/Ho_Chi_Minh",
+    "Asia/Jakarta",
+    "Asia/Shanghai",
+    "Asia/Taipei",
+    "Asia/Singapore",
+    "Australia/Perth",
+    "Asia/Tokyo",
+    "Australia/Adelaide",
+    "Australia/Brisbane",
+    "Australia/Sydney",
+    "Pacific/Auckland",
+    "Asia/Seoul",
+})

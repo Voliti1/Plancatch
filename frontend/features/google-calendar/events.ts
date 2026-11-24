@@ -1,4 +1,5 @@
 import { api } from "@/lib/api/client";
+import { SEOUL } from "@/lib/date/time-zones";
 import { addDays, utcMidnight } from "@/features/calendar/dates";
 import type { ScheduledEvent } from "@/types/scheduled-event";
 import type { CalendarRegistration } from "@/features/calendar/registrations";
@@ -34,14 +35,19 @@ export function readGoogleEvents(
     { signal, timeoutMs: 30000 },
   );
 }
-export function googleOnDay(event: GoogleEvent, day: string): boolean {
+export function googleOnDay(
+  event: GoogleEvent,
+  day: string,
+  zone = SEOUL,
+): boolean {
   if (event.start_date && event.end_date)
     return day >= event.start_date && day < event.end_date;
   return Boolean(
     event.start_at &&
     event.end_at &&
-    Date.parse(event.start_at) < Date.parse(utcMidnight(addDays(day, 1))) &&
-    Date.parse(event.end_at) > Date.parse(utcMidnight(day)),
+    Date.parse(event.start_at) <
+      Date.parse(utcMidnight(addDays(day, 1), zone)) &&
+    Date.parse(event.end_at) > Date.parse(utcMidnight(day, zone)),
   );
 }
 export function withoutLocalDuplicates(

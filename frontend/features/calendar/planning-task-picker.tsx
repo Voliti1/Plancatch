@@ -1,10 +1,11 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { api, errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul, toSeoulInput } from "@/lib/date/seoul";
+import { toSeoulInput } from "@/lib/date/seoul";
 import type { Task } from "@/types/task";
 import { dayLabel } from "./dates";
 
@@ -42,12 +43,13 @@ export function loadPlanningTasks(
 }
 
 function TaskTiming({ task }: { task: PlanningTask }) {
+  const { formatLocal } = useScheduleTime();
   const due = task.completion_due_at ?? task.latest_end;
   return (
     <small>
       {task.estimated_minutes ? task.estimated_minutes + "분" : "소요시간 미정"}
       {" · "}
-      {due ? "완료 기한 " + formatSeoul(due) : "마감일 없음"}
+      {due ? "완료 기한 " + formatLocal(due) : "마감일 없음"}
     </small>
   );
 }

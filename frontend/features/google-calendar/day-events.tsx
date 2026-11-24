@@ -1,4 +1,4 @@
-import { formatSeoul } from "@/lib/date/seoul";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import { googleOnDay, type GoogleEvent } from "./events";
 
 export function GoogleDayEvents({
@@ -8,7 +8,8 @@ export function GoogleDayEvents({
   events: GoogleEvent[];
   day: string;
 }) {
-  const rows = events.filter((event) => googleOnDay(event, day));
+  const { formatLocal, zone } = useScheduleTime();
+  const rows = events.filter((event) => googleOnDay(event, day, zone));
   return (
     <section className="google-day-events" aria-label="구글 기본 캘린더 일정">
       <h3>
@@ -25,7 +26,7 @@ export function GoogleDayEvents({
                 {event.start_date
                   ? "하루 종일"
                   : event.start_at && event.end_at
-                    ? `${formatSeoul(event.start_at)} → ${formatSeoul(event.end_at)}`
+                    ? `${formatLocal(event.start_at)} → ${formatLocal(event.end_at)}`
                     : "시간 확인 필요"}
               </p>
               <span

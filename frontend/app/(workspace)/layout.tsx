@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
+import { TimeZoneControl, useTimeZone } from "@/features/settings/time-zone";
 import { AccountControls } from "@/features/settings/account-controls";
 import { useUnsavedNavigation } from "@/lib/unsaved-changes";
 const nav = [
@@ -21,6 +22,7 @@ export default function WorkspaceLayout({
   children: React.ReactNode;
 }) {
   const { user, loading, error, logout, refresh } = useAuth();
+  const zone = useTimeZone();
   const router = useRouter();
   const path = usePathname();
   const { confirmLeave } = useUnsavedNavigation();
@@ -91,9 +93,11 @@ export default function WorkspaceLayout({
       <div className="main-wrap">
         <header className="topbar">
           <span>차근차근, 오늘의 계획부터.</span>
-          <span className="timezone">Asia/Seoul · 한국 시간</span>
+          <TimeZoneControl />
         </header>
-        <main id="content">{children}</main>
+        <main id="content" key={zone}>
+          {children}
+        </main>
         <footer>PlanCatch · 계획을 모으고, 마감을 지키다.</footer>
       </div>
     </div>

@@ -15,6 +15,7 @@ from app.core.security import (
 from app.models.user import User
 from app.schemas.user import (
     PasswordChange,
+    TimeZoneUpdate,
     TokenResponse,
     UserCreate,
     UserLogin,
@@ -79,6 +80,15 @@ def login(payload: UserLogin, db: DatabaseSession) -> TokenResponse:
 @router.get("/me", response_model=UserResponse)
 def read_current_user(current_user: CurrentUser) -> User:
     """Return the account represented by a valid bearer token."""
+    return current_user
+
+
+@router.patch("/time-zone", response_model=UserResponse)
+def update_time_zone(payload: TimeZoneUpdate, current_user: CurrentUser, db: DatabaseSession) -> User:
+    """Save the authenticated account's display time zone."""
+    current_user.time_zone = payload.time_zone
+    db.commit()
+    db.refresh(current_user)
     return current_user
 
 

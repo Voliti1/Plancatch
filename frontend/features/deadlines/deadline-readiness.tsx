@@ -1,11 +1,11 @@
 "use client";
 
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { api } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import "./deadline-readiness.css";
 
 type ReadinessStatus =
@@ -78,6 +78,7 @@ function duration(value: number) {
     : `${value}분`;
 }
 export function DeadlineReadiness({ id }: { id: string }) {
+  const { formatLocal } = useScheduleTime();
   const [includeGoogle, setIncludeGoogle] = useState(false);
   const loader = useCallback(
     (signal: AbortSignal) =>
@@ -132,7 +133,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
             </p>
             <p className="small muted">
               {data.uses_safety_deadline ? "안전 마감" : "공식 마감"} 기준 ·{" "}
-              {formatSeoul(data.target_at)}
+              {formatLocal(data.target_at)}
             </p>
             {data.capacity_risk && (
               <p className="small muted">
@@ -143,7 +144,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
                       ? "완료 상태 확인"
                       : "구글 일정 확인 필요"
                   : "플랜캐치 일정 기준"}{" "}
-                · 확인 범위 {formatSeoul(data.capacity_risk.checked_until)}까지
+                · 확인 범위 {formatLocal(data.capacity_risk.checked_until)}까지
                 {data.capacity_risk.prerequisite_count > 0 &&
                   ` · 선행 작업 ${data.capacity_risk.prerequisite_count}개도 확인했습니다.`}
               </p>
@@ -224,7 +225,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
             </details>
             <div className="readiness-footer">
               <span className="small muted">
-                확인 시각 {formatSeoul(data.assessed_at)}
+                확인 시각 {formatLocal(data.assessed_at)}
               </span>
               <Link href="/planning">할 일 시간 추천받기 →</Link>
             </div>

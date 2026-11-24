@@ -142,3 +142,25 @@ def test_me_rejects_invalid_token() -> None:
     )
 
     assert response.status_code == 401
+
+
+
+def test_time_zone_is_saved_only_for_the_authenticated_account() -> None:
+    def register_and_login(email: str) -> dict[str, str]:
+        credentials = {"email": email, "password": "test-time-zone-password"}
+        response = client.post("/api/auth/signup", json=credentials)
+        assert response.status_code == 201
+        assert response.json()["time_zone"] == "Asia/Seoul"
+        token = client.post("/api/auth/login", json=credentials).json()["access_token"]
+        return {"Authorization": f"Bearer {token}"}
+
+    headers = register_and_login("timezone-one@example.com")
+    other = register_and_login("timezone-two@example.com")
+    url = "/api/auth/time-zone"
+    assert client.patch(url, json={"time_zone": "UTC"}).status_code == 401
+    invalid = client.patch(url, headers=headers, json={"time_zone": "GMT+17"})
+    assert invalid.status_code == 422
+    result = client.patch(url, headers=headers, json={"time_zone": "America/New_York"})
+    assert result.status_code == 200
+    assert client.get("/api/auth/me", headers=headers).json()["time_zone"] == "America/New_York"
+    assert client.get("/api/auth/me", headers=other).json()["time_zone"] == "Asia/Seoul"

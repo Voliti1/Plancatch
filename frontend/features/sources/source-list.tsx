@@ -1,9 +1,9 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { sourcesApi } from "./api";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { Pagination } from "@/components/pagination";
@@ -131,6 +131,7 @@ function SourceCard({
   query?: string;
   selecting?: boolean;
 }) {
+  const { formatLocal } = useScheduleTime();
   return (
     <article className={selecting ? "source-card" : "card source-card"}>
       <div className="card-top">
@@ -172,7 +173,7 @@ function SourceCard({
         <p className="error-text">{source.error_message}</p>
       )}
       <div className="source-card-footer">
-        <p className="small muted">{formatSeoul(source.created_at)}</p>
+        <p className="small muted">{formatLocal(source.created_at)}</p>
         {!selecting && (
           <Link
             className="source-detail-link"

@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -6,7 +7,6 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 
@@ -19,6 +19,7 @@ export function OccurrenceDetail({
   at: string;
   startEditing?: boolean;
 }) {
+  const { formatLocal } = useScheduleTime();
   const loader = useCallback(() => tasksApi.occurrence(id, at), [id, at]);
   const { data, loading, error, reload } = useResource(loader);
   const [editing, setEditing] = useState(startEditing);
@@ -46,7 +47,7 @@ export function OccurrenceDetail({
           <>
             <section className="card form-card">
               <h2>{data.title}</h2>
-              <p className="small muted">원래 회차: {formatSeoul(at)}</p>
+              <p className="small muted">원래 회차: {formatLocal(at)}</p>
               <p className="notice">
                 ‘이번 일정만’ 변경하면 다른 날짜의 일정과 반복 종료일은
                 유지됩니다.
@@ -65,8 +66,8 @@ export function OccurrenceDetail({
               ) : (
                 <>
                   <p>
-                    {formatSeoul(data.earliest_start!)} ~{" "}
-                    {formatSeoul(data.latest_end!)}
+                    {formatLocal(data.earliest_start!)} ~{" "}
+                    {formatLocal(data.latest_end!)}
                   </p>
                   <p className="source-text">
                     {data.description || "메모가 없습니다."}

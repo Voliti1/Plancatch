@@ -1,10 +1,11 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul, toSeoulInput } from "@/lib/date/seoul";
+import { toSeoulInput } from "@/lib/date/seoul";
 import type { ScheduledEvent } from "@/types/scheduled-event";
 import type { Task } from "@/types/task";
 import { eventsApi } from "./api";
@@ -14,6 +15,7 @@ import "./calendar.css";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 
 export function TaskPlacements({ task }: { task: Task }) {
+  const { formatLocal } = useScheduleTime();
   const load = useCallback(
     (signal: AbortSignal) => eventsApi.all({ task_id: task.id }, signal),
     [task.id],
@@ -84,11 +86,11 @@ export function TaskPlacements({ task }: { task: Task }) {
                       </span>
                       <p>
                         <time dateTime={event.start_at}>
-                          {formatSeoul(event.start_at)}
+                          {formatLocal(event.start_at)}
                         </time>
                         {" → "}
                         <time dateTime={event.end_at}>
-                          {formatSeoul(event.end_at)}
+                          {formatLocal(event.end_at)}
                         </time>
                       </p>
                       <Link
