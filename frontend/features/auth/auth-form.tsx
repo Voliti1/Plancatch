@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./provider";
+import { TimeZoneControl } from "@/features/settings/time-zone";
 import { authApi } from "./api";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
@@ -77,6 +78,9 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
         <small>계획을 모으고, 마감을 지키다.</small>
       </section>
       <section className="auth-panel">
+        <div className="auth-time-zone">
+          <TimeZoneControl />
+        </div>
         <div className="auth-card">
           <span className="eyebrow">LET’S GET STARTED</span>
           <h1>{signup ? "회원가입" : "다시 만나 반가워요"}</h1>

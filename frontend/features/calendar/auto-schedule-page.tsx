@@ -1,11 +1,12 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type Ref } from "react";
 import { PageHeading } from "@/components/page-heading";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { api, errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul, seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
+import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import { tasksApi } from "@/features/tasks/api";
 import { googleCalendarApi } from "@/features/google-calendar/api";
@@ -537,6 +538,7 @@ function PlanEditor({
   onEditConditions: () => void;
   onReplan: () => void;
 }) {
+  const { formatLocal } = useScheduleTime();
   const [draft, setDraft] = useState(() =>
     plan.blocks.map((b) => ({ ...b, local: toSeoulInput(b.start_at) })),
   );
@@ -603,8 +605,8 @@ function PlanEditor({
           <ul>
             {plan.details.replaced_blocks?.map((block) => (
               <li key={block.id}>
-                <strong>{block.title}</strong> · {formatSeoul(block.start_at)} ~{" "}
-                {formatSeoul(block.end_at)}
+                <strong>{block.title}</strong> · {formatLocal(block.start_at)} ~{" "}
+                {formatLocal(block.end_at)}
                 {!plan.approved_at &&
                   !selected.includes(block.task_id) &&
                   " · 기존 시간 유지"}
@@ -687,7 +689,7 @@ function PlanEditor({
             <p className="small muted">
               {task.minutes}분 ·{" "}
               {task.uses_safety_deadline ? "안전 마감 기준" : "추천 완료 기준"}:{" "}
-              {formatSeoul(task.limit)}
+              {formatLocal(task.limit)}
               {blocks.length > 1 && " · " + blocks.length + "회로 나누어 진행"}
             </p>
             <div className="planning-time-cards">
@@ -776,7 +778,7 @@ function PlanEditor({
                               readOnly
                               value={(() => {
                                 try {
-                                  return formatSeoul(
+                                  return formatLocal(
                                     new Date(
                                       Date.parse(seoulInputToUtc(block.local)) +
                                         (Date.parse(block.end_at) -
@@ -802,7 +804,7 @@ function PlanEditor({
       {!plan.approved_at && (
         <>
           <p className="small muted">
-            미리보기 만료: {formatSeoul(plan.expires_at)}
+            미리보기 만료: {formatLocal(plan.expires_at)}
           </p>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions">

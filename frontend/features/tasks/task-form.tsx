@@ -1,10 +1,11 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import { useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
+import { localInput, zonedInputToUtc } from "@/lib/date/time-zones";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import {
@@ -36,12 +37,16 @@ const MAX_ESTIMATED_MINUTES = 2147483647;
 const priorityNames = ["매우 낮음", "낮음", "보통", "높음", "매우 높음"];
 const invalidTimeRange = "종료 일시는 시작 일시보다 늦게 설정해 주세요.";
 
-function optionalUtc(value: string, original: string | null): string | null {
+function optionalUtc(
+  value: string,
+  original: string | null,
+  zone: string,
+): string | null {
   if (!value) return null;
   // Preserve server seconds/milliseconds when only another field is edited.
-  return original && value === toSeoulInput(original)
+  return original && value === localInput(original, zone)
     ? original
-    : seoulInputToUtc(value);
+    : zonedInputToUtc(value, zone);
 }
 
 export function TaskForm({
@@ -75,6 +80,7 @@ export function TaskForm({
   variant?: "task" | "calendar";
   initialScheduleType?: ScheduleType;
 }) {
+  const { toLocalInput, fromLocalInput, zoneLabel, zone } = useScheduleTime();
   const simple = variant === "calendar";
   const singleOccurrence = Boolean(initial?.series_id);
   const [resetOccurrences, setResetOccurrences] = useState(false);
@@ -117,12 +123,12 @@ export function TaskForm({
     simple && scheduleType === "fixed" && (!initial || singleOccurrence);
   const [start, setStart] = useState(
     initial?.earliest_start || draft?.start_at
-      ? toSeoulInput((initial?.earliest_start ?? draft?.start_at)!)
+      ? toLocalInput((initial?.earliest_start ?? draft?.start_at)!)
       : "",
   );
   const [end, setEnd] = useState(
     initial?.latest_end || draft?.end_at
-      ? toSeoulInput((initial?.latest_end ?? draft?.end_at)!)
+      ? toLocalInput((initial?.latest_end ?? draft?.end_at)!)
       : "",
   );
   const [completed, setCompleted] = useState(initial?.is_completed ?? false);
@@ -172,9 +178,15 @@ export function TaskForm({
     )
       return;
     // Calculate on the displayed Seoul clock, regardless of the browser's zone.
-    const endTime = new Date(Date.parse(`${startValue}Z`) + duration * 60_000);
+    let startTime: number;
+    try {
+      startTime = Date.parse(fromLocalInput(startValue));
+    } catch {
+      return;
+    }
+    const endTime = new Date(startTime + duration * 60_000);
     if (endTime.getUTCFullYear() >= 1 && endTime.getUTCFullYear() <= 9999)
-      setEnd(endTime.toISOString().slice(0, 16));
+      setEnd(toLocalInput(endTime.toISOString()));
   }
 
   async function submit(event: React.FormEvent<HTMLFormElement>) {
@@ -194,7 +206,7 @@ export function TaskForm({
         await onSaveDeadline({
           ...(reminders ? { google_reminders: reminders } : {}),
           title: title.trim(),
-          due_at: seoulInputToUtc(end),
+          due_at: fromLocalInput(end),
           description: description.trim() || null,
           source_id: null,
           deadline_type: null,
@@ -224,14 +236,15 @@ export function TaskForm({
           "연결할 마감일을 다시 선택하거나 연결 안 함을 선택해 주세요.",
         );
       const earliest = withoutTime
-        ? optionalUtc(possibleStart, null)
+        ? optionalUtc(possibleStart, null, zone)
         : optionalUtc(
             start,
             initial?.earliest_start ?? draft?.start_at ?? null,
+            zone,
           );
       const latest = withoutTime
-        ? optionalUtc(possibleEnd, null)
-        : optionalUtc(end, initial?.latest_end ?? draft?.end_at ?? null);
+        ? optionalUtc(possibleEnd, null, zone)
+        : optionalUtc(end, initial?.latest_end ?? draft?.end_at ?? null, zone);
       if (earliest && latest && new Date(earliest) >= new Date(latest))
         throw new Error(
           simple
@@ -383,7 +396,7 @@ export function TaskForm({
     <div className={`form-grid ${isDeadline ? "manual-deadline-time" : ""}`}>
       {!isDeadline && (
         <label>
-          {simple ? "시작 일시" : "가능 시작 일시 (한국 시간, 선택)"}
+          {simple ? "시작 일시" : `가능 시작 일시 (${zoneLabel}, 선택)`}
           <input
             name="earliest_start"
             type="datetime-local"
@@ -403,7 +416,7 @@ export function TaskForm({
           ? "마감 일시"
           : simple
             ? "종료 일시"
-            : "최종 완료 일시 (한국 시간, 선택)"}
+            : `최종 완료 일시 (${zoneLabel}, 선택)`}
         <input
           name="latest_end"
           type="datetime-local"
@@ -586,7 +599,7 @@ export function TaskForm({
                   </span>
                 </div>
                 <p id={timeHelpId} className="small muted">
-                  한국 시간 기준
+                  {zoneLabel} 기준
                 </p>
               </div>
             )}
@@ -602,7 +615,8 @@ export function TaskForm({
             )}
             {!canChooseKind && (
               <p className="muted small calendar-task-timezone">
-                한국 시간 기준{initial ? " · 시간은 비워 둘 수 있습니다." : ""}
+                {zoneLabel} 기준
+                {initial ? " · 시간은 비워 둘 수 있습니다." : ""}
               </p>
             )}
             {!isDeadline && durationAndPriority}

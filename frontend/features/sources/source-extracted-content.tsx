@@ -1,6 +1,6 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import { useId, useRef } from "react";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Source } from "@/types/api";
 import { extractedSummary } from "./extracted-summary";
 
@@ -13,6 +13,7 @@ export function SourceExtractedContent({
   pdf?: boolean;
   fileMetadata?: Source["file_metadata"];
 }) {
+  const { formatLocal } = useScheduleTime();
   const dialog = useRef<HTMLDialogElement>(null);
   const outsidePress = useRef(false);
   const titleId = useId();
@@ -45,7 +46,7 @@ export function SourceExtractedContent({
               <dd>
                 {fileMetadata?.deadlines.length
                   ? fileMetadata.deadlines
-                      .map((value) => formatSeoul(value))
+                      .map((value) => formatLocal(value))
                       .join(" · ")
                   : summary.deadline}
               </dd>

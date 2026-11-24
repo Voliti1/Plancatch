@@ -1,10 +1,11 @@
-import { toSeoulInput } from "@/lib/date/seoul";
+import { localInput, SEOUL, zonedInputToUtc } from "@/lib/date/time-zones";
 import type { ScheduledEvent } from "@/types/scheduled-event";
 
-export const todaySeoul = () =>
-  toSeoulInput(new Date().toISOString()).slice(0, 10);
-export const utcMidnight = (day: string) =>
-  new Date(`${day}T00:00:00+09:00`).toISOString();
+export const todayInZone = (zone = SEOUL) =>
+  localInput(Date.now(), zone).slice(0, 10);
+export const todaySeoul = () => todayInZone();
+export const utcMidnight = (day: string, zone = SEOUL) =>
+  zonedInputToUtc(`${day}T00:00`, zone, "next");
 const dayFormatter = new Intl.DateTimeFormat("ko-KR", {
   timeZone: "Asia/Seoul",
   dateStyle: "full",
@@ -28,10 +29,11 @@ export function calendarDays(day: string, view: "month" | "week") {
     addDays(start, index),
   );
 }
-export function onDay(event: ScheduledEvent, day: string) {
+export function onDay(event: ScheduledEvent, day: string, zone = SEOUL) {
   return (
-    Date.parse(event.start_at) < Date.parse(utcMidnight(addDays(day, 1))) &&
-    Date.parse(event.end_at) > Date.parse(utcMidnight(day))
+    Date.parse(event.start_at) <
+      Date.parse(utcMidnight(addDays(day, 1), zone)) &&
+    Date.parse(event.end_at) > Date.parse(utcMidnight(day, zone))
   );
 }
 export const statusLabel = {

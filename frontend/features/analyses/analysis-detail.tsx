@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -6,7 +7,6 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
 import { useProcessingPoll } from "@/lib/api/use-processing-poll";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Analysis } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
@@ -56,6 +56,7 @@ export function AnalysisDetail({ id }: { id: string }) {
 }
 const isProcessing = (analysis: Analysis) => analysis.status === "processing";
 function AnalysisSession({ initial }: { initial: Analysis }) {
+  const { formatLocal } = useScheduleTime();
   const router = useRouter();
   const now = usePeriodClock();
   const [data, setData] = useState(initial);
@@ -127,7 +128,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
             : analysisStatusLabel(data.status, data.model)}
         </span>{" "}
         <span className="small muted">
-          분석 요청 {formatSeoul(data.created_at)}
+          분석 요청 {formatLocal(data.created_at)}
         </span>
       </p>
       {fromHtml && (
@@ -339,7 +340,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
                   <p>
                     {candidate.selected ? "포함" : "제외"} ·{" "}
                     {candidate.due_at
-                      ? formatSeoul(candidate.due_at)
+                      ? formatLocal(candidate.due_at)
                       : "마감일 확인 필요"}
                   </p>
                   <RemainingPeriod dueAt={candidate.due_at} now={now} />

@@ -1,4 +1,5 @@
 import { api } from "@/lib/api/client";
+import { SEOUL } from "@/lib/date/time-zones";
 import { addDays, utcMidnight } from "./dates";
 
 export interface CalendarRegistration {
@@ -24,10 +25,14 @@ export function readRegistrations(
     { signal },
   );
 }
-export function registrationOnDay(item: CalendarRegistration, day: string) {
+export function registrationOnDay(
+  item: CalendarRegistration,
+  day: string,
+  zone = SEOUL,
+) {
   const start = Date.parse(item.start_at),
-    first = Date.parse(utcMidnight(day)),
-    last = Date.parse(utcMidnight(addDays(day, 1)));
+    first = Date.parse(utcMidnight(day, zone)),
+    last = Date.parse(utcMidnight(addDays(day, 1), zone));
   return item.end_at
     ? start < last && Date.parse(item.end_at) > first
     : start >= first && start < last;

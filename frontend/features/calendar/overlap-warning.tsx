@@ -1,8 +1,8 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { api, ApiError, errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Recurrence } from "@/features/tasks/recurrence-settings";
 import "./overlap-warning.css";
 
@@ -121,6 +121,7 @@ export function OverlapWarning({
   check: ReturnType<typeof useOverlapCheck>;
   busy: boolean;
 }) {
+  const { formatLocal } = useScheduleTime();
   const heading = useRef<HTMLHeadingElement>(null);
   const id = useId();
   useEffect(() => {
@@ -149,8 +150,8 @@ export function OverlapWarning({
       {result && (
         <>
           <p className="small muted">
-            확인 범위: {formatSeoul(result.checked_from)} ~{" "}
-            {formatSeoul(result.checked_until)} ·{" "}
+            확인 범위: {formatLocal(result.checked_from)} ~{" "}
+            {formatLocal(result.checked_until)} ·{" "}
             {result.google_state === "checked" ||
             result.google_state === "partial"
               ? "플랜캐치·구글 기본 캘린더 기준"
@@ -186,13 +187,13 @@ export function OverlapWarning({
                   </Link>
                 )}
                 <span>
-                  {formatSeoul(item.start_at)} ~ {formatSeoul(item.end_at)}
+                  {formatLocal(item.start_at)} ~ {formatLocal(item.end_at)}
                   {item.is_recurring ? " · 반복 일정" : ""}
                 </span>
                 {result.is_recurring && (
                   <span className="small muted">
-                    입력한 반복 회차: {formatSeoul(item.proposed_start_at)} ~{" "}
-                    {formatSeoul(item.proposed_end_at)}
+                    입력한 반복 회차: {formatLocal(item.proposed_start_at)} ~{" "}
+                    {formatLocal(item.proposed_end_at)}
                   </span>
                 )}
               </li>

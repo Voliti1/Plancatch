@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
@@ -6,7 +7,6 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { ApiError, errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { sourcesApi } from "./api";
 import { processingStatusLabel, sourceTypeLabel } from "./display";
 import { SourceEditForm } from "./source-edit-form";
@@ -19,6 +19,7 @@ import { SourceImage } from "./source-image";
 import { extractedSummary } from "./extracted-summary";
 
 export function SourceDetail({ id }: { id: string }) {
+  const { formatLocal } = useScheduleTime();
   const loader = useCallback(async () => {
     try {
       return await sourcesApi.get(id);
@@ -103,11 +104,11 @@ export function SourceDetail({ id }: { id: string }) {
                 )}
                 <div>
                   <dt>등록 일시</dt>
-                  <dd>{formatSeoul(data.created_at)}</dd>
+                  <dd>{formatLocal(data.created_at)}</dd>
                 </div>
                 <div>
                   <dt>수정 일시</dt>
-                  <dd>{formatSeoul(data.updated_at)}</dd>
+                  <dd>{formatLocal(data.updated_at)}</dd>
                 </div>
               </dl>
               {data.error_message && (

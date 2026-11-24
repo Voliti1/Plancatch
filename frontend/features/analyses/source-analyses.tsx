@@ -1,10 +1,10 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useId, useRef, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Source } from "@/types/api";
 import { analysesApi } from "./api";
 import { analysisError } from "./errors";
@@ -125,6 +125,7 @@ function AnalysisHistory({
   onPage: (page: number) => void;
   onProcessing: (value: boolean) => void;
 }) {
+  const { formatLocal } = useScheduleTime();
   const loader = useCallback(async () => {
     try {
       const results = await analysesApi.list(sourceId, page * 10);
@@ -146,7 +147,7 @@ function AnalysisHistory({
           {data.map((item) => (
             <li key={item.id}>
               <Link href={`/analyses/${encodeURIComponent(item.id)}`}>
-                {formatSeoul(item.created_at)} ·{" "}
+                {formatLocal(item.created_at)} ·{" "}
                 {item.error_message === PDF_SCAN_CONSENT_REQUIRED
                   ? "전송 동의 대기"
                   : analysisStatusLabel(item.status, item.model)}{" "}

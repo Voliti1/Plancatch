@@ -18,6 +18,11 @@ export const authApi = {
       false,
     ),
   me: () => api<User>("/api/auth/me"),
+  saveTimeZone: (time_zone: string) =>
+    api<User>("/api/auth/time-zone", {
+      method: "PATCH",
+      body: JSON.stringify({ time_zone }),
+    }),
   changePassword: (current_password: string, new_password: string) =>
     api<TokenResponse>("/api/auth/password", {
       method: "POST",

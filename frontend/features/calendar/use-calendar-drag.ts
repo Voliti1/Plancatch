@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, useState, type PointerEvent } from "react";
-import { toSeoulInput } from "@/lib/date/seoul";
+import { localInput } from "@/lib/date/time-zones";
 import { canChangeTime } from "./calendar-actions";
-import { addDays, utcMidnight } from "./dates";
-import type { TimetableEvent } from "./time-layout";
+import { addDays } from "./dates";
+import { calendarSlot, wallMinutes, type TimetableEvent } from "./time-layout";
 
 export const SLOT_MINUTES = 15;
 export const HOUR_HEIGHT = 56;
@@ -25,6 +25,7 @@ type Drag = {
 export function useCalendarDrag(
   blocked: boolean,
   singleDay: boolean,
+  zone: string,
   onMove: (event: TimetableEvent, start: string, end: string | null) => void,
 ) {
   const scroller = useRef<HTMLElement>(null);
@@ -88,9 +89,7 @@ export function useCalendarDrag(
       destination = {
         edge,
         day: addDays(drag.day, edge === "previous" ? -1 : 1),
-        minute:
-          (Date.parse(drag.event.start) - Date.parse(utcMidnight(drag.day))) /
-          60000,
+        minute: wallMinutes(localInput(drag.event.start, zone)),
       };
     } else if (withinGrid && x >= viewport.left + TIME_AXIS_WIDTH) {
       for (const column of surface.querySelectorAll<HTMLElement>(
@@ -139,7 +138,7 @@ export function useCalendarDrag(
       blocked ||
       !canChangeTime(event) ||
       !event.start ||
-      toSeoulInput(event.start).slice(0, 10) !== day
+      localInput(event.start, zone).slice(0, 10) !== day
     )
       return;
     const { pointerId, clientX, clientY } = pointer;
@@ -183,8 +182,9 @@ export function useCalendarDrag(
     const drag = finish();
     if (!drag?.moved || !drag.drop || !drag.event.start) return;
     const previous = Date.parse(drag.event.start);
-    const start =
-      Date.parse(utcMidnight(drag.drop.day)) + drag.drop.minute * 60000;
+    const start = Date.parse(
+      calendarSlot(drag.drop.day, drag.drop.minute, zone),
+    );
     if (start === previous) return;
     const end = drag.event.end
       ? new Date(start + Date.parse(drag.event.end) - previous).toISOString()

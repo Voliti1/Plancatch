@@ -1,8 +1,8 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul, seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
 import { calendarColors, type CalendarColor } from "./calendar-colors";
 import { canChangeTime, readCalendarDescription } from "./calendar-actions";
 import type { TimetableEvent } from "./time-layout";
@@ -68,6 +68,8 @@ export function CalendarEventPopup({
   onDuplicate: () => void;
   onMove: (start: string, end: string) => void;
 }) {
+  const { toLocalInput, formatLocal, fromLocalInput, zoneLabel } =
+    useScheduleTime();
   const { event, mode, x, y } = selection;
   const target = event.target;
   const title = useId();
@@ -77,10 +79,10 @@ export function CalendarEventPopup({
   const [editingDefault, setEditingDefault] = useState(false);
   const defaultPaletteId = useId();
   const [start, setStart] = useState(() =>
-    event.start ? toSeoulInput(event.start) : "",
+    event.start ? toLocalInput(event.start) : "",
   );
   const [end, setEnd] = useState(() =>
-    event.end ? toSeoulInput(event.end) : "",
+    event.end ? toLocalInput(event.end) : "",
   );
   const [timeError, setTimeError] = useState("");
   const description = useResource(
@@ -159,9 +161,9 @@ export function CalendarEventPopup({
         <>
           <p className="small muted">
             {event.start
-              ? formatSeoul(event.start)
+              ? formatLocal(event.start)
               : `${event.startDate ?? ""} · 종일`}
-            {event.end && ` → ${formatSeoul(event.end)}`}
+            {event.end && ` → ${formatLocal(event.end)}`}
           </p>
           <p className="small muted">
             {!target
@@ -387,8 +389,8 @@ export function CalendarEventPopup({
           onSubmit={(submit) => {
             submit.preventDefault();
             try {
-              const first = seoulInputToUtc(start);
-              const last = seoulInputToUtc(end);
+              const first = fromLocalInput(start);
+              const last = fromLocalInput(end);
               if (Date.parse(first) >= Date.parse(last))
                 throw new Error("종료 시간은 시작 시간보다 늦어야 합니다.");
               setTimeError("");
@@ -399,7 +401,7 @@ export function CalendarEventPopup({
           }}
         >
           <label>
-            시작 시간 (한국 시간)
+            시작 시간 ({zoneLabel})
             <input
               type="datetime-local"
               required
@@ -409,7 +411,7 @@ export function CalendarEventPopup({
             />
           </label>
           <label>
-            종료 시간 (한국 시간)
+            종료 시간 ({zoneLabel})
             <input
               type="datetime-local"
               required

@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
@@ -6,7 +7,6 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
@@ -20,6 +20,7 @@ export function TaskDetail({
   id: string;
   startEditing?: boolean;
 }) {
+  const { formatLocal } = useScheduleTime();
   const loader = useCallback(() => tasksApi.get(id), [id]);
   const { data, error, loading, reload } = useResource(loader);
   const startsAt = data?.placement?.start_at ?? data?.earliest_start;
@@ -117,7 +118,7 @@ export function TaskDetail({
                       <dd>
                         {startsAt ? (
                           <time dateTime={startsAt}>
-                            {formatSeoul(startsAt)}
+                            {formatLocal(startsAt)}
                           </time>
                         ) : (
                           "설정 안 함"
@@ -128,7 +129,7 @@ export function TaskDetail({
                       <dt>{data.placement ? "배치 종료 일시" : "종료 일시"}</dt>
                       <dd>
                         {endsAt ? (
-                          <time dateTime={endsAt}>{formatSeoul(endsAt)}</time>
+                          <time dateTime={endsAt}>{formatLocal(endsAt)}</time>
                         ) : (
                           "설정 안 함"
                         )}
@@ -143,11 +144,11 @@ export function TaskDetail({
                           {data.placement_blocks.map((block) => (
                             <li key={block.id}>
                               <time dateTime={block.start_at}>
-                                {formatSeoul(block.start_at)}
+                                {formatLocal(block.start_at)}
                               </time>
                               {" → "}
                               <time dateTime={block.end_at}>
-                                {formatSeoul(block.end_at)}
+                                {formatLocal(block.end_at)}
                               </time>
                             </li>
                           ))}
@@ -177,16 +178,16 @@ export function TaskDetail({
                       </div>
                       <div>
                         <dt>등록 일시</dt>
-                        <dd>{formatSeoul(data.created_at)}</dd>
+                        <dd>{formatLocal(data.created_at)}</dd>
                       </div>
                       <div>
                         <dt>수정 일시</dt>
-                        <dd>{formatSeoul(data.updated_at)}</dd>
+                        <dd>{formatLocal(data.updated_at)}</dd>
                       </div>
                       {data.completed_at && (
                         <div>
                           <dt>완료 일시</dt>
-                          <dd>{formatSeoul(data.completed_at)}</dd>
+                          <dd>{formatLocal(data.completed_at)}</dd>
                         </div>
                       )}
                     </dl>

@@ -1,12 +1,11 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
 import { useHydrated } from "@/lib/use-hydrated";
-import { formatSeoul } from "@/lib/date/seoul";
-import { toSeoulInput } from "@/lib/date/seoul";
 import { errorMessage } from "@/lib/api/client";
 import { useAuth } from "@/features/auth/provider";
 import type { ScheduledEvent } from "@/types/scheduled-event";
@@ -33,7 +32,7 @@ import {
   onDay,
   shiftMonth,
   statusLabel,
-  todaySeoul,
+  todayInZone,
   utcMidnight,
 } from "./dates";
 import { TimeGrid } from "./time-grid";
@@ -71,8 +70,9 @@ function TaskTitle({ id }: { id: string }) {
 }
 
 function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
+  const { formatLocal, zone } = useScheduleTime();
   const [page, setPage] = useState(0);
-  const rows = events.filter((event) => onDay(event, day));
+  const rows = events.filter((event) => onDay(event, day, zone));
   if (!rows.length)
     return (
       <Empty title="선택한 날짜에 배치된 일정이 없습니다">
@@ -91,10 +91,10 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
             )}
             <p>
               <time dateTime={event.start_at}>
-                {formatSeoul(event.start_at)}
+                {formatLocal(event.start_at)}
               </time>
               {" → "}
-              <time dateTime={event.end_at}>{formatSeoul(event.end_at)}</time>
+              <time dateTime={event.end_at}>{formatLocal(event.end_at)}</time>
             </p>
             <div className="calendar-agenda-actions">
               <span className="tag schedule-kind-task">할 일</span>
@@ -135,6 +135,7 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
 }
 
 function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
+  const { formatLocal } = useScheduleTime();
   const [page, setPage] = useState(0);
   if (!entries.length) return null;
   return (
@@ -149,12 +150,12 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
               {item.title}
             </Link>
             <p>
-              <time dateTime={item.start_at}>{formatSeoul(item.start_at)}</time>
+              <time dateTime={item.start_at}>{formatLocal(item.start_at)}</time>
               {item.end_at && (
                 <>
                   {" "}
                   →{" "}
-                  <time dateTime={item.end_at}>{formatSeoul(item.end_at)}</time>
+                  <time dateTime={item.end_at}>{formatLocal(item.end_at)}</time>
                 </>
               )}
             </p>
@@ -208,7 +209,10 @@ function CalendarBody({
   initialDate?: string;
   userId?: string;
 }) {
-  const [selected, setSelected] = useState(initialDate ?? todaySeoul);
+  const { toLocalInput, formatLocal, zone } = useScheduleTime();
+  const [selected, setSelected] = useState(
+    () => initialDate ?? todayInZone(zone),
+  );
   const [view, setView] = useState<"month" | "week" | "day">("day");
   const [showCancelled, setShowCancelled] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
@@ -227,8 +231,8 @@ function CalendarBody({
         : timetableDays(selected, view),
     [anchor, selected, view],
   );
-  const first = utcMidnight(days[0]);
-  const last = utcMidnight(addDays(days[days.length - 1], 1));
+  const first = utcMidnight(days[0], zone);
+  const last = utcMidnight(addDays(days[days.length - 1], 1), zone);
   // Selecting another day in the visible range only changes the agenda, not its data.
   const loadGoogle = useCallback(
     (signal: AbortSignal) =>
@@ -292,14 +296,14 @@ function CalendarBody({
     void applyChange(
       async () => {
         await moveCalendarEvent(target, start, end);
-        setSelected(toSeoulInput(start).slice(0, 10));
+        setSelected(toLocalInput(start).slice(0, 10));
       },
-      `${formatSeoul(start)}으로 일정을 옮겼습니다.`,
+      `${formatLocal(start)}으로 일정을 옮겼습니다.`,
     );
   }
   const registered = registrations.data?.entries ?? emptyRegistrations;
   const registeredDay = registered.filter((item) =>
-    registrationOnDay(item, selected),
+    registrationOnDay(item, selected, zone),
   );
   const events = useMemo(
     () =>
@@ -318,9 +322,13 @@ function CalendarBody({
   const dayBars = useMemo(
     () =>
       days.map((day) => {
-        const saved = registered.filter((item) => registrationOnDay(item, day));
-        const local = events.filter((event) => onDay(event, day));
-        const remote = googleRows.filter((event) => googleOnDay(event, day));
+        const saved = registered.filter((item) =>
+          registrationOnDay(item, day, zone),
+        );
+        const local = events.filter((event) => onDay(event, day, zone));
+        const remote = googleRows.filter((event) =>
+          googleOnDay(event, day, zone),
+        );
         return {
           day,
           bars: [
@@ -342,7 +350,7 @@ function CalendarBody({
           ],
         };
       }),
-    [days, registered, events, googleRows],
+    [days, registered, events, googleRows, zone],
   );
   const timelineEntries = useMemo<TimetableEvent[]>(
     () => [
@@ -386,8 +394,8 @@ function CalendarBody({
     ],
     [registered, events, googleRows],
   );
-  const hasLocalSelected = events.some((event) => onDay(event, selected));
-  const today = todaySeoul();
+  const hasLocalSelected = events.some((event) => onDay(event, selected, zone));
+  const today = todayInZone(zone);
   return (
     <>
       <PageHeading
@@ -451,7 +459,7 @@ function CalendarBody({
               className={view === "day" ? "selected" : "secondary"}
               aria-pressed={view === "day"}
               onClick={() => {
-                setSelected(todaySeoul());
+                setSelected(todayInZone(zone));
                 setView("day");
               }}
             >

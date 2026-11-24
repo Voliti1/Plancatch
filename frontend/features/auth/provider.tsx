@@ -18,6 +18,7 @@ interface AuthState {
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refresh: () => void;
+  saveTimeZone: (zone: string) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
 }
 const AuthContext = createContext<AuthState | null>(null);
@@ -89,6 +90,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       throw err;
     }
   }
+  async function saveTimeZone(zone: string) {
+    const current = generation.current;
+    const updated = await authApi.saveTimeZone(zone);
+    if (current !== generation.current) return;
+    setUser((previous) => (previous?.id === updated.id ? updated : previous));
+  }
   async function changePassword(currentPassword: string, nextPassword: string) {
     const current = generation.current;
     const token = await authApi.changePassword(currentPassword, nextPassword);
@@ -98,7 +105,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
   return (
     <AuthContext.Provider
-      value={{ user, loading, error, login, logout, refresh, changePassword }}
+      value={{
+        user,
+        loading,
+        error,
+        login,
+        logout,
+        refresh,
+        changePassword,
+        saveTimeZone,
+      }}
     >
       {children}
     </AuthContext.Provider>

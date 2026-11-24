@@ -1,9 +1,9 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Task } from "@/types/task";
 import { tasksApi } from "./api";
 export function TaskRows({
@@ -22,6 +22,7 @@ export function TaskRows({
   );
 }
 function TaskRow({ task, onUpdated }: { task: Task; onUpdated: () => void }) {
+  const { formatLocal } = useScheduleTime();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
@@ -61,7 +62,7 @@ function TaskRow({ task, onUpdated }: { task: Task; onUpdated: () => void }) {
           </p>
           {task.latest_end && (
             <p className="muted small">
-              최종 완료 {formatSeoul(task.latest_end)}
+              최종 완료 {formatLocal(task.latest_end)}
             </p>
           )}
         </div>

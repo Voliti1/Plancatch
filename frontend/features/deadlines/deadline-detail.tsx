@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -8,12 +9,12 @@ import { DeadlineTimes } from "./deadline-times";
 import { DeadlineReadiness } from "./deadline-readiness";
 import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { DeadlineTasks } from "@/features/tasks/deadline-tasks";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 export function DeadlineDetail({ id }: { id: string }) {
+  const { formatLocal, zoneLabel } = useScheduleTime();
   const loader = useCallback(() => deadlinesApi.get(id), [id]);
   const { data, loading, error, reload } = useResource(loader);
   const router = useRouter();
@@ -33,7 +34,7 @@ export function DeadlineDetail({ id }: { id: string }) {
       <PageHeading
         eyebrow="DEADLINE DETAILS"
         title="일정 상세"
-        description={`등록 ${formatSeoul(data.created_at)} · 모든 시간은 한국 시간입니다.`}
+        description={`등록 ${formatLocal(data.created_at)} · 표시 시간대 ${zoneLabel}`}
       />
       <section className="card form-card">
         <h2>{data.title}</h2>
