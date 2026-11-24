@@ -113,18 +113,8 @@ export function TimeZoneControl() {
           )}
         </div>
       )}
-      <label className="time-zone-select">
-        <span>
-          {zone} · {zoneName(zone)}
-        </span>
-        <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
-          <path
-            d="m4 6 4 4 4-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          />
-        </svg>
+      <span className="timezone time-zone-select">
+        {zone} · {zoneName(zone)}
         <select
           aria-label="기준 시간대 변경"
           value={zone}
@@ -138,7 +128,7 @@ export function TimeZoneControl() {
             </option>
           ))}
         </select>
-      </label>
+      </span>
       {error && (
         <span className="time-zone-error" role="alert">
           {error}

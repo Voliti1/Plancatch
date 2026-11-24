@@ -9,8 +9,7 @@
   font-size: 0.8rem;
 }
 
-.time-zone-clocks,
-.time-zone-select {
+.time-zone-clocks {
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
@@ -20,9 +19,6 @@
   padding: 0.45rem 0.65rem;
   margin: 0;
   font-variant-numeric: tabular-nums;
-}
-
-.time-zone-clocks {
   flex-wrap: wrap;
 }
 
@@ -32,24 +28,26 @@
 
 .time-zone-select {
   position: relative;
-  background: color-mix(in srgb, currentColor 4%, transparent);
+  border-radius: 0.35rem;
 }
 
-.time-zone-select:hover,
-.time-zone-select:focus-within {
-  background: color-mix(in srgb, currentColor 14%, transparent);
+@media (hover: hover) {
+  .time-zone-select:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    box-shadow: 0 0 0 0.35rem color-mix(in srgb, currentColor 12%, transparent);
+  }
 }
 
-.time-zone-select:focus-within {
+.time-zone-select:has(select:focus-visible) {
   outline: 2px solid currentColor;
-  outline-offset: 2px;
+  outline-offset: 0.35rem;
 }
 
 .time-zone-select select {
   position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
+  inset: -0.35rem;
+  width: calc(100% + 0.7rem);
+  height: calc(100% + 0.7rem);
   opacity: 0;
   cursor: pointer;
 }

@@ -8,6 +8,17 @@ test("guest choice stays in its browser across reloads", async ({ page }) => {
   const picker = page.getByLabel("기준 시간대 변경");
   await expect(picker).toHaveValue("Asia/Seoul");
   await expect(page.getByLabel("현재 시각")).toHaveText("한국 10:30");
+  const trigger = page.locator(".timezone.time-zone-select");
+  await expect(trigger).toContainText("Asia/Seoul · 한국 시간");
+  await expect(trigger).toHaveCSS("font-size", "12px");
+  await expect(trigger).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  await expect(trigger.locator("svg")).toHaveCount(0);
+  if (await page.evaluate(() => matchMedia("(hover: hover)").matches)) {
+    await picker.hover();
+    await expect(trigger).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await page.mouse.move(0, 0);
+    await expect(trigger).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  }
   await picker.selectOption("America/New_York");
   await expect(page.getByLabel("현재 시각")).toContainText("미국 · 뉴욕 20:30");
   await page.reload();
