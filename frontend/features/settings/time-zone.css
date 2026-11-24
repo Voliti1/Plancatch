@@ -1,10 +1,11 @@
 .time-zone-control {
+  --time-zone-highlight-outset: 0.35rem;
   position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.45rem;
+  gap: 0.45rem calc(5px + var(--time-zone-highlight-outset));
   color: inherit;
   font-size: 0.8rem;
 }
@@ -34,20 +35,21 @@
 @media (hover: hover) {
   .time-zone-select:hover {
     background: color-mix(in srgb, currentColor 12%, transparent);
-    box-shadow: 0 0 0 0.35rem color-mix(in srgb, currentColor 12%, transparent);
+    box-shadow: 0 0 0 var(--time-zone-highlight-outset)
+      color-mix(in srgb, currentColor 12%, transparent);
   }
 }
 
 .time-zone-select:has(select:focus-visible) {
   outline: 2px solid currentColor;
-  outline-offset: 0.35rem;
+  outline-offset: var(--time-zone-highlight-outset);
 }
 
 .time-zone-select select {
   position: absolute;
-  inset: -0.35rem;
-  width: calc(100% + 0.7rem);
-  height: calc(100% + 0.7rem);
+  inset: calc(-1 * var(--time-zone-highlight-outset));
+  width: calc(100% + 2 * var(--time-zone-highlight-outset));
+  height: calc(100% + 2 * var(--time-zone-highlight-outset));
   opacity: 0;
   cursor: pointer;
 }

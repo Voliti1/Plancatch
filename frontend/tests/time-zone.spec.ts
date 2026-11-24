@@ -13,6 +13,11 @@ test("guest choice stays in its browser across reloads", async ({ page }) => {
   await expect(trigger).toHaveCSS("font-size", "12px");
   await expect(trigger).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(trigger.locator("svg")).toHaveCount(0);
+  const clockBox = await page.getByLabel("현재 시각").boundingBox();
+  const pickerBox = await picker.boundingBox();
+  expect(clockBox).not.toBeNull();
+  expect(pickerBox).not.toBeNull();
+  expect(pickerBox!.x - (clockBox!.x + clockBox!.width)).toBeCloseTo(5, 0);
   if (await page.evaluate(() => matchMedia("(hover: hover)").matches)) {
     await picker.hover();
     await expect(trigger).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
