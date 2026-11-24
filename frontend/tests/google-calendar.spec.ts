@@ -89,6 +89,10 @@ test("연결됨과 재연결 필요 상태를 구분한다", async ({ page }) =>
   await expect(
     page.getByText("Google Calendar 연결됨", { exact: true }),
   ).toBeVisible();
+  const actions = page.locator(".google-calendar-connection-actions");
+  await expect(actions.getByRole("button")).toHaveCount(4);
+  await expect(actions).toHaveCSS("gap", "8px");
+  await expect(actions).toHaveCSS("flex-wrap", "wrap");
   await page.route("**/google-calendar/status", (route) =>
     route.fulfill({ json: { ...emptyStatus, reconnect_required: true } }),
   );
