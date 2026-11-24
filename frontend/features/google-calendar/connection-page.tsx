@@ -7,6 +7,7 @@ import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { checkedGoogleAuthorizationUrl, googleCalendarApi } from "./api";
 import { ManagedExports } from "./managed-exports";
+import "./connection-page.css";
 
 export function GoogleCalendarConnectionPage() {
   const status = useResource(googleCalendarApi.status);
@@ -136,7 +137,7 @@ export function GoogleCalendarConnectionPage() {
                   : "연결 버튼을 누른 뒤 Google에서 계정과 캘린더 권한을 직접 승인해 주세요."}
               </p>
             </div>
-            <div className="actions">
+            <div className="google-calendar-connection-actions">
               {status.data.configured && (
                 <button
                   disabled={busy || confirming}
