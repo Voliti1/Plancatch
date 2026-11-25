@@ -364,3 +364,52 @@ def test_password_recovery_disabled_without_mail(monkeypatch):
     response = client.post("/api/auth/password-recovery", json={"email": "mail@example.com"})
     assert response.status_code == 503
     assert response.json() == {"detail": "password_recovery_unavailable"}
+
+
+def test_password_recovery_gmail_uses_send_api(monkeypatch):
+    import json
+    from base64 import urlsafe_b64decode
+    from email import policy
+    from email.parser import BytesParser
+    from io import BytesIO
+    from urllib.parse import parse_qs
+
+    from app.core.config import Settings
+    from app.services import password_recovery
+
+    config = Settings(
+        _env_file=None,
+        recovery_from_email="sender@example.com",
+        recovery_gmail_client_id="test-client",
+        recovery_gmail_client_secret=SecretStr("test-only-secret"),
+        recovery_gmail_refresh_token=SecretStr("test-only-refresh"),
+    )
+    monkeypatch.setattr(password_recovery, "get_settings", lambda: config)
+    calls = []
+
+    def endpoint(request, timeout):
+        calls.append(request)
+        assert timeout == 8
+        result = BytesIO(b'{"access_token":"test-only-access"}')
+        result.status = 200
+        return result
+
+    monkeypatch.setattr(password_recovery, "urlopen", endpoint)
+    assert password_recovery.mail_configured()
+    password_recovery.send_email("recipient@example.com", "test-only-temporary-password")
+
+    refresh, send = calls
+    assert refresh.full_url == "https://oauth2.googleapis.com/token"
+    assert parse_qs(refresh.data.decode("ascii")) == {
+        "client_id": ["test-client"],
+        "client_secret": ["test-only-secret"],
+        "grant_type": ["refresh_token"],
+        "refresh_token": ["test-only-refresh"],
+    }
+    assert send.full_url == "https://gmail.googleapis.com/gmail/v1/users/me/messages/send"
+    assert send.headers["Authorization"] == "Bearer test-only-access"
+    mime = BytesParser(policy=policy.default).parsebytes(urlsafe_b64decode(json.loads(send.data)["raw"]))
+    assert mime["From"] == "sender@example.com"
+    assert mime["To"] == "recipient@example.com"
+    assert "test-only-temporary-password" in mime.get_content()
+    assert "test-only-refresh" not in mime.get_content()

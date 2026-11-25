@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     jwt_secret_key: SecretStr | None = None
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440
+    recovery_gmail_client_id: str | None = None
+    recovery_gmail_client_secret: SecretStr | None = None
+    recovery_gmail_refresh_token: SecretStr | None = None
     recovery_smtp_host: str | None = None
     recovery_smtp_port: int = 587
     recovery_smtp_implicit_tls: bool = False
