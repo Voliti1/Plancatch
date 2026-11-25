@@ -10,12 +10,13 @@ import {
 import { authApi } from "./api";
 import { SESSION_EXPIRED, tokenStore } from "@/lib/auth/token";
 import { errorMessage } from "@/lib/api/client";
-import type { User } from "@/types/api";
+import type { TokenResponse, User } from "@/types/api";
 interface AuthState {
   user: User | null;
   loading: boolean;
   error: string;
   login: (email: string, password: string) => Promise<void>;
+  loginGoogle: (credential: string, password?: string) => Promise<void>;
   logout: () => void;
   refresh: () => void;
   saveTimeZone: (zone: string) => Promise<void>;
@@ -72,24 +73,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener(SESSION_EXPIRED, logout);
     };
   }, [logout]);
-  async function login(email: string, password: string) {
-    const current = ++generation.current;
-    const token = await authApi.login(email, password);
-    if (current !== generation.current)
-      throw new Error("로그인이 취소되었습니다.");
-    tokenStore.set(token.access_token);
-    try {
-      const me = await authApi.me();
+  const establishSession = useCallback(
+    async (authenticate: () => Promise<TokenResponse>) => {
+      const current = ++generation.current;
+      const token = await authenticate();
       if (current !== generation.current)
         throw new Error("로그인이 취소되었습니다.");
-      setUser(me);
-      setError("");
-      setLoading(false);
-    } catch (err) {
-      if (current === generation.current) tokenStore.clear();
-      throw err;
-    }
-  }
+      tokenStore.set(token.access_token);
+      try {
+        const me = await authApi.me();
+        if (current !== generation.current)
+          throw new Error("로그인이 취소되었습니다.");
+        setUser(me);
+        setError("");
+        setLoading(false);
+      } catch (err) {
+        if (current === generation.current) tokenStore.clear();
+        throw err;
+      }
+    },
+    [],
+  );
+  const login = (email: string, password: string) =>
+    establishSession(() => authApi.login(email, password));
+  const loginGoogle = useCallback(
+    (credential: string, password?: string) =>
+      establishSession(() => authApi.googleLogin(credential, password)),
+    [establishSession],
+  );
   async function saveTimeZone(zone: string) {
     const current = generation.current;
     const updated = await authApi.saveTimeZone(zone);
@@ -110,6 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         loading,
         error,
         login,
+        loginGoogle,
         logout,
         refresh,
         changePassword,

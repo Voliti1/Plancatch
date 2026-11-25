@@ -39,6 +39,7 @@ class UserResponse(BaseModel):
     is_active: bool
     created_at: datetime
     time_zone: str
+    password_enabled: bool = True
 
 
 class UserLogin(BaseModel):
@@ -60,6 +61,17 @@ class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+
+
+class GoogleLogin(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    credential: str = Field(min_length=1, max_length=8192)
+    current_password: str | None = Field(default=None, min_length=1, max_length=128)
+
+
+class GoogleLoginChallenge(BaseModel):
+    client_id: str | None = None
+    nonce: str | None = None
 
 
 class PasswordChange(BaseModel):

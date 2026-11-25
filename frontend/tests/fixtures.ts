@@ -75,6 +75,8 @@ export async function mockApi(
           retryable: false,
         },
       });
+    if (path === "/api/auth/google/challenge")
+      return route.fulfill({ json: { client_id: null, nonce: null } });
     if (path === "/api/auth/signup") {
       const body = request.postDataJSON();
       expect(body.password.length).toBeGreaterThanOrEqual(8);

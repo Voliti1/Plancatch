@@ -164,3 +164,96 @@ def test_time_zone_is_saved_only_for_the_authenticated_account() -> None:
     assert result.status_code == 200
     assert client.get("/api/auth/me", headers=headers).json()["time_zone"] == "America/New_York"
     assert client.get("/api/auth/me", headers=other).json()["time_zone"] == "Asia/Seoul"
+
+
+
+def test_google_signin_new_and_existing_accounts(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.services import google_login
+
+    settings = SimpleNamespace(
+        google_login_client_id="test.apps.googleusercontent.com",
+        app_env="development",
+        jwt_access_token_expire_minutes=30,
+    )
+    monkeypatch.setattr("app.api.routes.auth.get_settings", lambda: settings)
+    verify = {
+        "new": ("google-new-subject", "google-only@example.com", "Google Tester"),
+        "existing": ("google-existing-subject", "existing-google@example.com", None),
+    }
+    nonce = ""
+
+    def verified(credential, client_id, expected_nonce):
+        assert client_id == settings.google_login_client_id and expected_nonce == nonce
+        return verify[credential]
+
+    monkeypatch.setattr(google_login, "verify_credential", verified)
+    with TestClient(app) as browser:
+        assert browser.post("/api/auth/google", json={"credential": "new"}).status_code == 400
+        challenge = browser.post("/api/auth/google/challenge")
+        nonce = challenge.json()["nonce"]
+        cookie = browser.cookies.get(google_login.NONCE_COOKIE)
+        assert nonce == google_login.challenge_nonce(cookie) and nonce != cookie
+        assert "HttpOnly" in challenge.headers["set-cookie"] and "SameSite=strict" in challenge.headers["set-cookie"]
+        created = browser.post("/api/auth/google", json={"credential": "new"})
+        assert created.status_code == 200
+        headers = {"Authorization": f"Bearer {created.json()['access_token']}"}
+        me = browser.get("/api/auth/me", headers=headers).json()
+        assert me["email"] == "google-only@example.com" and me["password_enabled"] is False
+        assert "google_subject" not in me
+        assert browser.post("/api/auth/password", headers=headers, json={
+            "current_password": "any-password", "new_password": "different-password",
+        }).status_code == 403
+        assert browser.post("/api/auth/google", json={"credential": "new"}).status_code == 400
+
+        credentials = {"email": "existing-google@example.com", "password": "known-password"}
+        signup = browser.post("/api/auth/signup", json=credentials).json()
+        nonce = browser.post("/api/auth/google/challenge").json()["nonce"]
+        assert browser.post("/api/auth/google", json={"credential": "existing"}).json()["detail"] == (
+            "google_login_password_required"
+        )
+        assert browser.post("/api/auth/google", json={
+            "credential": "existing", "current_password": "incorrect-password",
+        }).status_code == 400
+        linked = browser.post("/api/auth/google", json={
+            "credential": "existing", "current_password": credentials["password"],
+        })
+        headers = {"Authorization": f"Bearer {linked.json()['access_token']}"}
+        me = browser.get("/api/auth/me", headers=headers).json()
+        assert me["id"] == signup["id"] and me["password_enabled"] is True
+        nonce = browser.post("/api/auth/google/challenge").json()["nonce"]
+        assert browser.post("/api/auth/google", json={"credential": "existing"}).status_code == 200
+
+
+def test_google_credential_checks_signature_audience_expiry_and_browser_nonce(monkeypatch) -> None:
+    from datetime import datetime, timedelta, timezone
+
+    import jwt
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    from app.services import google_login
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    monkeypatch.setattr(google_login.GOOGLE_KEYS, "get_signing_key_from_jwt", lambda _: SimpleNamespace(key=key.public_key()))
+    now = datetime.now(timezone.utc)
+    aud = "test.apps.googleusercontent.com"
+    nonce = google_login.challenge_nonce("test-only-cookie")
+    claims = {
+        "aud": aud, "iss": "https://accounts.google.com", "exp": now + timedelta(minutes=5),
+        "iat": now, "sub": "unique-test-subject", "nonce": nonce,
+        "email": "verified@example.com", "email_verified": True,
+    }
+    token = jwt.encode(claims, key, algorithm="RS256")
+    assert google_login.verify_credential(token, aud, nonce) == ("unique-test-subject", "verified@example.com", None)
+    for invalid in [
+        {"aud": "different-client"},
+        {"iss": "https://example.com"},
+        {"nonce": "different-browser"},
+        {"exp": now - timedelta(minutes=2)},
+        {"email_verified": False},
+    ]:
+        token = jwt.encode({**claims, **invalid}, key, algorithm="RS256")
+        with pytest.raises(jwt.InvalidTokenError):
+            google_login.verify_credential(token, aud, nonce)
+    with pytest.raises(jwt.InvalidTokenError):
+        altered = jwt.encode(claims, "test-only-symmetric-key-for-negative-check", algorithm="HS256")
+        google_login.verify_credential(altered, aud, nonce)

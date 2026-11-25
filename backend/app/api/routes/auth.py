@@ -1,6 +1,9 @@
 """Authentication endpoints."""
 
-from fastapi import APIRouter, HTTPException, status
+from secrets import token_urlsafe
+
+import jwt
+from fastapi import APIRouter, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -14,6 +17,8 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.schemas.user import (
+    GoogleLogin,
+    GoogleLoginChallenge,
     PasswordChange,
     TimeZoneUpdate,
     TokenResponse,
@@ -21,6 +26,7 @@ from app.schemas.user import (
     UserLogin,
     UserResponse,
 )
+from app.services import google_login
 
 router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
@@ -67,13 +73,86 @@ def login(payload: UserLogin, db: DatabaseSession) -> TokenResponse:
         verify_password(payload.password, DUMMY_PASSWORD_HASH)
         raise unauthorized()
 
-    if not user.is_active or not verify_password(payload.password, user.password_hash):
+    if not user.is_active or not user.password_enabled or not verify_password(payload.password, user.password_hash):
         raise unauthorized()
 
     settings = get_settings()
     return TokenResponse(
         access_token=create_access_token(str(user.id), user.password_hash),
         expires_in=settings.jwt_access_token_expire_minutes * 60,
+    )
+
+
+def login_client_id() -> str | None:
+    return getattr(get_settings(), "google_login_client_id", None)
+
+
+@router.post("/google/challenge", response_model=GoogleLoginChallenge)
+def google_challenge(request: Request, response: Response) -> GoogleLoginChallenge:
+    """Bind the Google credential to this browser's sign-in attempt."""
+    response.headers["Cache-Control"] = "no-store"
+    if not (client_id := login_client_id()):
+        return GoogleLoginChallenge()
+    nonce = token_urlsafe(32)
+    response.set_cookie(
+        google_login.NONCE_COOKIE, nonce, max_age=google_login.NONCE_TTL,
+        httponly=True, secure=request.url.scheme == "https" or get_settings().app_env == "production",
+        samesite="strict", path=google_login.NONCE_PATH,
+    )
+    return GoogleLoginChallenge(client_id=client_id, nonce=google_login.challenge_nonce(nonce))
+
+
+@router.post("/google", response_model=TokenResponse)
+def login_with_google(
+    payload: GoogleLogin, request: Request, response: Response, db: DatabaseSession,
+) -> TokenResponse:
+    if not (client_id := login_client_id()):
+        raise HTTPException(503, "google_login_unavailable")
+    nonce = request.cookies.get(google_login.NONCE_COOKIE)
+    if not nonce or not nonce.isascii():
+        raise HTTPException(400, "google_login_expired")
+    try:
+        subject, email, name = google_login.verify_credential(payload.credential, client_id, google_login.challenge_nonce(nonce))
+    except jwt.PyJWKClientConnectionError as exc:
+        raise HTTPException(503, "google_login_unavailable") from exc
+    except jwt.PyJWTError as exc:
+        raise HTTPException(400, "google_login_invalid") from exc
+
+    user = db.scalar(select(User).where(User.google_subject == subject))
+    if user is None:
+        user = db.scalar(select(User).where(User.email == email).with_for_update())
+        if user is not None:
+            if not user.is_active:
+                raise unauthorized()
+            if user.google_subject == subject:
+                pass  # The same identity was linked while this request was waiting.
+            elif user.google_subject is not None:
+                raise HTTPException(409, "google_account_already_linked")
+            elif payload.current_password is None:
+                raise HTTPException(409, "google_login_password_required")
+            elif not verify_password(payload.current_password, user.password_hash):
+                raise HTTPException(400, "google_login_password_incorrect")
+            else:
+                user.google_subject = subject
+        else:
+            user = User(email=email, display_name=name, google_subject=subject,
+                        password_enabled=False, password_hash=hash_password(token_urlsafe(48)))
+            db.add(user)
+        try:
+            db.commit()
+        except IntegrityError as exc:
+            db.rollback()
+            user = db.scalar(select(User).where(User.google_subject == subject))
+            if user is None:
+                raise HTTPException(409, "google_login_retry") from exc
+
+    if not user.is_active:
+        raise unauthorized()
+    response.headers["Cache-Control"] = "no-store"
+    response.delete_cookie(google_login.NONCE_COOKIE, path=google_login.NONCE_PATH)
+    return TokenResponse(
+        access_token=create_access_token(str(user.id), user.password_hash),
+        expires_in=get_settings().jwt_access_token_expire_minutes * 60,
     )
 
 
@@ -99,6 +178,8 @@ def change_password(payload: PasswordChange, current_user: CurrentUser, db: Data
                      .execution_options(populate_existing=True))
     if user is None or not user.is_active:
         raise unauthorized()
+    if not user.password_enabled:
+        raise HTTPException(403, "password_login_not_enabled")
     if not verify_password(payload.current_password, user.password_hash):
         raise HTTPException(400, "current_password_incorrect")
     if payload.new_password == payload.current_password:

@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     s3_bucket_name: str | None = None
     gemini_api_key: SecretStr | None = None
     gemini_model: str | None = None
+    google_login_client_id: str | None = None
     google_client_id: str | None = None
     google_client_secret: SecretStr | None = None
     google_calendar_redirect_uri: str | None = None
