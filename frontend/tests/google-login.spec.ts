@@ -1,0 +1,81 @@
+import { expect, test } from "@playwright/test";
+import { mockApi, user } from "./fixtures";
+
+async function mockGoogle(
+  page: import("@playwright/test").Page,
+  hasPassword: boolean,
+) {
+  await mockApi(page);
+  await page.route("**/api/auth/google/challenge", (route) =>
+    route.fulfill({
+      json: {
+        client_id: "test.apps.googleusercontent.com",
+        nonce: "test-nonce",
+      },
+    }),
+  );
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({ json: { ...user, password_enabled: hasPassword } }),
+  );
+  await page.route("https://accounts.google.com/gsi/client", (route) =>
+    route.fulfill({
+      contentType: "application/javascript",
+      body: `window.google={accounts:{id:{
+        initialize(options){this.send=options.callback;},
+        renderButton(el){const b=document.createElement('button');b.textContent='Google로 계속하기';b.onclick=()=>this.send({credential:'test-only-id-token'});el.append(b);}
+      }}};`,
+    }),
+  );
+  await page.route("**/api/auth/google", async (route) => {
+    const body = route.request().postDataJSON();
+    expect(body.credential).toBe("test-only-id-token");
+    if (hasPassword && !body.current_password)
+      return route.fulfill({
+        status: 409,
+        json: { detail: "google_login_password_required" },
+      });
+    if (hasPassword) expect(body.current_password).toBe("existing-password");
+    return route.fulfill({
+      json: {
+        access_token: "test-only-placeholder",
+        token_type: "bearer",
+        expires_in: 86400,
+      },
+    });
+  });
+}
+
+test("Google-only accounts can sign in and do not show password changes", async ({
+  page,
+}) => {
+  await mockGoogle(page, false);
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Google로 계속하기" }).click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.getByRole("button", { name: "설정 열기" }).click();
+  const settings = page.getByRole("dialog", { name: "설정" });
+  await expect(
+    settings.getByRole("heading", { name: "스캔 PDF 전송 동의" }),
+  ).toBeVisible();
+  await expect(
+    settings.getByRole("heading", { name: "비밀번호 변경" }),
+  ).toHaveCount(0);
+});
+
+test("an existing email account supplies its password to link Google and keeps password settings", async ({
+  page,
+}) => {
+  await mockGoogle(page, true);
+  await page.goto("/login");
+  await page.getByRole("button", { name: "Google로 계속하기" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+  await page.getByLabel("현재 PlanCatch 비밀번호").fill("existing-password");
+  await page
+    .getByRole("button", { name: "Google 계정 연결 후 로그인" })
+    .click();
+  await expect(page).toHaveURL(/\/dashboard$/);
+  await page.getByRole("button", { name: "설정 열기" }).click();
+  await expect(
+    page.getByRole("heading", { name: "비밀번호 변경" }),
+  ).toBeVisible();
+});

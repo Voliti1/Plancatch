@@ -155,60 +155,64 @@ export function AccountControls({
               <dd>{email}</dd>
             </div>
           </dl>
-          <h3>비밀번호 변경</h3>
-          <p className="small muted">
-            현재 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.
-          </p>
-          <form onSubmit={submit} noValidate>
-            <fieldset disabled={busy}>
-              <label>
-                현재 비밀번호
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={current}
-                  maxLength={128}
-                  onChange={(event) => setCurrent(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                새 비밀번호
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={next}
-                  minLength={8}
-                  maxLength={128}
-                  onChange={(event) => setNext(event.target.value)}
-                  placeholder="8자 이상"
-                  required
-                />
-              </label>
-              <label>
-                새 비밀번호 확인
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmation}
-                  maxLength={128}
-                  onChange={(event) => setConfirmation(event.target.value)}
-                  required
-                />
-              </label>
-              {error && <ErrorNotice message={error} />}
-              {success && (
-                <p className="success" role="status">
-                  비밀번호를 변경했습니다.
-                </p>
-              )}
-              <div className="form-actions">
-                <button type="submit">
-                  {busy ? "변경 중…" : "비밀번호 변경"}
-                </button>
-              </div>
-            </fieldset>
-          </form>
+          {user?.password_enabled !== false && (
+            <>
+              <h3>비밀번호 변경</h3>
+              <p className="small muted">
+                현재 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.
+              </p>
+              <form onSubmit={submit} noValidate>
+                <fieldset disabled={busy}>
+                  <label>
+                    현재 비밀번호
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={current}
+                      maxLength={128}
+                      onChange={(event) => setCurrent(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    새 비밀번호
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={next}
+                      minLength={8}
+                      maxLength={128}
+                      onChange={(event) => setNext(event.target.value)}
+                      placeholder="8자 이상"
+                      required
+                    />
+                  </label>
+                  <label>
+                    새 비밀번호 확인
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmation}
+                      maxLength={128}
+                      onChange={(event) => setConfirmation(event.target.value)}
+                      required
+                    />
+                  </label>
+                  {error && <ErrorNotice message={error} />}
+                  {success && (
+                    <p className="success" role="status">
+                      비밀번호를 변경했습니다.
+                    </p>
+                  )}
+                  <div className="form-actions">
+                    <button type="submit">
+                      {busy ? "변경 중…" : "비밀번호 변경"}
+                    </button>
+                  </div>
+                </fieldset>
+              </form>
+            </>
+          )}
           <h3>스캔 PDF 전송 동의</h3>
           <p className="small muted">
             {pdfConsent

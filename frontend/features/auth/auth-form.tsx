@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./provider";
 import { TimeZoneControl } from "@/features/settings/time-zone";
+import { GoogleLoginButton } from "./google-login";
 import { authApi } from "./api";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
@@ -165,6 +166,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
               </fieldset>
             </form>
           )}
+          {!registered && <GoogleLoginButton blocked={busy || !hydrated} />}
           <p className="auth-switch">
             {signup ? "이미 계정이 있으신가요?" : "아직 계정이 없으신가요?"}{" "}
             <Link href={signup ? "/login" : "/signup"}>
