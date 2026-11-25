@@ -11,6 +11,12 @@ export const authApi = {
       { method: "POST", body: JSON.stringify(payload) },
       false,
     ),
+  requestPasswordRecovery: (email: string) =>
+    api<{ accepted: boolean }>(
+      "/api/auth/password-recovery",
+      { method: "POST", body: JSON.stringify({ email }) },
+      false,
+    ),
   login: (email: string, password: string) =>
     api<TokenResponse>(
       "/api/auth/login",

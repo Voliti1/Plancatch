@@ -1186,6 +1186,9 @@ textarea {
   padding: 40px 25px;
   background: #fff;
 }
+.auth-recovery-panel {
+  min-height: 100vh;
+}
 .auth-card {
   width: 100%;
   max-width: 410px;

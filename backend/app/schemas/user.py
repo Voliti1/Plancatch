@@ -40,6 +40,12 @@ class UserResponse(BaseModel):
     created_at: datetime
     time_zone: str
     password_enabled: bool = True
+    password_change_required: bool = False
+
+
+class PasswordRecoveryRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    email: EmailStr
 
 
 class UserLogin(BaseModel):
