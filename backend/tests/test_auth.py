@@ -257,3 +257,110 @@ def test_google_credential_checks_signature_audience_expiry_and_browser_nonce(mo
     with pytest.raises(jwt.InvalidTokenError):
         altered = jwt.encode(claims, "test-only-symmetric-key-for-negative-check", algorithm="HS256")
         google_login.verify_credential(altered, aud, nonce)
+
+
+def test_password_recovery_restricts_session_and_consumes_credential(monkeypatch):
+    from uuid import UUID
+
+    from app.core.security import verify_password
+    from app.models.user import User
+    from app.services import password_recovery
+
+    outbox = []
+    monkeypatch.setattr(password_recovery, "mail_configured", lambda: True)
+    monkeypatch.setattr(password_recovery, "allow_request", lambda _address: True)
+    monkeypatch.setattr(password_recovery, "get_session_factory", lambda: TestingSession)
+    monkeypatch.setattr(password_recovery, "send_email", lambda email, secret: outbox.append((email, secret)))
+
+    email = "recover-me@example.com"
+    original = "original-password"
+    replacement = "replacement-password"
+    signup = client.post("/api/auth/signup", json={"email": email, "password": original})
+    user_id = UUID(signup.json()["id"])
+
+    def login(password):
+        return client.post("/api/auth/login", json={"email": email, "password": password})
+
+    def bearer(response):
+        return {"Authorization": "Bearer " + response.json()["access_token"]}
+
+    old_session = bearer(login(original))
+    unknown = client.post("/api/auth/password-recovery", json={"email": "unknown@example.com"})
+    issued = client.post("/api/auth/password-recovery", json={"email": email.upper()})
+    repeated = client.post("/api/auth/password-recovery", json={"email": email})
+    assert unknown.status_code == issued.status_code == repeated.status_code == 202
+    assert unknown.json() == issued.json() == repeated.json() == {"accepted": True}
+    assert len(outbox) == 1 and outbox[0][0] == email
+    temporary = outbox[0][1]
+    with TestingSession() as db:
+        user = db.get(User, user_id)
+        assert user.recovery_password_hash.startswith("$argon2id$")
+        assert temporary not in user.recovery_password_hash
+        assert verify_password(original, user.password_hash)
+
+    limited = bearer(login(temporary))
+    me = client.get("/api/auth/me", headers=limited)
+    assert me.json()["password_change_required"] is True
+    assert "recovery_password_hash" not in me.json()
+    assert client.get("/api/scheduling/tasks", headers=limited).status_code == 403
+    assert client.patch("/api/auth/time-zone", headers=limited, json={"time_zone": "UTC"}).status_code == 403
+    assert client.get("/api/auth/me", headers=old_session).json()["password_change_required"] is False
+
+    invalid = client.post("/api/auth/password", headers=limited,
+                          json={"current_password": temporary, "new_password": "a" * 129})
+    assert invalid.status_code == 422
+    assert temporary not in invalid.text and "input" not in invalid.text
+
+    wrong = client.post("/api/auth/password", headers=limited,
+                        json={"current_password": original, "new_password": replacement})
+    assert wrong.status_code == 400
+    changed = client.post("/api/auth/password", headers=limited,
+                          json={"current_password": temporary, "new_password": replacement})
+    assert changed.status_code == 200
+    assert client.get("/api/scheduling/tasks", headers=bearer(changed)).status_code == 200
+    assert client.get("/api/auth/me", headers=limited).status_code == 401
+    assert client.get("/api/auth/me", headers=old_session).status_code == 401
+    assert login(temporary).status_code == login(original).status_code == 401
+    assert login(replacement).status_code == 200
+    with TestingSession() as db:
+        user = db.get(User, user_id)
+        assert user.recovery_password_hash is None and user.recovery_expires_at is None
+        assert user.password_hash.startswith("$argon2id$")
+
+
+def test_password_recovery_expiry_and_google_only_account(monkeypatch):
+    from datetime import datetime, timedelta, timezone
+    from uuid import UUID
+
+    from app.core.security import hash_password
+    from app.models.user import User
+    from app.services import password_recovery
+
+    monkeypatch.setattr(password_recovery, "mail_configured", lambda: True)
+    monkeypatch.setattr(password_recovery, "allow_request", lambda _address: True)
+    monkeypatch.setattr(password_recovery, "get_session_factory", lambda: TestingSession)
+    outbox = []
+    monkeypatch.setattr(password_recovery, "send_email", lambda *args: outbox.append(args))
+    email = "expired-recovery@example.com"
+    signup = client.post("/api/auth/signup", json={"email": email, "password": "original-password"})
+    user_id = UUID(signup.json()["id"])
+    secret = "expired-test-credential"
+    with TestingSession() as db:
+        user = db.get(User, user_id)
+        user.recovery_expires_at = datetime.now(timezone.utc) - timedelta(seconds=1)
+        user.recovery_password_hash = hash_password(secret)
+        db.commit()
+    assert client.post("/api/auth/login", json={"email": email, "password": secret}).status_code == 401
+    with TestingSession() as db:
+        user = db.get(User, user_id)
+        user.password_enabled = False
+        db.commit()
+    assert client.post("/api/auth/password-recovery", json={"email": email}).status_code == 202
+    assert not outbox
+
+
+def test_password_recovery_disabled_without_mail(monkeypatch):
+    monkeypatch.setattr("app.services.password_recovery.mail_configured", lambda: False)
+    response = client.post("/api/auth/password-recovery", json={"email": "mail@example.com"})
+    assert response.status_code == 503
+    assert response.json() == {"detail": "password_recovery_unavailable"}

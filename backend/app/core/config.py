@@ -20,6 +20,12 @@ class Settings(BaseSettings):
     jwt_secret_key: SecretStr | None = None
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 1440
+    recovery_smtp_host: str | None = None
+    recovery_smtp_port: int = 587
+    recovery_smtp_implicit_tls: bool = False
+    recovery_smtp_username: str | None = None
+    recovery_smtp_password: SecretStr | None = None
+    recovery_from_email: str | None = None
     aws_region: str = "ap-northeast-2"
     s3_bucket_name: str | None = None
     gemini_api_key: SecretStr | None = None

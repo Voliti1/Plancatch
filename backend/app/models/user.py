@@ -19,6 +19,8 @@ class User(Base):
     password_enabled: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     google_subject: Mapped[str | None] = mapped_column(String(255), unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    recovery_password_hash: Mapped[str | None] = mapped_column(String(255))
+    recovery_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     time_zone: Mapped[str] = mapped_column(String(64), default="Asia/Seoul", server_default="Asia/Seoul")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")

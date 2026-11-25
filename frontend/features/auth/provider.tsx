@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { authApi } from "./api";
 import { SESSION_EXPIRED, tokenStore } from "@/lib/auth/token";
 import { errorMessage } from "@/lib/api/client";
@@ -28,6 +29,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const generation = useRef(0);
+  const pathname = usePathname();
+  const router = useRouter();
+  const mustRedirect =
+    user?.password_change_required && pathname !== "/password-recovery/change";
+  useEffect(() => {
+    if (mustRedirect) router.replace("/password-recovery/change");
+  }, [mustRedirect, router]);
   const logout = useCallback(() => {
     generation.current++;
     tokenStore.clear();
@@ -113,6 +121,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (current !== generation.current)
       throw new Error("로그인 상태가 바뀌었습니다. 다시 로그인해 주세요.");
     tokenStore.set(token.access_token);
+    setUser((previous) =>
+      previous?.password_change_required
+        ? { ...previous, password_change_required: false }
+        : previous,
+    );
   }
   return (
     <AuthContext.Provider
@@ -128,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         saveTimeZone,
       }}
     >
-      {children}
+      {!mustRedirect && children}
     </AuthContext.Provider>
   );
 }

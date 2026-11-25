@@ -40,7 +40,9 @@ def password_stamp(hashed_password: str) -> str:
     return hmac.new(get_jwt_secret().encode(), hashed_password.encode(), hashlib.sha256).hexdigest()
 
 
-def create_access_token(subject: str, hashed_password: str | None = None) -> str:
+def create_access_token(
+    subject: str, hashed_password: str | None = None, *, recovery_expires_at: datetime | None = None,
+) -> str:
     """Create a signed, expiring access token for a user ID."""
     settings = get_settings()
 
@@ -48,6 +50,11 @@ def create_access_token(subject: str, hashed_password: str | None = None) -> str
         minutes=settings.jwt_access_token_expire_minutes,
     )
     payload = {"sub": subject, "exp": expires_at}
+    if recovery_expires_at is not None:
+        if hashed_password is None:
+            raise ValueError("Recovery sessions require a credential binding")
+        payload["purpose"] = "password_recovery"
+        payload["exp"] = min(expires_at, recovery_expires_at)
     if hashed_password is not None:
         payload["pwd"] = password_stamp(hashed_password)
     return jwt.encode(
@@ -86,6 +93,8 @@ def verify_access_password(payload: dict, hashed_password: str) -> None:
 def decode_access_token(token: str, hashed_password: str | None = None) -> str:
     """Keep the subject-only helper compatible with existing callers."""
     payload = decode_access_claims(token)
+    if "purpose" in payload:
+        raise jwt.InvalidTokenError("Access token required")
     if hashed_password is not None:
         verify_access_password(payload, hashed_password)
     return payload["sub"]

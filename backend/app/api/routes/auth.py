@@ -1,18 +1,22 @@
 """Authentication endpoints."""
 
+from datetime import datetime, timezone
 from secrets import token_urlsafe
 
 import jwt
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
+from fastapi.routing import APIRoute
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app.api.dependencies import CurrentUser, DatabaseSession, unauthorized
+from app.api.dependencies import AuthSession, CurrentUser, DatabaseSession, unauthorized
 from app.core.config import get_settings
 from app.core.security import (
     DUMMY_PASSWORD_HASH,
     create_access_token,
     hash_password,
+    verify_access_password,
     verify_password,
 )
 from app.models.user import User
@@ -20,15 +24,35 @@ from app.schemas.user import (
     GoogleLogin,
     GoogleLoginChallenge,
     PasswordChange,
+    PasswordRecoveryRequest,
     TimeZoneUpdate,
     TokenResponse,
     UserCreate,
     UserLogin,
     UserResponse,
 )
-from app.services import google_login
+from app.services import google_login, password_recovery
 
-router = APIRouter(prefix="/api/auth", tags=["authentication"])
+
+class AuthRoute(APIRoute):
+    """Omit submitted values from authentication validation errors."""
+
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def handle(request: Request) -> Response:
+            try:
+                return await handler(request)
+            except RequestValidationError as exc:
+                raise HTTPException(422, [
+                    {"loc": error["loc"], "msg": error["msg"], "type": error["type"]}
+                    for error in exc.errors()
+                ]) from None
+
+        return handle
+
+
+router = APIRouter(prefix="/api/auth", tags=["authentication"], route_class=AuthRoute)
 
 
 @router.post(
@@ -65,16 +89,38 @@ def signup(payload: UserCreate, db: DatabaseSession) -> User:
     return user
 
 
+@router.post("/password-recovery", status_code=202)
+def request_password_recovery(payload: PasswordRecoveryRequest, request: Request, tasks: BackgroundTasks) -> dict[str, bool]:
+    if not password_recovery.mail_configured():
+        raise HTTPException(503, "password_recovery_unavailable")
+    address = request.client.host if request.client else "unknown"
+    if not password_recovery.allow_request(address):
+        raise HTTPException(429, "password_recovery_rate_limited")
+    tasks.add_task(password_recovery.issue_and_send, str(payload.email).strip().lower())
+    return {"accepted": True}
+
+
 @router.post("/login", response_model=TokenResponse)
-def login(payload: UserLogin, db: DatabaseSession) -> TokenResponse:
+def login(payload: UserLogin, db: DatabaseSession, response: Response) -> TokenResponse:
     """Verify account credentials and return a bearer access token."""
     user = db.scalar(select(User).where(User.email == payload.email))
     if user is None:
         verify_password(payload.password, DUMMY_PASSWORD_HASH)
         raise unauthorized()
 
-    if not user.is_active or not user.password_enabled or not verify_password(payload.password, user.password_hash):
+    if not user.is_active or not user.password_enabled:
         raise unauthorized()
+
+    response.headers["Cache-Control"] = "no-store"
+    if not verify_password(payload.password, user.password_hash):
+        temporary_hash = password_recovery.active_recovery_hash(user)
+        if temporary_hash is None or not verify_password(payload.password, temporary_hash):
+            raise unauthorized()
+        expires_at = password_recovery.utc(user.recovery_expires_at)
+        return TokenResponse(
+            access_token=create_access_token(str(user.id), temporary_hash, recovery_expires_at=expires_at),
+            expires_in=max(0, int((expires_at - datetime.now(timezone.utc)).total_seconds())),
+        )
 
     settings = get_settings()
     return TokenResponse(
@@ -157,9 +203,10 @@ def login_with_google(
 
 
 @router.get("/me", response_model=UserResponse)
-def read_current_user(current_user: CurrentUser) -> User:
-    """Return the account represented by a valid bearer token."""
-    return current_user
+def read_current_user(session: AuthSession) -> UserResponse:
+    return UserResponse.model_validate(session.user).model_copy(
+        update={"password_change_required": session.recovery},
+    )
 
 
 @router.patch("/time-zone", response_model=UserResponse)
@@ -172,15 +219,22 @@ def update_time_zone(payload: TimeZoneUpdate, current_user: CurrentUser, db: Dat
 
 
 @router.post("/password", response_model=TokenResponse)
-def change_password(payload: PasswordChange, current_user: CurrentUser, db: DatabaseSession) -> TokenResponse:
+def change_password(payload: PasswordChange, session: AuthSession, db: DatabaseSession, http_response: Response) -> TokenResponse:
     """Change only the caller's password, under a row lock, and renew its session."""
-    user = db.scalar(select(User).where(User.id == current_user.id).with_for_update()
+    user = db.scalar(select(User).where(User.id == session.user.id).with_for_update()
                      .execution_options(populate_existing=True))
     if user is None or not user.is_active:
         raise unauthorized()
     if not user.password_enabled:
         raise HTTPException(403, "password_login_not_enabled")
-    if not verify_password(payload.current_password, user.password_hash):
+    current_hash = password_recovery.active_recovery_hash(user) if session.recovery else user.password_hash
+    if current_hash is None:
+        raise unauthorized()
+    try:
+        verify_access_password(session.claims, current_hash)
+    except jwt.InvalidTokenError:
+        raise unauthorized() from None
+    if not verify_password(payload.current_password, current_hash):
         raise HTTPException(400, "current_password_incorrect")
     if payload.new_password == payload.current_password:
         raise HTTPException(400, "new_password_unchanged")
@@ -188,5 +242,8 @@ def change_password(payload: PasswordChange, current_user: CurrentUser, db: Data
     response = TokenResponse(access_token=create_access_token(str(user.id), new_hash),
                              expires_in=get_settings().jwt_access_token_expire_minutes * 60)
     user.password_hash = new_hash
+    user.recovery_password_hash = None
+    user.recovery_expires_at = None
     db.commit()
+    http_response.headers["Cache-Control"] = "no-store"
     return response

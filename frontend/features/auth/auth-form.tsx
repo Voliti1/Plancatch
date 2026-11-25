@@ -21,7 +21,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
   const [confirmation, setConfirmation] = useState("");
   const [name, setName] = useState("");
   useEffect(() => {
-    if (user) router.replace("/dashboard");
+    if (user && !user.password_change_required) router.replace("/dashboard");
   }, [user, router]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -39,7 +39,6 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
         setRegistered(true);
       } else {
         await login(email.trim(), password);
-        router.replace("/dashboard");
       }
     } catch (err) {
       setError(errorMessage(err));
@@ -167,6 +166,11 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
             </form>
           )}
           {!registered && <GoogleLoginButton blocked={busy || !hydrated} />}
+          {!signup && (
+            <p className="auth-switch">
+              <Link href="/password-recovery">비밀번호 찾기</Link>
+            </p>
+          )}
           <p className="auth-switch">
             {signup ? "이미 계정이 있으신가요?" : "아직 계정이 없으신가요?"}{" "}
             <Link href={signup ? "/login" : "/signup"}>
