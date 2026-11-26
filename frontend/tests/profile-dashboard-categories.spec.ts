@@ -34,7 +34,9 @@ test("dashboard task completion can be toggled and a failed write keeps its stat
       : route.fallback(),
   );
   await check.click();
-  await expect(page.getByRole("region", {name:"할 일",exact:true}).getByRole("alert")).toContainText("저장 실패");
+  await expect(
+    page.getByRole("region", { name: "할 일", exact: true }).getByRole("alert"),
+  ).toContainText("저장 실패");
   await expect(check).toBeChecked();
 });
 
@@ -84,13 +86,53 @@ test("category chips filter server-backed schedules and forms save categories", 
   expect((await saved).postDataJSON().category).toBe("personal");
 });
 
-
-test("deadline badges use Seoul dates in the dashboard", async ({page}) => {
+test("deadline badges use Seoul dates in the dashboard", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-11-26T00:00:00Z"));
-  const seed = { id:"badge",title:"긴급 마감",due_at:"2026-11-26T09:00:00Z",source_id:null,safety_buffer_minutes:null,safe_due_at:null,description:null,deadline_type:null,confidence:null,evidence_text:null,is_confirmed:true,created_at:"2026-11-25T00:00:00Z",updated_at:"2026-11-25T00:00:00Z" };
-  await mockApi(page,[],{deadlines:[seed,{...seed,id:"tomorrow",title:"내일 마감",due_at:"2026-11-27T09:00:00Z"},{...seed,id:"past",title:"지난 마감",due_at:"2026-11-25T09:00:00Z"}]});
+  const seed = {
+    id: "badge",
+    title: "긴급 마감",
+    due_at: "2026-11-26T09:00:00Z",
+    source_id: null,
+    safety_buffer_minutes: null,
+    safe_due_at: null,
+    description: null,
+    deadline_type: null,
+    confidence: null,
+    evidence_text: null,
+    is_confirmed: true,
+    created_at: "2026-11-25T00:00:00Z",
+    updated_at: "2026-11-25T00:00:00Z",
+  };
+  await mockApi(page, [], {
+    deadlines: [
+      seed,
+      {
+        ...seed,
+        id: "tomorrow",
+        title: "내일 마감",
+        due_at: "2026-11-27T09:00:00Z",
+      },
+      {
+        ...seed,
+        id: "past",
+        title: "지난 마감",
+        due_at: "2026-11-25T09:00:00Z",
+      },
+    ],
+  });
   await login(page);
   await expect(page.locator(".dday.is-urgent").first()).toHaveText("D-Day");
   await expect(page.locator(".dday").nth(1)).toHaveText("D-1");
   await expect(page.locator(".dday.is-past")).toHaveText("마감 지남");
+  await expect(page.locator(".dday.is-urgent").first()).toHaveCSS(
+    "color",
+    "rgb(153, 27, 27)",
+  );
+  await page
+    .getByRole("button", { name: "다크 모드로 전환", exact: true })
+    .click();
+  await expect(page.locator(".dday.is-urgent").first()).toHaveCSS(
+    "color",
+    "rgb(254, 202, 202)",
+  );
 });
