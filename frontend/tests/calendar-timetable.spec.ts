@@ -172,3 +172,18 @@ test("today and week are 24h timetables, consistent colors and editable hour pre
     ),
   ).toBeTruthy();
 });
+
+test("point deadlines with seconds never create a next-day continuation", () => {
+  const deadline = {
+    id: "url",
+    kind: "deadline" as const,
+    title: "URL deadline",
+    start: "2026-12-01T14:59:59Z",
+    end: null,
+  };
+  expect(layoutDay([deadline], "2026-12-01")).toHaveLength(1);
+  expect(layoutDay([deadline], "2026-12-02")).toHaveLength(0);
+  expect(
+    layoutDay([{ ...deadline, start: "2026-12-01T15:00:00Z" }], "2026-12-02"),
+  ).toHaveLength(1);
+});

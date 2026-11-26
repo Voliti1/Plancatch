@@ -37,6 +37,7 @@ export function layoutDay(
         !Number.isFinite(start) ||
         !Number.isFinite(end) ||
         start >= last ||
+        (!event.end && start < first) ||
         end <= first ||
         end <= start
       )
