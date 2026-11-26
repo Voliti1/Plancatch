@@ -70,7 +70,7 @@ export function EventForm({
         ? initial.end_at
         : fromLocalInput(end);
     if (Date.parse(start_at) >= Date.parse(end_at)) {
-      setError("종료 시간은 시작 시간보다 늦어야 합니다.");
+      setError("종료 시간은 시작 시간보다 늦어야 해요.");
       return;
     }
     pending.current = true;
@@ -145,7 +145,7 @@ export function EventForm({
           </label>
         )}
         <p className="small muted">
-          {zoneLabel} 기준입니다. 일정의 가능 기간은 바꾸지 않습니다.
+          {zoneLabel} 기준이에요. 일정의 가능 기간은 바꾸지 않아요.
         </p>
         <OverlapScope />
         <OverlapWarning check={overlap} busy={busy || blocked} />

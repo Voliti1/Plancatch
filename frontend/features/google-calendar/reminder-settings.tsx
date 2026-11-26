@@ -5,7 +5,7 @@ import type { GoogleReminderSettings } from "@/types/google-reminders";
 import "./reminder-settings.css";
 
 export function reminderSummary(value?: GoogleReminderSettings | null) {
-  if (!value) return "Google에서 설정한 알림 유지";
+  if (!value) return "구글 캘린더에서 설정한 알림 유지";
   if (value.mode === "none") return "알림 없음";
   if (value.mode === "default") return "구글 캘린더 기본 알림";
   return value.overrides
@@ -63,7 +63,7 @@ export function ReminderSettings({
           }}
         >
           {allowPreserve && (
-            <option value="preserve">Google에서 설정한 알림 유지</option>
+            <option value="preserve">구글 캘린더에서 설정한 알림 유지</option>
           )}
           <option value="none">알림 없음</option>
           <option value="default">구글 캘린더 기본 알림 사용</option>
@@ -149,8 +149,8 @@ export function ReminderSettings({
       )}
       <p id={id} className="small muted">
         {registrationKind
-          ? `${registrationKind === "task" ? "시작" : "마감"} 시각을 기준으로 알림을 받아요. 브라우저 알림을 받으려면 Google Calendar에서 알림을 허용해 주세요.`
-          : "Google 계정 연결 후 반영됩니다. 할 일은 시작 시각, 마감일은 마감 시각을 기준으로 알려줍니다. 브라우저 알림은 Google Calendar의 알림 허용이 필요합니다."}
+          ? `${registrationKind === "task" ? "시작" : "마감"} 시각을 기준으로 알림을 받아요. 브라우저 알림을 받으려면 구글 캘린더에서 알림을 허용해 주세요.`
+          : "구글 계정 연결 후 반영돼요. 할 일은 시작 시각, 마감일은 마감 시각을 기준으로 알려줍니다. 브라우저 알림은 구글 캘린더의 알림 허용이 필요해요."}
       </p>
       {connectionNotice}
     </div>
@@ -170,11 +170,11 @@ export function validateReminders(value: GoogleReminderSettings | null) {
     )
   )
     throw new Error(
-      "알림 시간은 분 단위로 소수점 없이 입력해 주세요. 최대 4주 전까지, 알림은 5개까지 설정할 수 있습니다.",
+      "알림 시간은 분 단위로 소수점 없이 입력해 주세요. 최대 4주 전까지, 알림은 5개까지 설정할 수 있어요.",
     );
   if (
     new Set(value.overrides.map((item) => `${item.method}:${item.minutes}`))
       .size !== value.overrides.length
   )
-    throw new Error("같은 방식과 시간의 알림이 중복되어 있습니다.");
+    throw new Error("같은 방식과 시간의 알림이 중복되어 있어요.");
 }

@@ -40,7 +40,7 @@ test("month and week views use Seoul overlap boundaries and hide cancelled place
   expect(params.get("end_before")).toBe("2026-12-12T15:00:00.000Z");
   await expect(page.locator(".calendar-agenda > li")).toHaveCount(2);
   await expect(page.locator(".calendar-agenda")).toContainText("오전 9:00");
-  await page.getByLabel("취소한 배치 포함").check();
+  await page.getByLabel("취소한 시간 등록 포함").check();
   await expect(page.locator(".calendar-agenda > li")).toHaveCount(3);
   await page.getByRole("button", { name: "주간", exact: true }).click();
   await expect(
@@ -48,7 +48,9 @@ test("month and week views use Seoul overlap boundaries and hide cancelled place
   ).toHaveCount(7);
   await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(
-    page.getByRole("group", { name: "월간 날짜" }).getByRole("button"),
+    page
+      .getByRole("group", { name: "월간 날짜" })
+      .locator(".calendar-date-hit"),
   ).toHaveCount(42);
   await page.getByRole("heading", { name: "캘린더", exact: true }).click();
   await page.screenshot({
@@ -104,7 +106,9 @@ test("pagination loads the second API page and lets users browse busy days", asy
   await page.goto("/calendar?date=2026-11-01");
   await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(
-    page.getByRole("button", { name: "2026년 11월 1일 일요일", exact: true }),
+    page
+      .getByRole("button", { name: "2026년 11월 1일 일요일", exact: true })
+      .locator(".."),
   ).toContainText("101");
   await expect(page.locator(".calendar-agenda > li")).toHaveCount(20);
   for (let i = 0; i < 5; i++)
@@ -125,10 +129,10 @@ test("read errors are explained; calendar access and expired sessions are protec
   await page.goto("/calendar?date=2026-11-01");
   await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "서버 API가 아직 제공되지 않을 수 있습니다",
+    "서버 API가 아직 제공되지 않을 수 있어요",
   );
   await expect(
-    page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+    page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
   ).toHaveCount(0);
   await page.unroute("**/test-api/api/scheduled-events?**");
   await page.getByRole("button", { name: "다시 시도", exact: true }).click();

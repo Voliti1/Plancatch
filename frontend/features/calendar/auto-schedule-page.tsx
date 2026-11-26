@@ -195,8 +195,8 @@ export function AutoSchedulePage({
   return (
     <div className="auto-schedule">
       <PageHeading
-        eyebrow="TIME SUGGESTIONS"
-        title="할 일 시간 추천"
+        eyebrow="자동 시간 추천"
+        title="자동 시간 추천"
         description="언제 할지 정하지 못한 일이 있나요? 할 일을 고르면 가능한 시간을 찾아드려요."
         action={
           <div className="planning-heading-actions">
@@ -278,7 +278,7 @@ export function AutoSchedulePage({
             </div>
             <p className="small muted">
               {replace
-                ? "아직 시작하지 않은 일정은 시간을 다시 정할 수 있습니다. 새 시간을 저장하면 기존 시간이 바뀝니다."
+                ? "아직 시작하지 않은 일정은 시간을 다시 정할 수 있어요. 새 시간을 저장하면 기존 시간이 바뀌어요."
                 : "목록에서 시간을 정할 할 일을 골라주세요."}
             </p>
             {selection === null &&
@@ -349,14 +349,14 @@ export function AutoSchedulePage({
                   <span>플랜캐치 일정 피하기</span>
                   <span>
                     {!google
-                      ? "Google 일정 제외"
+                      ? "구글 캘린더 일정 제외"
                       : connection.data?.reconnect_required
                         ? "Google 재연결 필요"
                         : connection.data?.connected
                           ? "Google 바쁨 일정도 확인"
                           : connection.data
                             ? "Google 미연결"
-                            : "연결된 Google 일정도 확인"}
+                            : "연결된 구글 캘린더 일정도 확인"}
                   </span>
                 </span>
               </summary>
@@ -366,8 +366,8 @@ export function AutoSchedulePage({
                 </p>
                 <p className="small muted" role="status">
                   {useSaved
-                    ? "저장한 가능 시간과 날짜별 예외 적용 중. 아래 시간이나 요일을 바꾸면 이번 추천에 직접 입력한 조건을 적용합니다."
-                    : "이번 추천에 직접 입력한 시간과 요일을 적용합니다."}
+                    ? "저장한 가능 시간과 날짜별 예외 적용 중. 아래 시간이나 요일을 바꾸면 이번 추천에 직접 입력한 조건을 적용해요."
+                    : "이번 추천에 직접 입력한 시간과 요일을 적용해요."}
                 </p>
                 <div className="form-grid">
                   <label>
@@ -469,8 +469,8 @@ export function AutoSchedulePage({
                   연결된 구글 기본 캘린더의 바쁨 일정도 피하기
                 </label>
                 <p className="small muted">
-                  한국 시간 기준으로 최대 31일을 선택할 수 있습니다. 안전
-                  마감일이 있으면 그 전에 끝내도록 제안합니다.
+                  한국 시간 기준으로 최대 31일을 선택할 수 있어요. 안전 마감일이
+                  있으면 그 전에 끝내도록 제안해요.
                 </p>
               </div>
             </details>
@@ -481,7 +481,7 @@ export function AutoSchedulePage({
                 {busy
                   ? "가능 시간과 기존 일정을 비교하고 있어요."
                   : selected.length
-                    ? "할 일 " + selected.length + "개의 시간을 확인합니다."
+                    ? "할 일 " + selected.length + "개의 시간을 확인해요."
                     : "할 일을 선택하면 추천받을 수 있어요."}
               </p>
               <button
@@ -586,8 +586,8 @@ function PlanEditor({
           : plan.details.google_state === "not_connected"
             ? "Google 미연결"
             : !plan.request.include_google
-              ? "Google 일정 제외"
-              : "Google 일정 확인 필요"}
+              ? "구글 캘린더 일정 제외"
+              : "구글 캘린더 일정 확인 필요"}
       </p>
       {plan.details.warnings.map((message, i) => (
         <p key={i} className="notice">
@@ -599,8 +599,8 @@ function PlanEditor({
           <h3>{plan.approved_at ? "변경 전 시간 기록" : "변경할 기존 시간"}</h3>
           <p className="small muted">
             {plan.approved_at
-              ? "선택한 할 일의 시간을 변경했습니다."
-              : "선택한 할 일의 시간을 저장하면 아래 시간이 바뀝니다. 제외했거나 추천 시간이 없는 할 일은 기존 시간을 유지합니다."}
+              ? "선택한 할 일의 시간을 변경했어요."
+              : "선택한 할 일의 시간을 저장하면 아래 시간이 바뀌어요. 제외했거나 추천 시간이 없는 할 일은 기존 시간을 유지해요."}
           </p>
           <ul>
             {plan.details.replaced_blocks?.map((block) => (
@@ -615,7 +615,7 @@ function PlanEditor({
           </ul>
           {!plan.approved_at && (
             <p className="notice">
-              일부 할 일을 제외하면 그 할 일의 기존 시간과 겹칠 수 있습니다.
+              일부 할 일을 제외하면 그 할 일의 기존 시간과 겹칠 수 있어요.
               저장할 수 없다면 할 일을 다시 선택하고 추천 시간을 확인하세요.
             </p>
           )}
@@ -624,11 +624,11 @@ function PlanEditor({
       {plan.approved_at ? (
         <>
           <p className="success" role="status">
-            캘린더에 시간 {plan.blocks.length}개를 저장했습니다. 구글 계정이
-            연결되어 있으면 자동 반영됩니다.
+            캘린더에 시간 {plan.blocks.length}개를 저장했어요. 구글 계정이
+            연결되어 있으면 자동 반영돼요.
           </p>
           <p className="small muted">
-            아래는 처음 저장한 시간입니다. 이후 변경·삭제된 실제 시간은 ‘저장한
+            아래는 처음 저장한 시간이에요. 이후 변경·삭제된 실제 시간은 ‘저장한
             시간 관리’에서 확인하세요.
           </p>
           <Link className="button" href="/calendar">
@@ -640,19 +640,19 @@ function PlanEditor({
         </>
       ) : (
         <p className="notice">
-          아직 캘린더에는 저장되지 않았습니다. 필요한 경우 시작 시간을 바꾸거나
-          할 일을 제외한 뒤 저장하세요.
+          아직 캘린더에는 저장되지 않았어요. 필요한 경우 시작 시간을 바꾸거나 할
+          일을 제외한 뒤 저장하세요.
         </p>
       )}
       {expired && (
         <p className="notice">
-          이 미리보기는 유효 시간이 지나 조회만 가능합니다. 새 미리보기를 만들어
+          이 미리보기는 유효 시간이 지나 조회만 가능해요. 새 미리보기를 만들어
           주세요.
         </p>
       )}
       {!plan.blocks.length && (
         <p>
-          현재 조건에 맞는 시간이 없습니다. 추천 기간을 늘리거나 작업 가능한
+          현재 조건에 맞는 시간이 없어요. 추천 기간을 늘리거나 작업 가능한
           시간을 변경해 보세요.
         </p>
       )}
@@ -739,9 +739,9 @@ function PlanEditor({
                       <p className="small muted">
                         {checked
                           ? plan.details.google_state === "checked"
-                            ? "가능 시간 안에서 플랜캐치와 Google의 바쁜 일정을 피한 시간입니다."
-                            : "가능 시간 안에서 플랜캐치 일정과 겹치지 않는 시간입니다."
-                          : "저장할 때 변경한 시간과 일정 겹침을 다시 확인합니다."}
+                            ? "가능 시간 안에서 플랜캐치와 구글의 바쁜 일정을 피한 시간이에요."
+                            : "가능 시간 안에서 플랜캐치 일정과 겹치지 않는 시간이에요."
+                          : "저장할 때 변경한 시간과 일정 겹침을 다시 확인해요."}
                       </p>
                     )}
                     {!plan.approved_at && !expired && (
@@ -842,7 +842,7 @@ function PlanEditor({
                   onApproved(saved);
                 } catch (err) {
                   setError(
-                    `${errorMessage(err)} 같은 미리보기를 다시 승인해도 중복 저장하지 않습니다.`,
+                    `${errorMessage(err)} 같은 미리보기를 다시 승인해도 중복 저장하지 않아요.`,
                   );
                 } finally {
                   pending.current = false;
@@ -885,8 +885,7 @@ function PlanEditor({
         <div>
           <h3>저장한 시간 관리</h3>
           <p className="small muted">
-            할 일은 그대로 두고 캘린더에 잡힌 시간만 바꾸거나 삭제할 수
-            있습니다.
+            할 일은 그대로 두고 캘린더에 잡힌 시간만 바꾸거나 삭제할 수 있어요.
           </p>
           <label>
             관리할 할 일

@@ -8,7 +8,7 @@ export default function AccountConnectionsPage() {
       <PageHeading
         eyebrow="CONNECTIONS"
         title="계정 연결 관리"
-        description="PlanCatch와 외부 계정의 연결 상태를 확인하세요."
+        description="플랜캐치와 외부 계정의 연결 상태를 확인하세요."
       />
       <div className="settings-calendar-connections">
         <GoogleCalendarConnection />
@@ -19,7 +19,7 @@ export default function AccountConnectionsPage() {
         >
           <h2 id="kakao-connection">카카오 캘린더 연결</h2>
           <p className="muted">
-            카카오 계정과 톡캘린더 연결은 추후 지원할 예정입니다.
+            카카오 계정과 톡캘린더 연결은 추후 지원할 예정이에요.
           </p>
         </section>
       </div>

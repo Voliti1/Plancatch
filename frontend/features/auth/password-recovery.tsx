@@ -11,9 +11,9 @@ import { useAuth } from "./provider";
 
 const messages: Record<string, string> = {
   password_recovery_unavailable:
-    "지금은 임시 비밀번호 메일을 보낼 수 없습니다. 잠시 후 다시 시도해 주세요.",
+    "지금은 임시 비밀번호 메일을 보낼 수 없어요. 잠시 후 다시 시도해 주세요.",
   password_recovery_rate_limited:
-    "요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
   current_password_incorrect: "메일에 있는 임시 비밀번호를 확인해 주세요.",
   new_password_unchanged: "임시 비밀번호와 다른 새 비밀번호를 사용해 주세요.",
 };
@@ -41,7 +41,7 @@ export function PasswordRecovery({ change = false }: { change?: boolean }) {
       if (change) {
         const next = String(values.get("new_password") ?? "");
         if (next !== values.get("confirmation"))
-          throw new Error("새 비밀번호가 일치하지 않습니다.");
+          throw new Error("새 비밀번호가 일치하지 않아요.");
         await changePassword(
           String(values.get("current_password") ?? ""),
           next,
@@ -71,14 +71,14 @@ export function PasswordRecovery({ change = false }: { change?: boolean }) {
         <h1>{change ? "새 비밀번호 설정" : "비밀번호 찾기"}</h1>
         <p className="muted">
           {change
-            ? "새 비밀번호를 설정하면 PlanCatch를 이용할 수 있습니다."
+            ? "새 비밀번호를 설정하면 플랜캐치를 이용할 수 있어요."
             : "가입한 이메일로 15분 동안 사용할 수 있는 임시 비밀번호를 보내드립니다."}
         </p>
         {accepted ? (
           <p className="notice" role="status">
-            요청을 받았습니다. 비밀번호로 로그인할 수 있는 계정이라면 가입
-            이메일로 안내가 발송됩니다. Google로만 가입했다면 Google 로그인을
-            이용해 주세요.
+            요청을 받았어요. 비밀번호로 로그인할 수 있는 계정이라면 가입
+            이메일로 안내가 발송돼요. 구글로만 가입했다면 구글 로그인을 이용해
+            주세요.
           </p>
         ) : (
           <form onSubmit={submit}>

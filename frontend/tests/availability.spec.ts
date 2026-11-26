@@ -23,7 +23,7 @@ async function setup(page: Page) {
           status: 409,
           json: {
             detail:
-              "다른 화면에서 설정이 변경됐습니다. 다시 불러온 뒤 저장해 주세요.",
+              "다른 화면에서 설정이 변경됐어요. 다시 불러온 뒤 저장해 주세요.",
           },
         });
       expect(body.revision).toBe(saved.revision);
@@ -57,7 +57,7 @@ test("saved weekly hours and date exception survive navigation and enable accoun
     .getByRole("button", { name: "가능 시간 저장", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText(
-    "가능 시간을 저장했습니다",
+    "가능 시간을 저장했어요",
   );
   expect(state.puts).toBe(1);
   await page.screenshot({
@@ -89,7 +89,7 @@ test("saved weekly hours and date exception survive navigation and enable accoun
     .getByRole("button", { name: "가능 시간 저장", exact: true })
     .click();
   await expect(page.getByRole("status")).toContainText(
-    "가능 시간을 저장했습니다",
+    "가능 시간을 저장했어요",
   );
 });
 
@@ -105,8 +105,8 @@ test("stale save preserves draft and reload can discard it deliberately", async 
   await expect(
     page
       .getByRole("alert")
-      .filter({ hasText: "다른 화면에서 설정이 변경됐습니다" }),
-  ).toContainText("다른 화면에서 설정이 변경됐습니다");
+      .filter({ hasText: "다른 화면에서 설정이 변경됐어요" }),
+  ).toContainText("다른 화면에서 설정이 변경됐어요");
   await expect(page.getByLabel("월요일 1 시작", { exact: true })).toHaveValue(
     "11:00",
   );
@@ -151,7 +151,7 @@ test("presets preview before applying; bulk edits keep exceptions and save expli
   await page
     .getByRole("button", { name: "가능 시간 저장", exact: true })
     .click();
-  await expect(page.getByText(/가능 시간을 저장했습니다/)).toBeVisible();
+  await expect(page.getByText(/가능 시간을 저장했어요/)).toBeVisible();
   await page.reload();
   await expect(
     page.getByRole("group", { name: "일요일", exact: true }),

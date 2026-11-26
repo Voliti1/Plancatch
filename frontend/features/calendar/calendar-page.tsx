@@ -62,7 +62,7 @@ function TaskTitle({ id }: { id: string }) {
   if (error)
     return (
       <ErrorNotice
-        message={`연결된 일정 제목을 불러오지 못했습니다. ${error}`}
+        message={`연결된 일정 제목을 불러오지 못했어요. ${error}`}
         retry={reload}
       />
     );
@@ -75,8 +75,8 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
   const rows = events.filter((event) => onDay(event, day, zone));
   if (!rows.length)
     return (
-      <Empty title="선택한 날짜에 배치된 일정이 없습니다">
-        일정 상세에서 원하는 시간을 캘린더에 배치해 보세요.
+      <Empty title="선택한 날짜에 등록된 일정이 없어요">
+        일정 상세에서 원하는 시간을 시간표에 등록해 보세요.
       </Empty>
     );
   return (
@@ -105,7 +105,7 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
             </div>
             {event.sync_error && (
               <p className="small event-sync-error">
-                서버가 기록한 동기화 오류: {event.sync_error}
+                구글 캘린더 동기화 오류: {event.sync_error}
               </p>
             )}
           </li>
@@ -298,7 +298,7 @@ function CalendarBody({
         await moveCalendarEvent(target, start, end);
         setSelected(toLocalInput(start).slice(0, 10));
       },
-      `${formatLocal(start)}으로 일정을 옮겼습니다.`,
+      `${formatLocal(start)}으로 일정을 옮겼어요.`,
     );
   }
   const registered = registrations.data?.entries ?? emptyRegistrations;
@@ -502,7 +502,7 @@ function CalendarBody({
               checked={showCancelled}
               onChange={(e) => setShowCancelled(e.target.checked)}
             />
-            취소한 배치 포함
+            취소한 시간 등록 포함
           </label>
           <label className="checkbox">
             <input
@@ -529,7 +529,7 @@ function CalendarBody({
         {error && <ErrorNotice message={error} retry={reload} />}
         {registrations.error && (
           <ErrorNotice
-            message={`등록한 마감일·할 일을 불러오지 못했습니다. ${registrations.error}`}
+            message={`등록한 마감일·할 일을 불러오지 못했어요. ${registrations.error}`}
             retry={registrations.reload}
           />
         )}
@@ -540,22 +540,22 @@ function CalendarBody({
         )}
         {registrations.data?.has_more && (
           <p role="status">
-            등록한 마감일·할 일은 종류별 첫 1,000건을 표시합니다. 주간 보기로
+            등록한 마감일·할 일은 종류별 첫 1,000건을 표시해요. 주간 보기로
             기간을 줄여 주세요.
           </p>
         )}
         {loading && <Loading />}
         {data?.hasMore && (
           <p role="status">
-            범위 내 첫 2,000건만 표시했습니다. 주간 보기로 조회 범위를 줄여
+            범위 내 첫 2,000건만 표시했어요. 주간 보기로 조회 범위를 줄여
             주세요.
           </p>
         )}
         {showGoogle && (
           <div className="google-calendar-status">
             <p className="small muted">
-              연결한 구글 기본 캘린더에서 이 기간의 일정만 조회합니다. 개인
-              일정은 이 화면에서 변경하지 않습니다.
+              연결한 구글 기본 캘린더에서 이 기간의 일정만 조회해요. 개인 일정은
+              이 화면에서 변경하지 않아요.
             </p>
             <Link href="/settings/google-calendar">구글 계정 연결 설정 →</Link>
             {google.loading && <Loading />}
@@ -564,14 +564,14 @@ function CalendarBody({
             )}
             {google.data?.has_more && (
               <p role="status">
-                구글 일정을 일부만 불러왔습니다. 다시 조회하거나 주간 보기로
+                구글 일정을 일부만 불러왔어요. 다시 조회하거나 주간 보기로
                 기간을 줄여 주세요.
               </p>
             )}
             {Boolean(google.data?.skipped_count) && (
               <p role="status">
                 확인할 수 없거나 중복된 구글 일정 {google.data?.skipped_count}
-                건은 표시하지 않았습니다.
+                건은 표시하지 않았어요.
               </p>
             )}
           </div>
@@ -704,7 +704,7 @@ function CalendarBody({
             void applyChange(async () => {
               await deleteCalendarEvent(target);
               changeColor(calendarEventKey(event), null);
-            }, "일정을 삭제했습니다.");
+            }, "일정을 삭제했어요.");
           }}
           onDuplicate={() => {
             const { event } = popup;
@@ -718,7 +718,7 @@ function CalendarBody({
                   calendarEventKey({ ...event, target: copy }),
                   color,
                 );
-            }, "일정을 복제했습니다.");
+            }, "일정을 복제했어요.");
           }}
         />
       )}
@@ -738,7 +738,7 @@ function CalendarBody({
           <Loading />
         ) : error ? (
           <p className="muted">
-            위의 오류를 해결한 뒤 배치 내역을 확인해 주세요.
+            위의 오류를 해결한 뒤 시간 등록 내역을 확인해 주세요.
           </p>
         ) : registeredDay.length &&
           !hasLocalSelected ? null : !hasLocalSelected &&

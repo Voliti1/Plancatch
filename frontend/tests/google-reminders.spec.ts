@@ -9,7 +9,7 @@ test("custom browser and email reminders save with a task and remain editable", 
   await login(page);
   await page.goto("/sources/new?mode=manual");
   await expect(
-    page.getByText(/Google 계정이 연결되어 있지 않아요/),
+    page.getByText(/구글 계정이 연결되어 있지 않아요/),
   ).toBeVisible();
   await expect(
     page.getByLabel("구글 캘린더 알림", { exact: true }),

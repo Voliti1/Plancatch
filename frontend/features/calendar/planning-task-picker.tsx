@@ -234,10 +234,10 @@ export function PlanningTaskPicker({
           <Empty
             title={
               query
-                ? "검색 결과가 없습니다"
+                ? "검색 결과가 없어요"
                 : replaceExisting
-                  ? "시간을 다시 정할 할 일이 없습니다"
-                  : "아직 시간을 정할 할 일이 없습니다"
+                  ? "시간을 다시 정할 할 일이 없어요"
+                  : "아직 시간을 정할 할 일이 없어요"
             }
           >
             {query ? (

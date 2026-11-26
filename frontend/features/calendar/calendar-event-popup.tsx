@@ -167,18 +167,18 @@ export function CalendarEventPopup({
           </p>
           <p className="small muted">
             {!target
-              ? "Google 캘린더"
+              ? "구글 캘린더"
               : event.kind === "deadline"
                 ? "마감일"
                 : target.kind === "placement"
-                  ? "캘린더에 배치한 할 일"
+                  ? "시간표에 등록한 할 일"
                   : "할 일"}
           </p>
           {description.data && (
             <p className="calendar-popup-note">{description.data}</p>
           )}
           {description.error && (
-            <p className="small muted">메모를 불러오지 못했습니다.</p>
+            <p className="small muted">메모를 불러오지 못했어요.</p>
           )}
           {target?.kind === "placement" && event.href && (
             <Link className="small" href={event.href}>
@@ -186,9 +186,7 @@ export function CalendarEventPopup({
             </Link>
           )}
           {!canEdit && target?.kind === "placement" && target.locked && (
-            <p className="small muted">
-              이 배치는 연결된 캘린더에서 관리합니다.
-            </p>
+            <p className="small muted">이 시간은 연결된 캘린더에서 관리해요.</p>
           )}
         </>
       )}
@@ -356,11 +354,11 @@ export function CalendarEventPopup({
         >
           <p>
             {target?.kind === "placement"
-              ? "선택한 배치 구간을 삭제할까요? 할 일은 유지됩니다."
+              ? "선택한 등록한 시간대을 삭제할까요? 할 일은 유지돼요."
               : target?.kind === "task" && target.occurrence
                 ? "이번 회차만 삭제할까요?"
                 : target?.kind === "deadline"
-                  ? "마감일을 삭제할까요? 마지막으로 연결된 원본 자료도 함께 삭제될 수 있습니다."
+                  ? "마감일을 삭제할까요? 마지막으로 연결된 자료도 함께 삭제될 수 있어요."
                   : "이 할 일을 삭제할까요?"}
           </p>
           <div className="form-actions">
@@ -392,7 +390,7 @@ export function CalendarEventPopup({
               const first = fromLocalInput(start);
               const last = fromLocalInput(end);
               if (Date.parse(first) >= Date.parse(last))
-                throw new Error("종료 시간은 시작 시간보다 늦어야 합니다.");
+                throw new Error("종료 시간은 시작 시간보다 늦어야 해요.");
               setTimeError("");
               onMove(first, last);
             } catch {
@@ -441,7 +439,7 @@ export function CalendarEventPopup({
       )}
       {busy && (
         <p className="small muted" role="status">
-          일정을 저장하고 있습니다.
+          일정을 저장하고 있어요.
         </p>
       )}
     </dialog>

@@ -21,7 +21,7 @@ const labels: Record<Deletion["state"], string> = {
   retrying: "자동 재시도 중",
   failed: "삭제 확인 필요",
   ready: "삭제 요청 필요",
-  not_connected: "Google 연결 필요",
+  not_connected: "구글 계정 연결 필요",
 };
 const prefix = "/api/integrations/google-calendar/auto-sync";
 
@@ -110,7 +110,7 @@ export function DeletionSync({
   return (
     <section
       className="google-deletion-status"
-      aria-label="Google 캘린더 삭제 상태"
+      aria-label="구글 캘린더 삭제 상태"
     >
       <div className="section-header">
         <h3>삭제 내역</h3>
@@ -124,13 +124,13 @@ export function DeletionSync({
         </button>
       </div>
       <p className="small muted">
-        플랜캐치에서 삭제한 일정의 Google 반영 상태입니다. 완료 내역은 최근
-        24시간 동안 표시됩니다.
+        플랜캐치에서 삭제한 일정의 Google 반영 상태예요. 완료 내역은 최근 24시간
+        동안 표시돼요.
       </p>
       {loading && <Loading />}
       {error && <ErrorNotice message={error} retry={reload} />}
       {!loading && !error && data?.entries.length === 0 && (
-        <p className="notice">표시할 삭제 내역이 없습니다.</p>
+        <p className="notice">표시할 삭제 내역이 없어요.</p>
       )}
       <ul className="google-deletion-rows">
         {data?.entries.map((item) => {
@@ -159,7 +159,7 @@ export function DeletionSync({
         })}
       </ul>
       {retryError && <ErrorNotice message={retryError} />}
-      <Link href="/settings/google-calendar">Google 계정 연결 확인 →</Link>
+      <Link href="/settings/google-calendar">구글 계정 연결 확인 →</Link>
       {(page > 0 || data?.has_more) && (
         <Pagination
           page={page}

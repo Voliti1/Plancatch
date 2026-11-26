@@ -11,7 +11,7 @@ test("protected routes, signup, login restore and logout", async ({ page }) => {
   await page.getByLabel("비밀번호", { exact: true }).fill("Test-password-123");
   await page.getByLabel("비밀번호 확인").fill("Test-password-123");
   await page.getByRole("button", { name: "계정 만들기" }).click();
-  await expect(page.getByText("가입이 완료되었습니다.")).toBeVisible();
+  await expect(page.getByText("가입이 완료됐어요.")).toBeVisible();
   await login(page);
   await page.reload();
   await expect(
@@ -36,13 +36,13 @@ test("protected routes, signup, login restore and logout", async ({ page }) => {
 });
 test("URL and text source registration and empty list", async ({ page }) => {
   await login(page);
-  await page.getByRole("link", { name: "원본 자료", exact: true }).click();
-  await expect(page.getByText("등록된 자료가 없습니다")).toBeVisible();
+  await page.getByRole("link", { name: "자료함", exact: true }).click();
+  await expect(page.getByText("등록된 자료가 없어요")).toBeVisible();
   await page
     .getByRole("link", { name: "새 일정 등록하기", exact: true })
     .click();
   await page.getByLabel("일정 제목 (선택)").fill("수업 공지");
-  await page.getByLabel("원본 URL").fill("https://example.com/notice");
+  await page.getByLabel("웹페이지 링크").fill("https://example.com/notice");
   await page.getByRole("button", { name: "자료 저장" }).click();
   await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
   await page.goto("/sources");
@@ -50,7 +50,7 @@ test("URL and text source registration and empty list", async ({ page }) => {
   await page
     .getByRole("link", { name: "새 일정 등록하기", exact: true })
     .click();
-  await page.getByLabel("원본 텍스트").fill("다음 주 발표 자료 제출");
+  await page.getByLabel("글 내용").fill("다음 주 발표 자료 제출");
   await page.getByRole("button", { name: "자료 저장" }).click();
   await expect(page).toHaveURL(/\/sources\/source-2\/review$/);
   await page.goto("/sources");
@@ -66,8 +66,8 @@ test("URL and text source registration and empty list", async ({ page }) => {
 });
 test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   await login(page);
-  await page.getByRole("link", { name: "일정", exact: true }).click();
-  await expect(page.getByText("아직 일정이 없습니다")).toBeVisible();
+  await page.getByRole("link", { name: "마감일·할 일", exact: true }).click();
+  await expect(page.getByText("아직 일정이 없어요")).toBeVisible();
   await page.getByRole("link", { name: "＋ 일정 등록" }).click();
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
   await page
@@ -92,7 +92,7 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   const update = page.waitForRequest((r) => r.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await update).postDataJSON().title).toBe("최종 발표 수정");
-  await expect(page.getByText("변경 사항을 저장했습니다.")).toBeVisible();
+  await expect(page.getByText("변경 사항을 저장했어요.")).toBeVisible();
   await page.reload();
   await expect(page.getByLabel("마감 제목")).toHaveValue("최종 발표 수정");
   await expect(page.getByLabel("확인한 마감일로 표시")).toBeChecked();
@@ -108,20 +108,20 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인" }).click();
   await expect(page).toHaveURL(/\/deadlines$/);
-  await expect(page.getByText("아직 일정이 없습니다")).toBeVisible();
+  await expect(page.getByText("아직 일정이 없어요")).toBeVisible();
 });
 test("backend error, retry and expired session", async ({ page }) => {
   await login(page);
   await page.route("**/test-api/api/sources?**", (route) =>
     route.fulfill({ status: 500, json: { detail: "일시적인 서버 오류" } }),
   );
-  await page.getByRole("link", { name: "원본 자료", exact: true }).click();
+  await page.getByRole("link", { name: "자료함", exact: true }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "일시적인 서버 오류" }),
   ).toBeVisible();
   await page.unroute("**/test-api/api/sources?**");
   await page.getByRole("button", { name: "다시 시도" }).click();
-  await expect(page.getByText("등록된 자료가 없습니다")).toBeVisible();
+  await expect(page.getByText("등록된 자료가 없어요")).toBeVisible();
   await page.route("**/test-api/api/auth/me", (route) =>
     route.fulfill({ status: 401, json: { detail: "Unauthorized" } }),
   );
@@ -163,7 +163,7 @@ test("editing a title preserves deadline seconds", async ({ page }) => {
   const sent = page.waitForRequest((request) => request.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await sent).postDataJSON().due_at).toBe("2026-10-01T00:30:45.123Z");
-  await expect(page.getByText("변경 사항을 저장했습니다.")).toBeVisible();
+  await expect(page.getByText("변경 사항을 저장했어요.")).toBeVisible();
 });
 
 test("retry clears stale error while request is pending", async ({ page }) => {
@@ -171,7 +171,7 @@ test("retry clears stale error while request is pending", async ({ page }) => {
   await page.route("**/test-api/api/sources?**", (route) =>
     route.fulfill({ status: 500, json: { detail: "재시도 테스트" } }),
   );
-  await page.getByRole("link", { name: "원본 자료", exact: true }).click();
+  await page.getByRole("link", { name: "자료함", exact: true }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "재시도 테스트" }),
   ).toBeVisible();
@@ -194,5 +194,5 @@ test("retry clears stale error while request is pending", async ({ page }) => {
   } finally {
     release();
   }
-  await expect(page.getByText("등록된 자료가 없습니다")).toBeVisible();
+  await expect(page.getByText("등록된 자료가 없어요")).toBeVisible();
 });

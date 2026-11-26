@@ -27,7 +27,7 @@ export function DashboardSchedules() {
         <Loading />
       ) : error ? (
         <ErrorNotice
-          message={`일정을 불러오지 못했습니다. ${error}`}
+          message={`일정을 불러오지 못했어요. ${error}`}
           retry={reload}
         />
       ) : data?.length ? (
@@ -55,7 +55,7 @@ export function DashboardSchedules() {
           ))}
         </ul>
       ) : (
-        <Empty title="등록한 일정이 없습니다">
+        <Empty title="등록한 일정이 없어요">
           새 일정 등록하기에서 수동 일정을 입력해 보세요.
         </Empty>
       )}

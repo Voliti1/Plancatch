@@ -66,13 +66,13 @@ test("날짜만 있는 URL은 23:59와 남은 기간을 표시하고 직접 승�
   await login(page);
   await page.goto("/analyses/analysis-1");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-11-10T23:59");
   const period = page.getByRole("region", { name: "고용24 접수기간" });
-  await expect(period).toContainText("오후 11시 59분으로 설정했습니다");
+  await expect(period).toContainText("오후 11시 59분으로 제안했어요");
   await expect(period).not.toContainText("마감일 미확정");
   expect(state.deadlines).toHaveLength(0);
-  await page.getByRole("checkbox", { name: "후보 1 포함" }).check();
+  await page.getByRole("checkbox", { name: "등록할 일정에 포함 1" }).check();
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
@@ -96,7 +96,7 @@ test("choosing an exact HTML date preserves seconds and explicit offset when sav
   await login(page);
   await page.goto("/analyses/analysis-1");
   await page
-    .getByRole("group", { name: "후보 1 읽은 날짜 선택" })
+    .getByRole("group", { name: "찾은 마감일 1 읽은 날짜 선택" })
     .getByRole("button")
     .click();
   const request = page.waitForRequest((r) => r.method() === "PATCH");
@@ -112,10 +112,12 @@ test("HTML dates remain choices, missing time is never invented, selected date s
   const state = await mockAnalyses(page, [html]);
   await login(page);
   await page.goto("/analyses/analysis-1");
-  const group = page.getByRole("group", { name: "후보 1 읽은 날짜 선택" });
+  const group = page.getByRole("group", {
+    name: "찾은 마감일 1 읽은 날짜 선택",
+  });
   await group.getByRole("button", { name: /2026.11.05/ }).click();
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("status").filter({ hasText: "빠진 연도나 시간" }),
@@ -127,7 +129,7 @@ test("HTML dates remain choices, missing time is never invented, selected date s
     .getByRole("button", { name: "2026.11.03 23:59", exact: true })
     .click();
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-11-03T23:59");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
@@ -165,10 +167,10 @@ test("open ended URL requires an explicitly entered date and selected candidate"
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   await page
-    .getByLabel("후보 1 마감일 (한국 시간)", { exact: true })
+    .getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true })
     .fill("2026-11-10T18:00");
   await page
-    .getByRole("checkbox", { name: "후보 1 포함", exact: true })
+    .getByRole("checkbox", { name: "등록할 일정에 포함 1", exact: true })
     .check();
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
@@ -209,11 +211,11 @@ test("a failed result retains read dates and can recover without an external AI 
     }),
   ).toBeVisible();
   await page
-    .getByRole("button", { name: "HTML 날짜로 검토 계속", exact: true })
+    .getByRole("button", { name: "페이지의 날짜로 검토 계속", exact: true })
     .click();
   await expect(page).toHaveURL(/\/analyses\/html-recovered$/);
   await expect(
-    page.getByRole("group", { name: "후보 1 읽은 날짜 선택" }),
+    page.getByRole("group", { name: "찾은 마감일 1 읽은 날짜 선택" }),
   ).toBeVisible();
   expect(recoveries).toBe(1);
   expect(state.starts).toBe(0);
@@ -246,15 +248,13 @@ test("URL verification never requests AI consent and does not inherit the 40000 
   await login(page);
   await page.goto("/sources/ai-source");
   await expect(
-    page.getByRole("checkbox", { name: /Google Gemini/ }),
+    page.getByRole("checkbox", { name: /AI\(구글 Gemini\)/ }),
   ).toHaveCount(0);
   await page
     .getByRole("checkbox", {
-      name: "HTML에서 읽은 날짜를 직접 검토한 후 등록하겠습니다.",
+      name: "페이지에서 찾은 날짜를 직접 확인한 뒤 등록할게요.",
     })
     .check();
-  await page
-    .getByRole("button", { name: "HTML 마감일 확인", exact: true })
-    .click();
+  await page.getByRole("button", { name: "마감일 찾기", exact: true }).click();
   await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
 });

@@ -53,7 +53,8 @@ export function SourceExtractedContent({
             </div>
           </dl>
           <p className="muted small">
-            원문 표시값입니다. 확정된 마감일은 마감일 페이지에서 확인하세요.
+            자료 내용 표시값이에요. 확정된 마감일은 마감일 페이지에서
+            확인하세요.
           </p>
           <button
             type="button"
@@ -120,7 +121,7 @@ export function SourceExtractedContent({
           </dialog>
         </>
       ) : (
-        <p className="muted">추출된 내용이 없습니다.</p>
+        <p className="muted">추출된 내용이 없어요.</p>
       )}
     </section>
   );

@@ -64,7 +64,7 @@ function DeadlineTaskPage({
           }}
         />
       ) : (
-        <Empty title="연결된 작업이 없습니다">
+        <Empty title="연결된 작업이 없어요">
           이 마감일을 준비할 첫 작업을 등록해 보세요.
         </Empty>
       )}

@@ -30,15 +30,17 @@ test("dashboard opens the separate registration screen with responsive inputs", 
   await expect(
     page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
   ).toBeEnabled();
-  await expect(page.getByLabel("원본 URL", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("웹페이지 링크", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("글 내용", { exact: true })).toBeVisible();
   await expect(
     page.getByText("PDF·이미지 지원", { exact: true }),
   ).toBeVisible();
   const drop = await page
     .getByRole("button", { name: "PDF 또는 이미지 파일 선택" })
     .boundingBox();
-  const url = await page.getByLabel("원본 URL", { exact: true }).boundingBox();
+  const url = await page
+    .getByLabel("웹페이지 링크", { exact: true })
+    .boundingBox();
   expect(drop).not.toBeNull();
   expect(url).not.toBeNull();
   expect(url!.y).toBeGreaterThan(drop!.y + drop!.height);
@@ -80,11 +82,11 @@ test("image selection stays local until save; PDF and mixed inputs are rejected"
     buffer: Buffer.from("<svg/>"),
   });
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "HEIC·SVG는 지원하지 않습니다",
+    "HEIC·SVG는 지원하지 않아요",
   );
   await expect(files.getByRole("listitem")).toHaveCount(1);
   await page
-    .getByLabel("원본 URL", { exact: true })
+    .getByLabel("웹페이지 링크", { exact: true })
     .fill("https://example.com/notice");
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert").last()).toContainText(
@@ -130,7 +132,7 @@ test("file drop deduplicates files and reload does not persist local selections"
   ).toHaveCount(1);
   await page.reload();
   await expect(
-    page.getByText("선택한 파일이 없습니다.", { exact: true }),
+    page.getByText("선택한 파일이 없어요.", { exact: true }),
   ).toBeVisible();
   await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(0);
 });
@@ -174,7 +176,7 @@ test("PNG aliases and convertible formats remain selectable until server validat
       buffer: Buffer.from("unsupported"),
     });
     await expect(page.getByRole("main").getByRole("alert")).toContainText(
-      "HEIC·SVG는 지원하지 않습니다",
+      "HEIC·SVG는 지원하지 않아요",
     );
     await expect(files).toContainText("공지.avif");
   }
@@ -203,24 +205,24 @@ test("empty, invalid and ambiguous input never posts or clears the draft", async
     "URL 또는 텍스트를 입력해 주세요.",
   );
   await page
-    .getByLabel("원본 URL", { exact: true })
+    .getByLabel("웹페이지 링크", { exact: true })
     .fill("javascript:alert(1)");
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "올바른 URL",
   );
   await page
-    .getByLabel("원본 URL", { exact: true })
+    .getByLabel("웹페이지 링크", { exact: true })
     .fill("https://example.com/notice");
-  await page.getByLabel("원본 텍스트", { exact: true }).fill("테스트 공지");
+  await page.getByLabel("글 내용", { exact: true }).fill("테스트 공지");
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "하나만 입력해 주세요.",
   );
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("웹페이지 링크", { exact: true })).toHaveValue(
     "https://example.com/notice",
   );
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("글 내용", { exact: true })).toHaveValue(
     "테스트 공지",
   );
   expect(posts).toHaveLength(0);
@@ -233,7 +235,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
   await page.goto("/sources/new");
   await page.getByLabel("일정 제목 (선택)").fill("테스트 자료");
   const text = "  테스트 첫 줄\n둘째 줄\n";
-  await page.getByLabel("원본 텍스트", { exact: true }).fill(text);
+  await page.getByLabel("글 내용", { exact: true }).fill(text);
   let release!: () => void;
   const pending = new Promise<void>((resolve) => {
     release = resolve;
@@ -251,9 +253,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
     await expect(
       page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
     ).toBeDisabled();
-    await expect(
-      page.getByLabel("원본 텍스트", { exact: true }),
-    ).toBeDisabled();
+    await expect(page.getByLabel("글 내용", { exact: true })).toBeDisabled();
     expect(failedRequests).toBe(1);
   } finally {
     release();
@@ -261,9 +261,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "테스트 저장 실패",
   );
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
-    text,
-  );
+  await expect(page.getByLabel("글 내용", { exact: true })).toHaveValue(text);
   await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("테스트 자료");
   await page.unroute("**/test-api/api/sources");
   const sent = page.waitForRequest(
@@ -303,7 +301,7 @@ test("a late save response cannot navigate away from a fresh registration", asyn
     await route.fulfill({ status: 201, json: { id: "late-source", ...body } });
   });
   await page
-    .getByLabel("원본 URL", { exact: true })
+    .getByLabel("웹페이지 링크", { exact: true })
     .fill("https://example.com/old");
   const sent = page.waitForRequest(
     (request) =>
@@ -316,7 +314,9 @@ test("a late save response cannot navigate away from a fresh registration", asyn
     await page
       .getByRole("link", { name: "새 일정 등록하기", exact: true })
       .click();
-    await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+    await expect(page.getByLabel("웹페이지 링크", { exact: true })).toHaveValue(
+      "",
+    );
     await page.getByLabel("일정 제목 (선택)").fill("유지할 새 입력");
     const freshUrl = page.url();
     const response = page.waitForResponse(

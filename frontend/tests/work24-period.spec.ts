@@ -5,7 +5,7 @@ import type { Analysis } from "../types/analysis";
 
 const raw = "2026.11.10 (화) 24:00";
 const due = "2026-11-11T00:00:00+09:00";
-const evidence = `마감일 원문: ${raw}`;
+const evidence = `마감일 자료 내용: ${raw}`;
 const savedText = `${evidence}\n회사명: 추천 기업\n[URL 마감일 HTML 검토 데이터]\n${JSON.stringify(
   {
     version: 1,
@@ -77,7 +77,7 @@ test("Work24 keeps raw 24:00 and the next-day Seoul midnight through edit, appro
   await expect(region).toContainText("2026. 11. 11.");
   await expect(region).toContainText("다음 날 00:00");
   await expect(region).toContainText("14일 10시간 0분 0초");
-  const dateInput = page.getByLabel("후보 1 마감일 (한국 시간)", {
+  const dateInput = page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", {
     exact: true,
   });
   await expect(dateInput).toHaveValue("2026-11-11T00:00");
@@ -89,7 +89,7 @@ test("Work24 keeps raw 24:00 and the next-day Seoul midnight through edit, appro
   expect(state.reads).toBe(1);
   expect(state.deadlines).toHaveLength(0);
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 고용24 지원 일정");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
@@ -154,7 +154,7 @@ test("Work24 missing clock and conflicting weekday never prefill a deadline", as
   await expect(region).toContainText("충돌");
   await expect(region).not.toContainText("마감일 (한국 시간)");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
@@ -164,7 +164,7 @@ test("Work24 missing clock and conflicting weekday never prefill a deadline", as
 test("Work24 date-only field requires the user to enter a clock", async ({
   page,
 }) => {
-  const dateEvidence = "마감일 원문: 2026.11.10 (화)";
+  const dateEvidence = "마감일 자료 내용: 2026.11.10 (화)";
   const dateSource = {
     ...source,
     extracted_text: `(주)테스트기업\n${dateEvidence}`,
@@ -205,10 +205,10 @@ test("Work24 date-only field requires the user to enter a clock", async ({
   await login(page);
   await page.goto("/analyses/analysis-1");
   await expect(
-    page.getByText("원문 마감 날짜는 2026-11-10입니다.", { exact: false }),
+    page.getByText("자료 내용 마감 날짜는 2026-11-10이에요.", { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),

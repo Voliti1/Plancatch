@@ -54,29 +54,26 @@ export function SourceAnalyses({
   }
   return (
     <section className="card form-card analysis-launch">
-      <h2>{urlOnly ? "2. HTML 마감일 확인" : "2. AI 마감일 분석"}</h2>
+      <h2>{urlOnly ? "2. 마감일 찾기" : "2. AI 마감일 분석"}</h2>
       <p className="muted">
-        추출한 원문에서 마감일 후보를 찾습니다. 분석 결과를 직접 검토하고
-        승인해야 실제 마감일이 등록됩니다.
+        자료에서 마감일을 찾아요. 찾은 날짜를 직접 확인한 뒤 등록해 주세요.
       </p>
       <p className="small muted">
         {urlOnly
-          ? "URL 자료는 저장된 HTML에서 날짜를 직접 읽습니다. 외부 AI에 전송하지 않으며, 날짜를 확인한 뒤 승인해야 등록됩니다."
-          : "텍스트 자료는 동의한 원문을 Gemini로 분석합니다."}
+          ? "링크에 적힌 날짜를 찾아요. 외부 AI에 내용을 보내지 않아요. 날짜를 직접 확인한 뒤 등록해 주세요."
+          : "텍스트 자료는 동의한 자료 내용을 Gemini로 분석해요."}
       </p>
       {!extracted && (
-        <p className="notice">
-          원문 추출이 완료되어야 분석을 시작할 수 있습니다.
-        </p>
+        <p className="notice">내용을 먼저 불러온 뒤 분석을 시작해 주세요.</p>
       )}
       {extracted && (
         <p className="small muted">
-          추출한 원문 {textLength.toLocaleString("ko-KR")}자
+          추출한 자료 내용 {textLength.toLocaleString("ko-KR")}자
           {!urlOnly && " · 분석 한도 40,000자"}
         </p>
       )}
       {!urlOnly && textLength > 40000 && (
-        <ErrorNotice message="원문이 AI 분석 한도 40,000자를 초과했습니다. 필요한 내용을 나누어 새 텍스트 자료로 등록해 주세요. 원문을 자동으로 자르지 않습니다." />
+        <ErrorNotice message="자료 내용이 AI 분석 한도 40,000자를 초과했어요. 필요한 내용을 나누어 새 텍스트 자료로 등록해 주세요. 자료 내용을 자동으로 자르지 않아요." />
       )}
       <label className="checkbox analysis-consent">
         <input
@@ -90,15 +87,15 @@ export function SourceAnalyses({
         />
         <span id={consentId}>
           {urlOnly
-            ? "HTML에서 읽은 날짜를 직접 검토한 후 등록하겠습니다."
-            : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
+            ? "페이지에서 찾은 날짜를 직접 확인한 뒤 등록할게요."
+            : "마감일을 찾기 위해 이 글 내용 전체를 AI(구글 Gemini)에 보내 분석하는 데 동의해요."}
         </span>
       </label>
       <button
         disabled={disabled || busy || !consent || !allowed}
         onClick={() => void start()}
       >
-        {busy ? "분석 요청 중…" : urlOnly ? "HTML 마감일 확인" : "AI 분석 시작"}
+        {busy ? "분석 요청 중…" : urlOnly ? "마감일 찾기" : "AI 분석 시작"}
       </button>
       {error && <ErrorNotice message={error} />}
       <div className="analysis-history">
@@ -157,8 +154,8 @@ function AnalysisHistory({
           ))}
         </ul>
       ) : (
-        <Empty title="분석 기록이 없습니다">
-          원문을 추출한 뒤 첫 분석을 시작해 보세요.
+        <Empty title="분석 기록이 없어요">
+          자료 내용을 추출한 뒤 첫 분석을 시작해 보세요.
         </Empty>
       )}
       <div className="pagination">

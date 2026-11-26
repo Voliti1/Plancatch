@@ -76,7 +76,7 @@ export function SourceEditForm({
           />
         </label>
         <label>
-          <span id={contentLabelId}>{isUrl ? "원본 URL" : "원본 텍스트"}</span>
+          <span id={contentLabelId}>{isUrl ? "웹페이지 링크" : "글 내용"}</span>
           {isUrl ? (
             <input
               name="content"

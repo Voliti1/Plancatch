@@ -22,19 +22,19 @@ export default function DashboardPage() {
   return (
     <>
       <PageHeading
-        eyebrow="YOUR PLANNING SPACE"
+        eyebrow="나의 일정"
         title={`${user?.display_name || "사용자"}님, 오늘도 차근차근.`}
         description="흩어진 자료는 모으고, 중요한 마감은 놓치지 마세요."
       />
       <section className="hero">
         <div>
-          <span className="eyebrow">MAKE ROOM FOR WHAT MATTERS</span>
+          <span className="eyebrow">중요한 일에 집중해 보세요</span>
           <h2>
             머릿속 할 일 대신,
             <br />
             눈앞의 계획으로.
           </h2>
-          <p>링크 하나, 메모 한 줄부터 시작해 보세요.</p>
+          <p>자료를 올리고 마감일을 확인한 뒤, 캘린더에 시간을 잡아 보세요.</p>
           <NewRegistrationLink className="button">
             새 일정 등록하기 ↗
           </NewRegistrationLink>
@@ -42,7 +42,7 @@ export default function DashboardPage() {
         <div className="hero-art" aria-hidden>
           <div className="paper paper-back" />
           <div className="paper">
-            <span className="paper-label">MY PLAN</span>
+            <span className="paper-label">내 계획</span>
             <div className="paper-check">
               ✓ <span />
             </div>
@@ -66,13 +66,13 @@ export default function DashboardPage() {
           <>
             <div className="stats dashboard-stats">
               <Link className="card stat" href="/sources">
-                <span>모아 둔 자료</span>
+                <span>저장한 자료</span>
                 <strong>
                   {data.sources.length}
                   {data.sources.length === 50 ? "+" : ""}
                   <small>개</small>
                 </strong>
-                <span className="small muted">원본 자료 확인 ↗</span>
+                <span className="small muted">자료 확인 ↗</span>
               </Link>
               <Link className="card stat" href="/deadlines">
                 <span>등록한 마감일</span>
@@ -93,13 +93,13 @@ export default function DashboardPage() {
                 <DeadlineRows deadlines={data.deadlines.slice(0, 5)} />
               ) : (
                 <Empty title="첫 마감일을 기다리고 있어요">
-                  마감일 메뉴에서 중요한 일정을 직접 등록해 보세요.
+                  새 일정 등록하기에서 자료를 올리고 마감일을 확인해 보세요.
                 </Empty>
               )}
             </section>
             <p className="small muted">
-              요약은 각 목록의 첫 50건 기준입니다. 전체 자료는 목록에서
-              확인하세요.
+              목록에서 불러온 최대 50건 기준이에요. 전체 내용은 각 목록에서
+              확인해 주세요.
             </p>
           </>
         )

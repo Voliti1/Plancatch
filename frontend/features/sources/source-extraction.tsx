@@ -54,24 +54,20 @@ export function SourceExtraction({
   }
   return (
     <section className="card form-card">
-      <h2>1. 원문 추출</h2>
+      <h2>1. 내용 불러오기</h2>
       <p className="muted">
-        URL은 공개 페이지의 HTML 본문을 읽습니다. 로그인 우회·JavaScript
-        실행·PDF 및 이미지 추출은 지원하지 않습니다.
+        로그인 없이 볼 수 있는 페이지의 내용을 불러와요. 읽을 수 없으면 글을
+        복사하거나 PDF·이미지 파일로 등록해 주세요.
       </p>
       {processing && (
-        <p role="status">
-          원문을 추출하고 있습니다. 상태를 자동으로 확인합니다.
-        </p>
+        <p role="status">내용을 불러오고 있어요. 상태를 자동으로 확인해요.</p>
       )}
       {source.processing_status === "extracted" && (
-        <p className="success">
-          원문 추출이 완료되었습니다. AI 분석은 별도로 시작해 주세요.
-        </p>
+        <p className="success">내용을 불러왔어요. 이제 마감일을 찾아보세요.</p>
       )}
       {poll.timedOut && (
         <ErrorNotice
-          message="90초 동안 완료 상태를 확인하지 못했습니다. 자동 조회를 중단했습니다. 잠시 후 상태를 다시 확인해 주세요."
+          message="90초 동안 완료 상태를 확인하지 못했어요. 자동 조회를 중단했어요. 잠시 후 상태를 다시 확인해 주세요."
           retry={poll.resume}
         />
       )}
@@ -86,13 +82,13 @@ export function SourceExtraction({
           {busy
             ? "요청 중…"
             : processing
-              ? "추출 중…"
+              ? "내용 불러오는 중…"
               : source.processing_status === "pending"
-                ? "원문 추출"
-                : "원문 다시 추출"}
+                ? "내용 불러오기"
+                : "내용 다시 불러오기"}
         </button>
       ) : (
-        <p>이 자료 유형의 원문 추출은 아직 지원하지 않습니다.</p>
+        <p>이 자료 유형의 내용 불러오기은 아직 지원하지 않아요.</p>
       )}
       {error && (
         <button

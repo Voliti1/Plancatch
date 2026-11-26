@@ -56,7 +56,7 @@ export function TaskDetail({
         <Link href="/deadlines">전체 일정 보기 →</Link>
       </div>
       <PageHeading
-        eyebrow="SCHEDULE DETAILS"
+        eyebrow="일정 상세"
         title="일정 상세"
         description="일정과 메모를 확인하고 필요한 내용을 수정하세요."
       />
@@ -78,13 +78,15 @@ export function TaskDetail({
                   {data.is_completed ? "완료" : "미완료"}
                 </span>
                 <span className="tag">
-                  {data.schedule_type === "fixed" ? "고정 일정" : "유동 작업"}
+                  {data.schedule_type === "fixed"
+                    ? "시간이 정해진 일정"
+                    : "시간 미정 할 일"}
                 </span>
               </div>
               <h2>{data.title}</h2>
               {data.series_id && (
                 <p className="notice">
-                  반복 일정에서 개별 변경한 일정입니다.{" "}
+                  반복 일정에서 개별 변경한 일정이에요.{" "}
                   <Link href={`/tasks/${encodeURIComponent(data.series_id)}`}>
                     전체 반복 설정 보기 →
                   </Link>
@@ -94,8 +96,8 @@ export function TaskDetail({
                 <>
                   {data.placement && (
                     <p className="small muted">
-                      아래 시작·종료 일시는 작업이 가능한 기간입니다. 캘린더에
-                      배치한 시간을 바꾸려면 배치 시간을 다시 추천받으세요.
+                      아래 시작·종료 일시는 작업이 가능한 기간이에요. 캘린더에
+                      등록한 시간을 바꾸려면 등록한 시간을 다시 추천받으세요.
                     </p>
                   )}
                   <TaskForm
@@ -105,7 +107,7 @@ export function TaskDetail({
                     onSave={async (payload) => {
                       await tasksApi.update(id, payload);
                       setEditing(false);
-                      setSaved("변경 사항을 저장했습니다.");
+                      setSaved("변경 사항을 저장했어요.");
                       reload();
                     }}
                   />
@@ -114,7 +116,9 @@ export function TaskDetail({
                 <>
                   <dl className="task-details-grid">
                     <div>
-                      <dt>{data.placement ? "배치 시작 일시" : "시작 일시"}</dt>
+                      <dt>
+                        {data.placement ? "시간 등록 시작 일시" : "시작 일시"}
+                      </dt>
                       <dd>
                         {startsAt ? (
                           <time dateTime={startsAt}>
@@ -126,7 +130,9 @@ export function TaskDetail({
                       </dd>
                     </div>
                     <div>
-                      <dt>{data.placement ? "배치 종료 일시" : "종료 일시"}</dt>
+                      <dt>
+                        {data.placement ? "시간 등록 종료 일시" : "종료 일시"}
+                      </dt>
                       <dd>
                         {endsAt ? (
                           <time dateTime={endsAt}>{formatLocal(endsAt)}</time>
@@ -139,7 +145,7 @@ export function TaskDetail({
                   {data.placement_blocks &&
                     data.placement_blocks.length > 1 && (
                       <div className="task-description">
-                        <h3>캘린더에 배치한 시간</h3>
+                        <h3>캘린더에 등록한 시간</h3>
                         <ul>
                           {data.placement_blocks.map((block) => (
                             <li key={block.id}>
@@ -158,7 +164,7 @@ export function TaskDetail({
                   <div className="task-description">
                     <h3>메모</h3>
                     <p className="source-text">
-                      {data.description || "메모가 없습니다."}
+                      {data.description || "메모가 없어요."}
                     </p>
                   </div>
                   <details className="schedule-extra-details">
@@ -201,7 +207,7 @@ export function TaskDetail({
                         </Link>
                       ) : (
                         <span className="muted small">
-                          연결된 마감일이 없습니다.
+                          연결된 마감일이 없어요.
                         </span>
                       )}
                     </p>
@@ -212,7 +218,7 @@ export function TaskDetail({
                   {data.recurrence && (
                     <p className="small muted">
                       개별 변경·삭제 {data.exception_count ?? 0}회. 종료일을
-                      앞당기면 그 이후의 개별 변경도 함께 제외됩니다.
+                      앞당기면 그 이후의 개별 변경도 함께 제외돼요.
                     </p>
                   )}
                   <p className="small">
@@ -220,10 +226,10 @@ export function TaskDetail({
                   </p>
                   <p className="muted small schedule-window-note">
                     {data.placement
-                      ? "캘린더에 저장된 배치 시간입니다."
+                      ? "캘린더에 저장된 등록한 시간이에요."
                       : data.schedule_type === "fixed"
-                        ? "입력한 시작·종료 시간으로 캘린더에 표시됩니다."
-                        : "유동 작업의 가능 기간입니다. 고정 일정으로 바꾸면 입력한 시간에 캘린더에 표시됩니다."}
+                        ? "입력한 시작·종료 시간으로 캘린더에 표시돼요."
+                        : "시간 미정 할 일의 가능 기간이에요. 시간이 정해진 일정으로 바꾸면 입력한 시간에 캘린더에 표시돼요."}
                   </p>
                   <div className="form-actions">
                     {data.schedule_type === "flexible" &&
@@ -234,8 +240,8 @@ export function TaskDetail({
                           href={`/planning?task=${encodeURIComponent(data.id)}${data.placement ? "&mode=replan" : ""}`}
                         >
                           {data.placement
-                            ? "배치 시간 다시 추천받기"
-                            : "할 일 시간 추천받기"}
+                            ? "등록한 시간 다시 추천받기"
+                            : "자동 시간 추천받기"}
                         </Link>
                       )}
                     <button
@@ -267,9 +273,8 @@ export function TaskDetail({
                   <h2>일정 삭제</h2>
                   <p className="muted">
                     {data.recurrence &&
-                      "이 반복 일정 전체와 Google에 연결된 반복 일정이 삭제됩니다. "}
-                    삭제한 일정은 복구할 수 없습니다. 연결된 마감일은
-                    유지됩니다.
+                      "이 반복 일정 전체와 구글 캘린더에 연결된 반복 일정이 삭제돼요. "}
+                    삭제한 일정은 복구할 수 없어요. 연결된 마감일은 유지돼요.
                   </p>
                 </div>
                 {!confirmDelete ? (
@@ -285,7 +290,7 @@ export function TaskDetail({
                   </button>
                 ) : (
                   <div role="group" aria-label="일정 삭제 확인">
-                    <p>이 일정을 삭제하시겠습니까?</p>
+                    <p>이 일정을 삭제할까요?</p>
                     <div className="form-actions">
                       <button
                         className="secondary"

@@ -75,7 +75,7 @@ test("existing manual registration appears immediately as a white-title colour b
     page.getByRole("link", { name: deadline.title, exact: true }),
   ).toHaveAttribute("href", "/deadlines/source-deadline");
   await expect(
-    page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+    page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
   ).toHaveCount(0);
   await page.reload();
   await page.getByRole("button", { name: "월간", exact: true }).click();
@@ -102,15 +102,15 @@ test("missing registration API is reported and not disguised as an empty calenda
   await page.goto("/calendar?date=2026-11-06");
   await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "등록한 마감일·할 일을 불러오지 못했습니다",
+    "등록한 마감일·할 일을 불러오지 못했어요",
   );
   await expect(
-    page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+    page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
   ).toHaveCount(0);
   await page.unroute("**/calendar/registrations?**");
   await page.getByRole("button", { name: "다시 시도", exact: true }).click();
   await expect(
-    page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+    page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
   ).toBeVisible();
 });
 
@@ -128,7 +128,7 @@ test("registration errors keep separate local placements visible", async ({
     "[테스트] 캘린더 회의",
   );
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "등록한 마감일·할 일을 불러오지 못했습니다",
+    "등록한 마감일·할 일을 불러오지 못했어요",
   );
 });
 

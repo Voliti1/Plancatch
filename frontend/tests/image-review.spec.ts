@@ -20,7 +20,7 @@ const result = {
   model: "image:test-model",
   input_hash: image.image_sha256,
   input_text: "접수기간 2026년 10월 21일 ~ 11월 1일 까지",
-  warnings: ["사진에 마감 시각이 없습니다."],
+  warnings: ["사진에 마감 시각이 없어요."],
   candidates: [
     {
       ...readyAnalysis.candidates[0],
@@ -91,31 +91,33 @@ test("image upload requires consent, preserves missing time and original preview
   await expect(page).toHaveURL(/\/sources\/ai-source\/review$/);
   const consent = page.getByRole("checkbox");
   await expect(
-    page.getByRole("button", { name: "동의하고 AI 검토 시작" }),
+    page.getByRole("button", { name: "동의하고 찾은 날짜 확인 시작" }),
   ).toBeDisabled();
   await expect(page.getByRole("img")).toBeVisible();
   expect(state.starts).toBe(0);
   await consent.check();
-  await page.getByRole("button", { name: "동의하고 AI 검토 시작" }).click();
+  await page
+    .getByRole("button", { name: "동의하고 찾은 날짜 확인 시작" })
+    .click();
   await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
   await expect(page.getByRole("region", { name: "원본 이미지" })).toBeVisible();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    enteredTitle,
-  );
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue(enteredTitle);
+  await expect(
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "11월 1일 · 일시 입력 필요" }),
   ).toBeVisible();
   expect(state.deadlines).toHaveLength(0);
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("직접 입력한 제목");
   await page
-    .getByLabel("후보 1 마감일 (한국 시간)", { exact: true })
+    .getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true })
     .fill("2026-11-01T18:00");
-  await page.getByRole("checkbox", { name: "후보 1 포함" }).check();
+  await page.getByRole("checkbox", { name: "등록할 일정에 포함 1" }).check();
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
@@ -191,20 +193,22 @@ test("image correction requires fresh consent, preserves text after failure and 
   );
   await login(page);
   await page.goto("/analyses/analysis-1");
-  await page.getByRole("button", { name: "분석 원문 보기" }).click();
+  await page.getByRole("button", { name: "분석 자료 내용 보기" }).click();
   await page.getByText("이미지에서 읽은 글 교정", { exact: true }).click();
-  const input = page.getByLabel("교정할 원문");
+  const input = page.getByLabel("교정할 자료 내용");
   const submit = page.getByRole("button", { name: "교정한 글로 다시 분석" });
   await expect(input).toHaveValue(result.input_text);
   await input.fill(corrected);
   await expect(submit).toBeDisabled();
   expect(requests).toBe(0);
   await page
-    .getByRole("checkbox", { name: /교정한 글만 Google Gemini/ })
+    .getByRole("checkbox", { name: /교정한 글만 AI\(구글 Gemini\)/ })
     .check();
   await submit.click();
   await expect(
-    page.getByRole("form", { name: "이미지 원문 교정" }).getByRole("alert"),
+    page
+      .getByRole("form", { name: "이미지 자료 내용 교정" })
+      .getByRole("alert"),
   ).toContainText("요청 한도");
   await expect(input).toHaveValue(corrected);
   await submit.click();
@@ -212,11 +216,11 @@ test("image correction requires fresh consent, preserves text after failure and 
     .getByRole("link", { name: "교정한 글의 검토 결과 보기 →" })
     .click();
   await expect(page).toHaveURL(/\/analyses\/analysis-corrected$/);
-  await expect(page.getByLabel("후보 1 마감일 (한국 시간)")).toHaveValue(
+  await expect(page.getByLabel("찾은 마감일 1 마감일 (한국 시간)")).toHaveValue(
     "2026-11-02T18:00",
   );
   await expect(
-    page.getByRole("checkbox", { name: "후보 1 포함" }),
+    page.getByRole("checkbox", { name: "등록할 일정에 포함 1" }),
   ).not.toBeChecked();
   expect(state.deadlines).toHaveLength(0);
   expect(requests).toBe(2);
@@ -273,14 +277,14 @@ test("text PDF opens review without consent and allows selecting a deadline cand
     });
   await expect(page.getByText("PDF 1개 선택됨")).toBeVisible();
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "서류 접수",
-  );
-  await expect(page.getByLabel("후보 2 제목", { exact: true })).toHaveValue(
-    "추가 서류 제출",
-  );
   await expect(
-    page.getByLabel("후보 2 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("서류 접수");
+  await expect(
+    page.getByLabel("찾은 마감일 2 제목", { exact: true }),
+  ).toHaveValue("추가 서류 제출");
+  await expect(
+    page.getByLabel("찾은 마감일 2 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-11-12T17:00");
   await expect(page.getByText("PDF 2페이지", { exact: true })).toBeVisible();
   await expect(page.getByText("PDF 3페이지", { exact: true })).toBeVisible();
@@ -289,7 +293,7 @@ test("text PDF opens review without consent and allows selecting a deadline cand
   ).toHaveCount(0);
   expect(state.starts).toBe(1);
   expect(state.deadlines).toHaveLength(0);
-  await page.getByRole("checkbox", { name: "후보 2 포함" }).check();
+  await page.getByRole("checkbox", { name: "등록할 일정에 포함 2" }).check();
   await page
     .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
     .click();
@@ -352,7 +356,9 @@ test("reused PDF review opens the existing analysis", async ({ page }) => {
   await login(page);
   await page.goto("/analyses/reused-file");
   await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toBeVisible();
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toBeVisible();
 });
 
 test("scan consent is opt-in, applies to later scans and can be revoked", async ({
@@ -417,12 +423,12 @@ for (const scenario of [
   },
   {
     transcript: "지원서 접수",
-    company: "SK하이닉스 (후보 제목에서 확인)",
+    company: "SK하이닉스 (찾은 마감일 제목에서 확인)",
     title: "2025 하반기 SK하이닉스 신입사원 채용 지원서 접수",
   },
   {
     transcript:
-      "2025년 하반기 신입사원 채용 공고\n케이워터기술은 한국수자원공사 자회사로서 국내 시설을 관리합니다.",
+      "2025년 하반기 신입사원 채용 공고\n케이워터기술은 한국수자원공사 자회사로서 국내 시설을 관리해요.",
     company: "케이워터기술",
     title: "2025년 하반기 신입사원 채용 공고",
     evidence: "1. 채용공고 및 원서접수 ’25. 11. 21.(금) ~ 12. 05.(금) 16:00",
@@ -474,11 +480,11 @@ for (const scenario of [
     await expect(summary.locator("dd").nth(1)).toHaveText(scenario.company);
     if (scenario.native) {
       await expect(
-        page.getByText("PDF에서 읽은 근거입니다.").first(),
+        page.getByText("PDF에서 읽은 근거예요.").first(),
       ).toBeVisible();
     }
     await expect(
-      page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+      page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
     ).toHaveValue(due);
     expect(state.starts).toBe(0);
     expect(state.deadlines).toHaveLength(0);
@@ -537,7 +543,7 @@ for (const scenario of [
       input_text: candidate.evidence_text,
       candidates: [candidate],
       warnings: [
-        "마감 시간(시, 분)이 명시되어 있지 않아 due_at을 null로 처리했습니다.",
+        "마감 시간(시, 분)이 명시되어 있지 않아 due_at을 null로 처리했어요.",
       ],
       date_choices: [],
     };
@@ -548,7 +554,7 @@ for (const scenario of [
     await login(page);
     await page.goto("/analyses/analysis-1");
     await expect(
-      page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+      page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
     ).toHaveValue(scenario.expected);
     await expect(
       page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
@@ -558,7 +564,7 @@ for (const scenario of [
     if (scenario.defaulted)
       await expect(
         page.getByText(
-          "마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면 변경해 주세요.",
+          "마감 시간이 없어 오후 11시 59분으로 설정했어요. 필요하면 변경해 주세요.",
           { exact: true },
         ),
       ).toBeVisible();
@@ -570,7 +576,7 @@ for (const scenario of [
       path: test.info().outputPath("deadline-time-review.png"),
       fullPage: true,
     });
-    await page.getByRole("checkbox", { name: "후보 1 포함" }).check();
+    await page.getByRole("checkbox", { name: "등록할 일정에 포함 1" }).check();
     await page
       .getByRole("button", { name: "검토 내용 저장", exact: true })
       .click();
@@ -625,19 +631,21 @@ test("이전 결과에 제안된 날짜를 지워서 저장하면 다시 채우�
   });
   await login(page);
   await page.goto("/analyses/analysis-1");
-  const input = page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true });
+  const input = page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", {
+    exact: true,
+  });
   await expect(input).toHaveValue("2026-10-27T17:00");
   await input.fill("");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await expect(
-    page.getByText("검토 내용을 저장했습니다.", { exact: true }),
+    page.getByText("검토 내용을 저장했어요.", { exact: true }),
   ).toBeVisible();
   await expect(input).toHaveValue("");
   await page.reload();
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   expect(state.starts).toBe(0);
 });

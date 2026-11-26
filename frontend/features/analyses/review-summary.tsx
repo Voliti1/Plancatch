@@ -65,7 +65,7 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
           <dd>
             {company}
             {companyFromCandidate && (
-              <span className="small muted"> (후보 제목에서 확인)</span>
+              <span className="small muted"> (찾은 마감일 제목에서 확인)</span>
             )}
           </dd>
         </div>
@@ -77,12 +77,12 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
           target="_blank"
           rel="noopener noreferrer"
         >
-          원본 페이지 열기 ↗
+          자료 페이지 열기 ↗
         </a>
       )}
       {source.error && (
         <p className="small muted">
-          자료 정보를 불러오지 못했습니다. 마감일 검토는 계속할 수 있습니다.
+          자료 정보를 불러오지 못했어요. 마감일 검토는 계속할 수 있어요.
         </p>
       )}
       {pdf &&
@@ -99,8 +99,8 @@ export function ReviewSummary({ analysis }: { analysis: Analysis }) {
           </Link>
         )}
       <p className="small muted">
-        마감일 근거는 분석 시점의 원문 기준입니다. 자료 제목은 저장한 제목이나
-        분석에서 읽은 제목을 표시합니다.
+        마감일 근거는 분석 시점의 자료 내용 기준이에요. 자료 제목은 저장한
+        제목이나 분석에서 읽은 제목을 표시해요.
       </p>
     </section>
   );

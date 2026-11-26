@@ -88,13 +88,13 @@ export function useListDeletion(
       setSelected((items) => items.filter((id) => !done.includes(id)));
       setConfirming(false);
       if (done.length) {
-        setMessage(`${done.length}개 항목을 플랜캐치에서 삭제했습니다.`);
+        setMessage(`${done.length}개 항목을 플랜캐치에서 삭제했어요.`);
         onDeleted();
       }
       const remaining = selected.length - done.length;
       if (remaining)
         setError(
-          `${remaining}개 항목을 삭제하지 못해 선택을 유지했습니다. ${conflictReason || "목록과 연결 상태를 확인한 뒤 다시 시도해 주세요."}`,
+          `${remaining}개 항목을 삭제하지 못해 선택을 유지했어요. ${conflictReason || "목록과 연결 상태를 확인한 뒤 다시 시도해 주세요."}`,
         );
     } finally {
       request.current = null;
@@ -184,8 +184,8 @@ export function ListDeleteNotice({
             <strong>
               선택한 {deletion.selected.length}개 항목을 삭제할까요?
             </strong>{" "}
-            ‘삭제 확인’을 누르면 삭제됩니다. {consequence} 삭제한 항목은 복구할
-            수 없습니다.
+            ‘삭제 확인’을 누르면 삭제돼요. {consequence} 삭제한 항목은 복구할 수
+            없어요.
           </p>
         </div>
       )}

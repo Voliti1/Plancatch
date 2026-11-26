@@ -16,7 +16,7 @@ export function GoogleDayEvents({
         구글 기본 캘린더 <span className="tag">조회 전용</span>
       </h3>
       {!rows.length ? (
-        <p className="muted small">선택한 날짜의 구글 일정이 없습니다.</p>
+        <p className="muted small">선택한 날짜의 구글 일정이 없어요.</p>
       ) : (
         <ul className="calendar-agenda">
           {rows.map((event) => (
@@ -34,7 +34,7 @@ export function GoogleDayEvents({
               >
                 {event.local_kind === "deadline" ? "마감일" : "할 일"}
               </span>
-              <span className="small muted"> Google Calendar · 조회 전용</span>
+              <span className="small muted"> 구글 캘린더 · 조회 전용</span>
             </li>
           ))}
         </ul>

@@ -34,14 +34,11 @@ const identity = () =>
 
 const errors: Record<string, string> = {
   google_account_already_linked:
-    "이 이메일에는 이미 다른 Google 계정이 연결되어 있습니다. 기존 방식으로 로그인해 주세요.",
-  google_login_password_incorrect: "PlanCatch 비밀번호가 일치하지 않습니다.",
-  google_login_expired:
-    "Google 로그인 요청이 만료되었습니다. 다시 시도해 주세요.",
-  google_login_invalid:
-    "Google 로그인을 확인하지 못했습니다. 다시 시도해 주세요.",
-  google_login_retry:
-    "계정이 변경되었습니다. Google 로그인을 다시 시도해 주세요.",
+    "이 이메일에는 이미 다른 구글 계정이 연결되어 있어요. 기존 방식으로 로그인해 주세요.",
+  google_login_password_incorrect: "플랜캐치 비밀번호가 일치하지 않아요.",
+  google_login_expired: "구글 로그인 요청이 만료되었어요. 다시 시도해 주세요.",
+  google_login_invalid: "구글 로그인을 확인하지 못했어요. 다시 시도해 주세요.",
+  google_login_retry: "계정이 변경되었어요. 구글 로그인을 다시 시도해 주세요.",
 };
 
 export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
@@ -97,7 +94,7 @@ export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
         const code = cause instanceof ApiError ? cause.message : "";
         setError(
           errors[code] ??
-            "Google 로그인을 완료하지 못했습니다. 다시 시도해 주세요.",
+            "구글 로그인을 완료하지 못했어요. 다시 시도해 주세요.",
         );
         if (code !== "google_login_password_incorrect") {
           setCredential(null);
@@ -153,7 +150,7 @@ export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
         strategy="afterInteractive"
         onReady={() => setSdkReady(true)}
         onError={() => {
-          setError("Google 로그인 버튼을 불러오지 못했습니다.");
+          setError("구글 로그인 버튼을 불러오지 못했어요.");
           setRetry(true);
         }}
       />
@@ -171,13 +168,13 @@ export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
       </div>
       {submitting && (
         <p className="small muted" role="status">
-          Google 계정을 확인하는 중…
+          구글 계정을 확인하는 중…
         </p>
       )}
       {error && <ErrorNotice message={error} />}
       {retry && (
         <button type="button" className="secondary" onClick={restart}>
-          Google 로그인 다시 시도
+          구글 로그인 다시 시도
         </button>
       )}
       {credential && (
@@ -191,12 +188,12 @@ export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
           }}
         >
           <p className="muted">
-            같은 이메일의 PlanCatch 계정이 있습니다. 현재 PlanCatch 비밀번호를
-            확인하면 Google 계정을 연결할 수 있습니다.
+            같은 이메일의 플랜캐치 계정이 있어요. 현재 플랜캐치 비밀번호를
+            확인하면 구글 계정을 연결할 수 있어요.
           </p>
           <fieldset disabled={submitting || blocked}>
             <label>
-              현재 PlanCatch 비밀번호
+              현재 플랜캐치 비밀번호
               <input
                 name="google_link_password"
                 type="password"
@@ -205,7 +202,7 @@ export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
                 maxLength={128}
               />
             </label>
-            <button type="submit">Google 계정 연결 후 로그인</button>
+            <button type="submit">구글 계정 연결 후 로그인</button>
             <button type="button" className="secondary" onClick={restart}>
               취소
             </button>

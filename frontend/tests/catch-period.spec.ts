@@ -16,13 +16,13 @@ test("same-job company snapshot overrides recommended company labels and respect
     "\n[URL 마감일 HTML 검토 끝]";
   expect(extractedSummary(snapshot("CR그룹")).company).toBe("CR그룹");
   expect(extractedSummary(snapshot(null)).company).toBe(
-    "원문에서 회사명을 확인하지 못했습니다.",
+    "자료 내용에서 회사명을 확인하지 못했어요.",
   );
 });
 
 const due = "2026-10-29T14:00:00+09:00";
 const raw = "~ 10.29(목) 14시";
-const evidence = `마감일 원문: ${raw}\n공고 메타데이터 마감일: ${due}`;
+const evidence = `마감일 자료 내용: ${raw}\n공고 메타데이터 마감일: ${due}`;
 const source = {
   ...aiSource,
   title: "[테스트] 캐치 채용설명회",
@@ -69,7 +69,7 @@ test("Catch 24시 stays confirmed, displays its fixed company and preserves the 
 }) => {
   const closing = "2026-11-08T23:59:59+09:00";
   const rawEnd = "~ 11.08(일) 24시";
-  const proof = `마감일 원문: ${rawEnd}\n공고 메타데이터 마감일: ${closing}`;
+  const proof = `마감일 자료 내용: ${rawEnd}\n공고 메타데이터 마감일: ${closing}`;
   const text =
     "회사명: 추천 기업\n" +
     proof +
@@ -125,9 +125,11 @@ test("Catch 24시 stays confirmed, displays its fixed company and preserves the 
     page.getByRole("region", { name: "자료 정보 요약" }),
   ).not.toContainText("추천 기업");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-11-08T23:59");
-  await page.getByLabel("후보 1 제목", { exact: true }).fill("CR 지원 마감");
+  await page
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
+    .fill("CR 지원 마감");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
@@ -169,7 +171,7 @@ test("Catch HTML period ticks, preserves deadline through edits and approval, an
   await expect(page.locator(".candidate-evidence")).toContainText(due);
   await expect(page.locator(".candidate-evidence")).not.toContainText("신뢰도");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-10-29T14:00");
   await page.clock.fastForward(5000);
   await expect(region).toContainText("1일 23시간 59분 55초");
@@ -177,7 +179,7 @@ test("Catch HTML period ticks, preserves deadline through edits and approval, an
   expect(state.reads).toBe(1);
   expect(state.deadlines).toHaveLength(0);
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 캐치 지원 일정");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
@@ -216,8 +218,8 @@ for (const conflict of [false, true]) {
     page,
   }) => {
     const warning = conflict
-      ? "캐치 접수기간과 공고 메타데이터의 날짜가 충돌합니다."
-      : "캐치 접수기간의 연도를 확정하지 못했습니다.";
+      ? "캐치 접수기간과 공고 메타데이터의 날짜가 충돌해요."
+      : "캐치 접수기간의 연도를 확정하지 못했어요.";
     await mockAnalyses(
       page,
       [
@@ -233,7 +235,7 @@ for (const conflict of [false, true]) {
               raw_text: "10.29",
               date: null,
               due_at: null,
-              evidence_text: `마감일 원문: ${raw}`,
+              evidence_text: `마감일 자료 내용: ${raw}`,
             },
           ],
           source_period: {
@@ -257,7 +259,7 @@ for (const conflict of [false, true]) {
       page.getByRole("region", { name: "분석 주의사항" }),
     ).toContainText(warning);
     await expect(
-      page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+      page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
     ).toHaveValue("");
     await expect(
       page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),

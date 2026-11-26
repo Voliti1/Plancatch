@@ -38,7 +38,7 @@ export function SourceDetail({ id }: { id: string }) {
     } catch (err) {
       if (err instanceof ApiError && err.status === 404)
         throw new Error(
-          "자료를 찾을 수 없습니다. 삭제되었거나 접근할 수 없는 자료입니다.",
+          "자료를 찾을 수 없어요. 삭제되었거나 접근할 수 없는 자료예요.",
         );
       throw err;
     }
@@ -78,11 +78,11 @@ export function SourceDetail({ id }: { id: string }) {
   return (
     <>
       <Link className="back-link" href="/sources">
-        ← 원본 자료 목록
+        ← 자료 목록
       </Link>
       <PageHeading
-        eyebrow="SOURCE DETAILS"
-        title="원본 자료 상세"
+        eyebrow="자료 상세"
+        title="자료 상세"
         description="저장한 자료의 내용을 확인하고 관리하세요."
       />
       {loading ? (
@@ -94,7 +94,7 @@ export function SourceDetail({ id }: { id: string }) {
           <>
             {saved && (
               <p className="success" role="status">
-                변경 사항을 저장했습니다.
+                변경 사항을 저장했어요.
               </p>
             )}
             <section
@@ -142,7 +142,7 @@ export function SourceDetail({ id }: { id: string }) {
                 <>
                   {data.original_url && (
                     <section className="source-content">
-                      <h3>원본 URL</h3>
+                      <h3>웹페이지 링크</h3>
                       {/^https?:\/\//i.test(data.original_url) ? (
                         <a
                           className="source-link"
@@ -159,9 +159,9 @@ export function SourceDetail({ id }: { id: string }) {
                   )}
                   {data.original_text !== null && (
                     <section className="source-content">
-                      <h3>원본 텍스트</h3>
+                      <h3>글 내용</h3>
                       <p className="source-text">
-                        {data.original_text || "저장된 텍스트가 없습니다."}
+                        {data.original_text || "저장된 텍스트가 없어요."}
                       </p>
                     </section>
                   )}
@@ -190,7 +190,7 @@ export function SourceDetail({ id }: { id: string }) {
                     </button>
                   ) : (
                     <p className="muted small">
-                      이 자료 유형의 수정은 아직 지원하지 않습니다.
+                      이 자료 유형의 수정은 아직 지원하지 않아요.
                     </p>
                   )}
                 </>
@@ -240,12 +240,10 @@ export function SourceDetail({ id }: { id: string }) {
               <section className="card danger-zone">
                 <div>
                   <h2>자료 삭제</h2>
+                  <p className="muted">삭제한 자료는 복구할 수 없어요.</p>
                   <p className="muted">
-                    삭제한 원본 자료는 복구할 수 없습니다.
-                  </p>
-                  <p className="muted">
-                    마감일이 등록된 원본 자료는 삭제할 수 없습니다. 연결된
-                    마감일을 먼저 삭제해 주세요.
+                    마감일이 등록된 자료는 삭제할 수 없어요. 연결된 마감일을
+                    먼저 삭제해 주세요.
                   </p>
                 </div>
                 {!confirmDelete ? (
@@ -263,7 +261,7 @@ export function SourceDetail({ id }: { id: string }) {
                   </button>
                 ) : (
                   <div role="group" aria-label="자료 삭제 확인">
-                    <p>이 원본 자료를 삭제하시겠습니까?</p>
+                    <p>이 자료를 삭제할까요?</p>
                     <div className="form-actions">
                       <button
                         className="secondary"

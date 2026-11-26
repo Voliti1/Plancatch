@@ -59,7 +59,7 @@ test("live test account: safety opt-in, server calculation, persistence, date up
     .getByRole("button", { name: "계정 만들기 →", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "가입이 완료되었습니다.", exact: true }),
+    page.getByRole("heading", { name: "가입이 완료됐어요.", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: "로그인으로 이동", exact: true })

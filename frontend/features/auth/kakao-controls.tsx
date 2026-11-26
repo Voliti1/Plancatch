@@ -88,10 +88,10 @@ export function KakaoSettings() {
         {calendar.loading
           ? "연결 상태를 확인하는 중…"
           : !calendar.data?.configured
-            ? "카카오 캘린더 연결을 준비 중입니다."
+            ? "카카오 캘린더 연결을 준비 중이에요."
             : calendar.data.connected
               ? "카카오 캘린더 연결됨"
-              : "연결된 카카오 캘린더가 없습니다."}
+              : "연결된 카카오 캘린더가 없어요."}
       </p>
       <div className="google-calendar-connection-actions">
         {calendar.data?.configured && (
@@ -144,14 +144,14 @@ export function KakaoSettings() {
             ))}
           </ul>
         ) : (
-          <p>표시할 캘린더가 없습니다.</p>
+          <p>표시할 캘린더가 없어요.</p>
         ))}
       {account.data?.configured && (
         <div className="kakao-login-connection">
           <p className="small muted">
             {account.data.connected
               ? "카카오 로그인 계정 연결됨"
-              : "현재 PlanCatch 계정에 카카오 로그인을 연결할 수 있습니다."}
+              : "현재 플랜캐치 계정에 카카오 로그인을 연결할 수 있어요."}
           </p>
           {!account.data.connected && (
             <button
