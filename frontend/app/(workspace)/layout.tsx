@@ -14,6 +14,7 @@ const nav = [
   ["/deadlines", "◷", "일정"],
   ["/calendar", "▦", "캘린더"],
   ["/planning", "▥", "할 일 시간 추천"],
+  ["/settings/connections", "↗", "계정 연결 관리"],
 ];
 export default function WorkspaceLayout({
   children,

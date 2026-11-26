@@ -50,12 +50,27 @@ async function setup(page: Page, initial = {}) {
     },
   );
   await login(page);
-  await page.getByRole("button", { name: "설정 열기" }).click();
-  const settings = page.getByRole("dialog", { name: "설정" });
-  await settings.getByText("구글 캘린더 연결", { exact: true }).click();
+  const menu = page.getByRole("navigation", { name: "주 메뉴" });
+  const connections = menu.getByRole("link", {
+    name: "계정 연결 관리",
+    exact: false,
+  });
+  await expect(menu.getByRole("link").last()).toHaveText(/계정 연결 관리/);
+  await connections.click();
   await expect(
-    settings.getByRole("region", { name: "구글 계정 연결 설정" }),
+    page.getByRole("heading", { name: "계정 연결 관리" }),
   ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "구글 계정 연결 설정" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("region", { name: "카카오 캘린더 연결" }),
+  ).toContainText("추후 지원");
+  await expect(
+    page
+      .getByRole("region", { name: "카카오 캘린더 연결" })
+      .getByRole("button"),
+  ).toHaveCount(0);
   return { requests };
 }
 
@@ -147,7 +162,7 @@ test("서버가 잘못된 인증 주소를 주면 외부 이동을 막는다", a
       .getByRole("region", { name: "구글 계정 연결 설정" })
       .getByRole("alert"),
   ).toContainText("안전한 Google 인증 주소");
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/settings\/connections$/);
 });
 
 test("연결 해제는 확인 후에만 수행하고 취소하면 유지한다", async ({ page }) => {
@@ -231,7 +246,7 @@ test("연결 오류는 재시도 가능하고 상태 조회 실패를 연결 해
   ).toHaveCount(0);
 });
 
-test("설정창을 닫은 뒤 늦은 연결 응답은 Google로 이동시키지 않는다", async ({
+test("계정 연결 페이지 이탈 후 늦은 응답은 Google로 이동시키지 않는다", async ({
   page,
 }) => {
   await setup(page);
@@ -254,8 +269,7 @@ test("설정창을 닫은 뒤 늦은 연결 응답은 Google로 이동시키지 
     .getByRole("button", { name: "Google 계정 연결", exact: true })
     .click();
   await requested;
-  await page.getByRole("button", { name: "설정 닫기", exact: true }).click();
-  await expect(page.getByRole("dialog", { name: "설정" })).toHaveCount(0);
+  await page.getByRole("link", { name: "대시보드", exact: false }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   const response = page.waitForResponse((item) =>
     item.url().endsWith("/google-calendar/connect"),

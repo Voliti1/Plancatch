@@ -4,9 +4,6 @@ import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { ThemeToggle } from "./theme";
-import { GoogleCalendarConnectionPage } from "@/features/google-calendar/connection-page";
-import { KakaoSettings } from "@/features/auth/kakao-controls";
-import "./connections.css";
 
 export function AccountControls({
   name,
@@ -19,8 +16,6 @@ export function AccountControls({
   const pending = useRef(false);
   const heading = useId();
   const { changePassword, user } = useAuth();
-  const [googleOpen, setGoogleOpen] = useState(false);
-  const [kakaoOpen, setKakaoOpen] = useState(false);
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -33,8 +28,6 @@ export function AccountControls({
     setConfirmation("");
     setError("");
     setSuccess(false);
-    setGoogleOpen(false);
-    setKakaoOpen(false);
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -210,25 +203,6 @@ export function AccountControls({
               </form>
             </>
           )}
-          <section
-            className="settings-calendar-connections"
-            aria-label="캘린더 연결"
-          >
-            <details
-              open={googleOpen}
-              onToggle={(event) => setGoogleOpen(event.currentTarget.open)}
-            >
-              <summary>구글 캘린더 연결</summary>
-              {googleOpen && <GoogleCalendarConnectionPage embedded />}
-            </details>
-            <details
-              open={kakaoOpen}
-              onToggle={(event) => setKakaoOpen(event.currentTarget.open)}
-            >
-              <summary>카카오 캘린더 연결</summary>
-              {kakaoOpen && <KakaoSettings />}
-            </details>
-          </section>
         </div>
       </dialog>
     </>
