@@ -8,14 +8,29 @@ import { NewRegistrationLink } from "@/features/deadlines/new-registration-link"
 import { TimeZoneControl, useTimeZone } from "@/features/settings/time-zone";
 import { AccountControls } from "@/features/settings/account-controls";
 import { useUnsavedNavigation } from "@/lib/unsaved-changes";
-const nav = [
-  ["/dashboard", "◈", "대시보드"],
-  ["/sources", "▤", "자료함"],
-  ["/deadlines", "◷", "마감일·할 일"],
-  ["/calendar", "▦", "캘린더"],
-  ["/planning", "▥", "자동 시간 추천"],
-  ["/settings/connections", "↗", "계정 연결 관리"],
+
+const navGroups = [
+  {
+    label: "홈",
+    items: [["/dashboard", "◈", "대시보드"]] as const,
+  },
+  {
+    label: "일정 관리",
+    items: [
+      ["/calendar", "▦", "캘린더"],
+      ["/deadlines", "◷", "마감일·할 일"],
+      ["/planning", "▥", "자동 시간 추천"],
+    ] as const,
+  },
+  {
+    label: "자료 및 연동",
+    items: [
+      ["/sources", "▤", "자료함"],
+      ["/settings/connections", "↗", "구글 캘린더"],
+    ] as const,
+  },
 ];
+
 export default function WorkspaceLayout({
   children,
 }: {
@@ -50,26 +65,30 @@ export default function WorkspaceLayout({
           <span className="brand-dot">.</span>
         </Link>
         <NewRegistrationLink className="sidebar-new-registration">
-          새 일정 등록하기
+          + 새 일정 등록하기
         </NewRegistrationLink>
-        <p className="nav-caption">내 메뉴</p>
         <nav aria-label="주 메뉴">
-          {nav.map(([href, icon, label]) => (
-            <Link
-              key={href}
-              href={href}
-              aria-current={
-                !isNewRegistration &&
-                (path.startsWith(href) ||
-                  (href === "/sources" && path.startsWith("/analyses/")) ||
-                  (href === "/deadlines" && path.startsWith("/tasks")))
-                  ? "page"
-                  : undefined
-              }
-            >
-              <span aria-hidden>{icon}</span>
-              {label}
-            </Link>
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <p className="nav-group-label">{group.label}</p>
+              {group.items.map(([href, icon, label]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={
+                    !isNewRegistration &&
+                    (path.startsWith(href) ||
+                      (href === "/sources" && path.startsWith("/analyses/")) ||
+                      (href === "/deadlines" && path.startsWith("/tasks")))
+                      ? "page"
+                      : undefined
+                  }
+                >
+                  <span aria-hidden>{icon}</span>
+                  {label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="account">

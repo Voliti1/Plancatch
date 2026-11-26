@@ -180,10 +180,8 @@ export function OverlapWarning({
                 ) : (
                   <Link
                     href={`/tasks/${encodeURIComponent(item.task_id!)}${item.is_recurring ? `?${new URLSearchParams({ occurrence: item.start_at })}` : ""}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                   >
-                    {item.title} ↗
+                    {item.title} →
                   </Link>
                 )}
                 <span>

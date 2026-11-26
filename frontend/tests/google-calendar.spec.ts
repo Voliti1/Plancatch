@@ -52,10 +52,10 @@ async function setup(page: Page, initial = {}) {
   await login(page);
   const menu = page.getByRole("navigation", { name: "주 메뉴" });
   const connections = menu.getByRole("link", {
-    name: "계정 연결 관리",
+    name: "구글 캘린더",
     exact: false,
   });
-  await expect(menu.getByRole("link").last()).toHaveText(/계정 연결 관리/);
+  await expect(menu.getByRole("link").last()).toHaveText(/구글 캘린더/);
   await connections.click();
   await expect(
     page.getByRole("heading", { name: "계정 연결 관리" }),

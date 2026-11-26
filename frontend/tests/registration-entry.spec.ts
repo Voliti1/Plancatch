@@ -56,7 +56,9 @@ test("schedule registration uses the shared fresh page and source library has no
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
   await expect(menu.locator("[aria-current]")).toHaveCount(0);
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(menu.locator("[aria-current]")).toHaveCount(0);
   await page.getByLabel("일정명", { exact: true }).fill("남기지 않을 입력");
   page.once("dialog", (dialog) => dialog.accept());
@@ -65,7 +67,9 @@ test("schedule registration uses the shared fresh page and source library has no
     .getByRole("link", { name: "마감일·할 일", exact: true })
     .click();
   await page.getByRole("link", { name: "＋ 일정 등록", exact: true }).click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("");
   expect(writes).toEqual([]);
   await page.goto("/sources");
@@ -79,7 +83,7 @@ test("schedule registration uses the shared fresh page and source library has no
     page.getByRole("button", { name: "자료 등록", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "새 일정 등록하기", exact: true }),
+    page.getByRole("link", { name: "+ 새 일정 등록하기", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "삭제 모드", exact: true }),
@@ -90,7 +94,7 @@ test("schedule registration uses the shared fresh page and source library has no
     ),
   ).toBeTruthy();
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   await expect(page).toHaveURL(/\/sources\/new\?new=.+/);
   await expect(menu.locator("[aria-current]")).toHaveCount(0);

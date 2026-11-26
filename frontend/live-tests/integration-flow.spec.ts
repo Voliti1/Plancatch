@@ -1,3 +1,4 @@
+import { sourceInput } from "../tests/source-input";
 import { randomBytes } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
 import type { Analysis } from "../types/analysis";
@@ -138,7 +139,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
 
   async function newSource() {
     await page
-      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
       .click();
     await expect(page).toHaveURL(/\/sources\/new\?new=/);
     await expect(
@@ -151,7 +152,9 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
         response.request().method() === "POST" &&
         /\/api\/sources(?:\/pdfs)?$/.test(new URL(response.url()).pathname),
     );
-    await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    await page
+      .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+      .click();
     const response = await created;
     expect(response.status()).toBe(201);
     const { id } = await response.json();
@@ -181,11 +184,11 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
   try {
     await newSource();
     await page.getByLabel("일정 제목 (선택)").fill(`${marker} 텍스트`);
-    await page
-      .getByLabel("글 내용", { exact: true })
-      .fill(
-        `회사명: 플랜캐치 테스트회사\n[테스트] 보고서 제출\n제출 마감일: ${day} 오후 6시 (한국 시간)\n실제 채용이나 과제가 아닌 합성 검증 자료예요.`,
-      );
+    await (
+      await sourceInput(page, "text")
+    ).fill(
+      `회사명: 플랜캐치 테스트회사\n[테스트] 보고서 제출\n제출 마감일: ${day} 오후 6시 (한국 시간)\n실제 채용이나 과제가 아닌 합성 검증 자료예요.`,
+    );
     await saveSource();
     const analysisId = await consent(0);
     const current = await ownRequest(page, `/api/ai-analyses/${analysisId}`);
@@ -258,13 +261,13 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
 
     await newSource();
     await page.getByLabel("일정 제목 (선택)").fill(`${marker} PDF`);
-    await page
-      .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
-      .setInputFiles({
-        name: "[테스트] 통합 확인.pdf",
-        mimeType: "application/pdf",
-        buffer: testPdf(day),
-      });
+    await (
+      await sourceInput(page, "file")
+    ).setInputFiles({
+      name: "[테스트] 통합 확인.pdf",
+      mimeType: "application/pdf",
+      buffer: testPdf(day),
+    });
     await saveSource();
     const pdfAnalysisId = await consent(1);
     const pdfResult = await ownRequest(
@@ -291,9 +294,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
     await page
       .getByLabel("일정 제목 (선택)")
       .fill(`${marker} 로그인 없이 볼 수 있는 링크`);
-    await page
-      .getByLabel("웹페이지 링크", { exact: true })
-      .fill("https://example.com");
+    await (await sourceInput(page, "url")).fill("https://example.com");
     const urlSourceId = await saveSource();
     await expect
       .poll(
@@ -306,9 +307,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
       .toBe("extracted");
     await newSource();
     await page.getByLabel("일정 제목 (선택)").fill(`${marker} 접근 제한 URL`);
-    await page
-      .getByLabel("웹페이지 링크", { exact: true })
-      .fill("http://127.0.0.1");
+    await (await sourceInput(page, "url")).fill("http://127.0.0.1");
     await saveSource();
     await expect(
       page
@@ -321,7 +320,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
 
     await newSource();
     await page
-      .getByRole("tab", { name: "수동 일정 등록", exact: true })
+      .getByRole("tab", { name: "직접 일정 만들기", exact: true })
       .click();
     await page
       .getByLabel("일정명", { exact: true })
