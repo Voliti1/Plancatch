@@ -93,66 +93,26 @@ test("guest theme toggle updates the centered Google icon and persists", async (
   await page.goto("/login");
   const google = page.getByRole("button", { name: "Google로 계속하기" });
   await expect(page.getByText("간편 로그인", { exact: true })).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "카카오 로그인" }),
-  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "카카오 로그인" })).toHaveCount(
+    0,
+  );
   await expect(google).toHaveAttribute("data-google-type", "icon");
   await expect(google).toHaveAttribute("data-google-shape", "circle");
   await expect(google).toHaveAttribute("data-google-theme", "outline");
   const group = page.locator(".social-login-buttons");
-  await expect(group.getByRole("button")).toHaveCount(2);
+  await expect(group.getByRole("button")).toHaveCount(1);
 
   await page.getByRole("button", { name: "다크 모드로 전환" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(google).toHaveAttribute("data-google-theme", "outline_dark");
   await page.getByRole("link", { name: "회원가입" }).click();
   await expect(page).toHaveURL(/\/signup$/);
+  await expect(page.getByRole("button", { name: "카카오 로그인" })).toHaveCount(
+    0,
+  );
   await page.reload();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(google).toHaveAttribute("data-google-theme", "outline_dark");
   await page.getByRole("button", { name: "라이트 모드로 전환" }).click();
   await expect(google).toHaveAttribute("data-google-theme", "outline");
-});
-
-test("Kakao login completes in the original tab", async ({ page, baseURL }) => {
-  await mockApi(page);
-  const authorize =
-    "https://kauth.kakao.com/oauth/authorize?state=browser-state";
-  await page.route("**/api/kakao/login/status", (route) =>
-    route.fulfill({ json: { configured: true } }),
-  );
-  await page.route("**/api/kakao/login/start", (route) =>
-    route.fulfill({ json: { authorization_url: authorize } }),
-  );
-  await page.route(authorize, (route) =>
-    route.fulfill({
-      status: 302,
-      headers: {
-        location: new URL(
-          "/auth/kakao?code=login-code&state=browser-state",
-          baseURL,
-        ).href,
-      },
-    }),
-  );
-  await page.route("**/api/kakao/login/complete", (route) => {
-    expect(route.request().postDataJSON()).toEqual({
-      code: "login-code",
-      state: "browser-state",
-    });
-    expect(route.request().headers().authorization).toBeUndefined();
-    return route.fulfill({
-      json: {
-        access_token: "test-only-placeholder",
-        token_type: "bearer",
-        expires_in: 86400,
-      },
-    });
-  });
-  await page.goto("/login");
-  await page.getByRole("button", { name: "카카오 로그인" }).click();
-  await expect(page).toHaveURL(/\/dashboard$/);
-  expect(
-    await page.evaluate(() => sessionStorage.getItem("plancatch.kakao.mode")),
-  ).toBeNull();
 });
