@@ -24,6 +24,10 @@ test("시안 스타일에서도 메뉴 이름과 현재 위치, 실제 요약 �
 }) => {
   await mockApi(page, [aiSource], { deadlines: [deadline] });
   await login(page);
+  await expect(page.locator(".sidebar .brand")).toHaveText("PPlanCatch.");
+  await expect(
+    page.getByRole("region", { name: "등록한 일정", exact: true }),
+  ).toHaveCount(0);
   const menu = page.getByRole("navigation", { name: "주 메뉴" });
   await expect(menu.getByRole("link")).toHaveCount(6);
   await expect(
@@ -35,7 +39,7 @@ test("시안 스타일에서도 메뉴 이름과 현재 위치, 실제 요약 �
   ).toHaveAttribute("aria-current", "page");
   await expect(page.locator(".dashboard-stats strong")).toHaveText([
     "보관한 자료 1개",
-    "등록한 마감일 1개",
+    "할 일 0개",
   ]);
   await expect(
     page.getByRole("link").filter({ hasText: deadline.title }),
