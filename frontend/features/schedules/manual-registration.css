@@ -159,7 +159,6 @@
   box-shadow: inset 0 -2px currentColor;
 }
 
-.manual-registration-heading,
 .registration-time-heading {
   display: flex;
   align-items: baseline;
@@ -167,12 +166,6 @@
   flex-wrap: wrap;
   gap: 4px 14px;
   margin-bottom: 12px;
-}
-
-.manual-registration-heading a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
 }
 
 .registration-kind-field {
@@ -235,11 +228,6 @@
 
 .schedule-registration input[aria-invalid="true"] {
   border-color: var(--registration-error, #a62b3a);
-}
-
-.registration-extras-heading {
-  padding-top: 16px;
-  border-top: 1px solid var(--line);
 }
 
 .schedule-registration .calendar-task-settings {
@@ -386,4 +374,68 @@
   .schedule-registration .form-actions > :is(button, .button) {
     flex: 1;
   }
+}
+
+.schedule-registration .registration-time-toggle {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 0 auto;
+  min-height: 36px;
+}
+.schedule-registration .registration-time-heading > .small {
+  flex-basis: 100%;
+}
+.registration-option-badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-left: 8px;
+}
+.registration-option-badges > span {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--blue-soft);
+  color: var(--blue);
+  font-size: 12px;
+}
+.schedule-registration .calendar-task-form > fieldset > label,
+.schedule-registration .calendar-task-form .form-grid > label {
+  margin-bottom: 14px;
+}
+.schedule-registration .registration-kind-field {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+}
+.schedule-registration .registration-kind-field h3 {
+  margin: 0;
+}
+.schedule-registration .manual-registration-kind {
+  flex: 1;
+}
+.schedule-registration .manual-unified-settings {
+  margin-top: 4px;
+}
+
+.manual-registration-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-bottom: 14px;
+}
+.manual-registration-toolbar .registration-methods {
+  flex: 1;
+  min-width: min(100%, 300px);
+  margin-bottom: 0;
+}
+.manual-registration-toolbar > a {
+  margin-left: auto;
+  font-size: 13px;
+  white-space: nowrap;
 }
