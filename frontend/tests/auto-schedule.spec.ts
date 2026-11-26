@@ -573,3 +573,25 @@ test("an empty recommendation lets the user change conditions and retry", async 
     .click();
   await expect(page.locator(".planning-time-card")).toHaveCount(2);
 });
+
+test("task picker detail keeps the authenticated tab", async ({
+  page,
+  context,
+}) => {
+  await selectTask(page);
+  await page.route("**/test-api/api/scheduling/tasks?*", (route) =>
+    route.fulfill({
+      json: {
+        entries: [{ ...task, estimated_minutes: null }],
+        has_more: false,
+      },
+    }),
+  );
+  await page.reload();
+  const link = page.getByRole("link", { name: "소요시간 설정", exact: true });
+  await expect(link).not.toHaveAttribute("target");
+  await expect(link).not.toHaveAttribute("rel");
+  await link.click();
+  await expect(page).toHaveURL(/\/tasks\/auto-task$/);
+  expect(context.pages()).toHaveLength(1);
+});

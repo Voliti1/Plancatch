@@ -221,3 +221,21 @@ test("truncated results are not presented as a complete conflict-free check", as
     .click();
   await expect(page).toHaveURL(/\/tasks\/task-1$/);
 });
+
+test("conflict detail opens in the authenticated tab", async ({
+  page,
+  context,
+}) => {
+  await open(page);
+  await page.route("**/test-api/api/schedules/conflicts", (route) =>
+    route.fulfill({ json: result }),
+  );
+  await page.getByRole("button", { name: "일정 등록", exact: true }).click();
+  const link = page.getByRole("link", { name: "기존 주간 회의", exact: true });
+  await expect(link).not.toHaveAttribute("target");
+  await expect(link).not.toHaveAttribute("rel");
+  page.on("dialog", (dialog) => dialog.accept());
+  await link.click();
+  await expect(page).toHaveURL(/\/tasks\/existing\?occurrence=/);
+  expect(context.pages()).toHaveLength(1);
+});

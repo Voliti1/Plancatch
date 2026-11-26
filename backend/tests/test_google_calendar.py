@@ -10,14 +10,14 @@ from urllib.error import URLError
 from urllib.parse import parse_qs, urlsplit
 
 import pytest
-from cryptography.fernet import Fernet
-from fastapi.testclient import TestClient
-from pydantic import SecretStr
-
 from app.main import app
 from app.models.google_calendar import GoogleCalendarConnection, GoogleOAuthRequest
 from app.models.user import User
 from app.services import google_calendar as google
+from cryptography.fernet import Fernet
+from fastapi.testclient import TestClient
+from pydantic import SecretStr
+
 from tests.test_auth import TestingSession
 from tests.test_sources import auth_headers, configure_test_jwt  # noqa: F401
 
@@ -548,3 +548,25 @@ def test_complete_has_fixed_frontend_return_link(setup):
     response = setup.client.get("/api/integrations/google-calendar/complete?result=connected")
     assert response.status_code == 200
     assert 'href="/settings/google-calendar"' in response.text
+
+
+@pytest.mark.parametrize("secure", [True, False])
+def test_disconnect_expires_cookie_with_configured_security(setup, monkeypatch, secure):
+    from dataclasses import replace
+    config = replace(google.configuration(), secure_cookie=secure)
+    monkeypatch.setattr(google, "configuration", lambda: config)
+    response = setup.client.delete(BASE + "/connection", headers=owner())
+    assert response.status_code == 200
+    cookie = response.headers["set-cookie"]
+    assert ("; Secure" in cookie) is secure
+    assert "Max-Age=0" in cookie and "HttpOnly" in cookie
+    assert "Path=" + google.CALLBACK_PATH in cookie
+
+
+def test_disconnect_without_configuration_still_expires_cookie(setup, monkeypatch):
+    def unavailable():
+        raise google.CalendarConfigurationError()
+    monkeypatch.setattr(google, "configuration", unavailable)
+    response = setup.client.delete(BASE + "/connection", headers=owner())
+    assert response.status_code == 200
+    assert "Max-Age=0" in response.headers["set-cookie"]
