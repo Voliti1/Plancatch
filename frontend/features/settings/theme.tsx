@@ -20,8 +20,11 @@ function subscribe(callback: () => void) {
     window.removeEventListener("storage", storage);
   };
 }
+export function useTheme() {
+  return useSyncExternalStore(subscribe, snapshot, () => "light");
+}
 export function ThemeToggle() {
-  const theme = useSyncExternalStore(subscribe, snapshot, () => "light");
+  const theme = useTheme();
   const label = theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환";
   return (
     <button

@@ -62,6 +62,12 @@
 .auth-panel .auth-time-zone {
   position: absolute;
   inset: 1rem 1rem auto auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.auth-time-zone .account-icon {
+  border-color: var(--line);
 }
 
 .auth-panel:has(.auth-time-zone) {
