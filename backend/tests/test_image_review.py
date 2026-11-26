@@ -582,7 +582,9 @@ def test_old_false_default_is_only_suggested_for_an_untouched_image_review(monke
         approved = client.post(path + "/approve", headers=headers, json={"revision": 2})
         assert approved.status_code == 200
         deadline = client.get("/api/deadlines/" + approved.json()["approved_deadline_ids"][0], headers=headers).json()
-        assert deadline["due_at"].startswith("2026-11-09T18:00:00")
+        # Compare the instant: approval persists UTC, while the evidence is KST.
+        from datetime import datetime
+        assert datetime.fromisoformat(deadline["due_at"]) == datetime.fromisoformat(candidate["suggested_due_at"])
     else:
         assert candidate["suggested_due_at"] is None
         assert any("저장된 시간이 다릅니다" in item for item in data["warnings"])
