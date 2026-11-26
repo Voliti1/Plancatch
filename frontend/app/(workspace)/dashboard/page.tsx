@@ -9,6 +9,7 @@ import { useResource } from "@/lib/api/use-resource";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { DashboardSchedules } from "@/features/tasks/dashboard-schedules";
+
 const load = async () => {
   const [deadlines, sources] = await Promise.all([
     deadlinesApi.list(),
@@ -16,6 +17,7 @@ const load = async () => {
   ]);
   return { deadlines, sources };
 };
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { data, loading, error, reload } = useResource(load);
@@ -24,20 +26,35 @@ export default function DashboardPage() {
       <PageHeading
         eyebrow="나의 일정"
         title={`${user?.display_name || "사용자"}님, 오늘도 차근차근.`}
-        description="흩어진 자료는 모으고, 중요한 마감은 놓치지 마세요."
+        description="공고나 안내문을 올리면 마감일을 찾아 주고, 캘린더에 실행 시간까지 정리해 드려요."
       />
       <section className="hero">
         <div>
-          <span className="eyebrow">중요한 일에 집중해 보세요</span>
+          <span className="eyebrow">3단계로 시작하기</span>
           <h2>
             머릿속 할 일 대신,
             <br />
             눈앞의 계획으로.
           </h2>
-          <p>자료를 올리고 마감일을 확인한 뒤, 캘린더에 시간을 잡아 보세요.</p>
-          <NewRegistrationLink className="button">
-            새 일정 등록하기 ↗
-          </NewRegistrationLink>
+          <ol className="dashboard-flow" aria-label="플랜캐치 이용 순서">
+            <li>
+              <span>1</span>공고·안내문 올리기
+            </li>
+            <li>
+              <span>2</span>마감일 확인 후 등록
+            </li>
+            <li>
+              <span>3</span>캘린더에 시간 잡기
+            </li>
+          </ol>
+          <div className="hero-actions">
+            <NewRegistrationLink className="button">
+              새 일정 등록하기 ↗
+            </NewRegistrationLink>
+            <Link className="button secondary" href="/calendar">
+              캘린더 보기
+            </Link>
+          </div>
         </div>
         <div className="hero-art" aria-hidden>
           <div className="paper paper-back" />
@@ -66,13 +83,13 @@ export default function DashboardPage() {
           <>
             <div className="stats dashboard-stats">
               <Link className="card stat" href="/sources">
-                <span>저장한 자료</span>
+                <span>보관한 자료</span>
                 <strong>
                   {data.sources.length}
                   {data.sources.length === 50 ? "+" : ""}
                   <small>개</small>
                 </strong>
-                <span className="small muted">자료 확인 ↗</span>
+                <span className="small muted">자료함 보기 ↗</span>
               </Link>
               <Link className="card stat" href="/deadlines">
                 <span>등록한 마감일</span>
@@ -81,26 +98,33 @@ export default function DashboardPage() {
                   {data.deadlines.length === 50 ? "+" : ""}
                   <small>개</small>
                 </strong>
-                <span className="small muted">마감일 관리 ↗</span>
+                <span className="small muted">마감일·할 일 보기 ↗</span>
               </Link>
             </div>
             <section className="card">
               <div className="section-header">
-                <h2>마감일 한눈에 보기</h2>
+                <div>
+                  <h2>다가오는 마감일</h2>
+                  <p className="small muted dashboard-caption">
+                    최근 등록한 50건 기준 요약입니다.
+                  </p>
+                </div>
                 <Link href="/deadlines">전체 보기 →</Link>
               </div>
               {data.deadlines.length ? (
                 <DeadlineRows deadlines={data.deadlines.slice(0, 5)} />
               ) : (
-                <Empty title="첫 마감일을 기다리고 있어요">
-                  새 일정 등록하기에서 자료를 올리고 마감일을 확인해 보세요.
+                <Empty title="아직 등록된 마감일이 없어요">
+                  <p>
+                    공고 링크나 파일을 올리거나 직접 날짜를 입력해 첫 마감일을
+                    등록해 보세요.
+                  </p>
+                  <NewRegistrationLink className="button secondary">
+                    첫 일정 등록하기
+                  </NewRegistrationLink>
                 </Empty>
               )}
             </section>
-            <p className="small muted">
-              목록에서 불러온 최대 50건 기준이에요. 전체 내용은 각 목록에서
-              확인해 주세요.
-            </p>
           </>
         )
       )}

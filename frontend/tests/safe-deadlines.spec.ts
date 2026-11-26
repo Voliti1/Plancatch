@@ -54,7 +54,9 @@ test("creating without safety sends null and a past deadline can be configured w
 }) => {
   await open(page, []);
   await page.getByRole("link", { name: "＋ 일정 등록" }).click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page
     .getByLabel("일정명", { exact: true })

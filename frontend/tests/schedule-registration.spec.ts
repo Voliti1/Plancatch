@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 
@@ -30,20 +31,22 @@ test("dashboard opens the separate registration screen with responsive inputs", 
   await expect(
     page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
   ).toBeEnabled();
-  await expect(page.getByLabel("웹페이지 링크", { exact: true })).toBeVisible();
-  await expect(page.getByLabel("글 내용", { exact: true })).toBeVisible();
+  await expect(await sourceInput(page, "url")).toBeVisible();
+  await expect(await sourceInput(page, "text")).toBeVisible();
+  await sourceInput(page, "file");
   await expect(
     page.getByText("PDF·이미지 지원", { exact: true }),
   ).toBeVisible();
-  const drop = await page
-    .getByRole("button", { name: "PDF 또는 이미지 파일 선택" })
-    .boundingBox();
-  const url = await page
-    .getByLabel("웹페이지 링크", { exact: true })
-    .boundingBox();
-  expect(drop).not.toBeNull();
-  expect(url).not.toBeNull();
-  expect(url!.y).toBeGreaterThan(drop!.y + drop!.height);
+  const tabs = page.getByRole("tablist", { name: "자료 입력 방식" });
+  await tabs.getByRole("tab").first().focus();
+  await tabs.getByRole("tab").first().press("ArrowRight");
+  await expect(
+    page.getByLabel("웹페이지 주소 (URL)", { exact: true }),
+  ).toBeVisible();
+  await tabs.getByRole("tab").nth(1).press("End");
+  await expect(
+    page.getByLabel("안내문·메모 내용", { exact: true }),
+  ).toBeVisible();
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
@@ -53,11 +56,12 @@ test("dashboard opens the separate registration screen with responsive inputs", 
     path: test.info().outputPath("schedule-registration.png"),
     fullPage: true,
   });
+  page.once("dialog", (dialog) => dialog.accept());
   await page.getByRole("link", { name: "← 대시보드" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
 });
 
-test("image selection stays local until save; PDF and mixed inputs are rejected", async ({
+test("only the selected source tab is saved while inactive drafts are preserved", async ({
   page,
 }) => {
   await login(page);
@@ -66,7 +70,7 @@ test("image selection stays local until save; PDF and mixed inputs are rejected"
   page.on("request", (request) => {
     if (request.method() === "POST") posts.push(request.url());
   });
-  const picker = page.getByLabel("PDF 또는 이미지 파일 입력", { exact: true });
+  const picker = await sourceInput(page, "file");
   await picker.setInputFiles({
     name: "공지.png",
     mimeType: "image/png",
@@ -85,20 +89,20 @@ test("image selection stays local until save; PDF and mixed inputs are rejected"
     "HEIC·SVG는 지원하지 않아요",
   );
   await expect(files.getByRole("listitem")).toHaveCount(1);
-  await page
-    .getByLabel("웹페이지 링크", { exact: true })
-    .fill("https://example.com/notice");
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
-  await expect(page.getByRole("main").getByRole("alert").last()).toContainText(
-    "하나만 등록",
-  );
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
   expect(posts).toHaveLength(0);
-  await page.getByRole("button", { name: "공지.png 제거" }).click();
+  await sourceInput(page, "file");
+  await expect(files).toContainText("공지.png");
+  await expect(await sourceInput(page, "url")).toHaveValue(
+    "https://example.com/notice",
+  );
   const sent = page.waitForRequest(
     (request) =>
       request.method() === "POST" && request.url().endsWith("/api/sources"),
   );
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   expect((await sent).postDataJSON()).toEqual({
     source_type: "url",
     original_url: "https://example.com/notice",
@@ -142,7 +146,7 @@ test("PNG aliases and convertible formats remain selectable until server validat
 }) => {
   await login(page);
   await page.goto("/sources/new");
-  const picker = page.getByLabel("PDF 또는 이미지 파일 입력", { exact: true });
+  const picker = await sourceInput(page, "file");
   const files = page.getByRole("list", { name: "선택한 파일" });
   const uploads: string[] = [];
   page.on("request", (request) => {
@@ -191,7 +195,7 @@ test("PNG aliases and convertible formats remain selectable until server validat
   ).toBe(true);
 });
 
-test("empty, invalid and ambiguous input never posts or clears the draft", async ({
+test("empty or invalid selected inputs never post and preserve inactive drafts", async ({
   page,
 }) => {
   await login(page);
@@ -200,31 +204,31 @@ test("empty, invalid and ambiguous input never posts or clears the draft", async
   page.on("request", (request) => {
     if (request.method() === "POST") posts.push(request.url());
   });
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
-  await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "URL 또는 텍스트를 입력해 주세요.",
-  );
   await page
-    .getByLabel("웹페이지 링크", { exact: true })
-    .fill("javascript:alert(1)");
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "올바른 URL",
+    "PDF 또는 이미지 파일을 선택해 주세요.",
   );
+  await (await sourceInput(page, "url")).fill("javascript:alert(1)");
   await page
-    .getByLabel("웹페이지 링크", { exact: true })
-    .fill("https://example.com/notice");
-  await page.getByLabel("글 내용", { exact: true }).fill("테스트 공지");
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "하나만 입력해 주세요.",
+    "올바른 웹페이지 주소",
   );
-  await expect(page.getByLabel("웹페이지 링크", { exact: true })).toHaveValue(
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
+  await (await sourceInput(page, "text")).fill("   ");
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "글 내용을 입력해 주세요.",
+  );
+  await expect(await sourceInput(page, "url")).toHaveValue(
     "https://example.com/notice",
   );
-  await expect(page.getByLabel("글 내용", { exact: true })).toHaveValue(
-    "테스트 공지",
-  );
+  await expect(await sourceInput(page, "text")).toHaveValue("   ");
   expect(posts).toHaveLength(0);
 });
 
@@ -235,7 +239,7 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
   await page.goto("/sources/new");
   await page.getByLabel("일정 제목 (선택)").fill("테스트 자료");
   const text = "  테스트 첫 줄\n둘째 줄\n";
-  await page.getByLabel("글 내용", { exact: true }).fill(text);
+  await (await sourceInput(page, "text")).fill(text);
   let release!: () => void;
   const pending = new Promise<void>((resolve) => {
     release = resolve;
@@ -247,13 +251,17 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
     await pending;
     await route.fulfill({ status: 503, json: { detail: "테스트 저장 실패" } });
   });
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   try {
     await expect(page.getByRole("button", { name: "저장 중…" })).toBeDisabled();
-    await expect(
-      page.getByRole("button", { name: "PDF 또는 이미지 파일 선택" }),
-    ).toBeDisabled();
-    await expect(page.getByLabel("글 내용", { exact: true })).toBeDisabled();
+    for (const tab of await page
+      .getByRole("tablist", { name: "자료 입력 방식" })
+      .getByRole("tab")
+      .all())
+      await expect(tab).toBeDisabled();
+    await expect(await sourceInput(page, "text")).toBeDisabled();
     expect(failedRequests).toBe(1);
   } finally {
     release();
@@ -261,14 +269,16 @@ test("failed save preserves draft; retry posts the existing contract exactly onc
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "테스트 저장 실패",
   );
-  await expect(page.getByLabel("글 내용", { exact: true })).toHaveValue(text);
+  await expect(await sourceInput(page, "text")).toHaveValue(text);
   await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("테스트 자료");
   await page.unroute("**/test-api/api/sources");
   const sent = page.waitForRequest(
     (request) =>
       request.method() === "POST" && request.url().endsWith("/api/sources"),
   );
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   expect((await sent).postDataJSON()).toEqual({
     source_type: "text",
     title: "테스트 자료",
@@ -300,23 +310,21 @@ test("a late save response cannot navigate away from a fresh registration", asyn
     await pending;
     await route.fulfill({ status: 201, json: { id: "late-source", ...body } });
   });
-  await page
-    .getByLabel("웹페이지 링크", { exact: true })
-    .fill("https://example.com/old");
+  await (await sourceInput(page, "url")).fill("https://example.com/old");
   const sent = page.waitForRequest(
     (request) =>
       request.method() === "POST" && request.url().endsWith("/api/sources"),
   );
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await sent;
   try {
     page.once("dialog", (dialog) => dialog.accept());
     await page
-      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
       .click();
-    await expect(page.getByLabel("웹페이지 링크", { exact: true })).toHaveValue(
-      "",
-    );
+    await expect(await sourceInput(page, "url")).toHaveValue("");
     await page.getByLabel("일정 제목 (선택)").fill("유지할 새 입력");
     const freshUrl = page.url();
     const response = page.waitForResponse(

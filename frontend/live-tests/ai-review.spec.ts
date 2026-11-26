@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { sourceInput } from "../tests/source-input";
 import { test, expect, type Page } from "@playwright/test";
 import type { Analysis } from "../types/analysis";
 
@@ -76,27 +77,21 @@ test("live test account: URL/text extraction, AI review, approval persistence an
     title: string,
   ) {
     await page.goto("/sources/new");
-    await page
-      .getByRole("button", {
-        name: type === "text" ? "텍스트" : "URL 링크",
-        exact: true,
-      })
-      .click();
     await page.getByLabel("일정 제목 (선택)").fill(title);
-    await page
-      .getByLabel(type === "text" ? "글 내용" : "웹페이지 링크")
-      .fill(content);
+    await (await sourceInput(page, type)).fill(content);
     const created = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
         new URL(response.url()).pathname.endsWith("/api/sources"),
     );
-    await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    await page
+      .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+      .click();
     const response = await created;
     expect(response.status()).toBe(201);
     const { id } = await response.json();
     sources.push(id);
-    await expect(page).toHaveURL(/\/sources$/);
+    await expect(page).toHaveURL(new RegExp(`/sources/${id}/review$`));
     await page.goto(`/sources/${id}`);
     await page
       .getByRole("button", { name: "내용 불러오기", exact: true })

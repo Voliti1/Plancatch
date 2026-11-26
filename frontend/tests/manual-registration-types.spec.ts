@@ -13,7 +13,9 @@ test("manual card matches source width and type buttons sit above the shared tit
   const width = await page
     .locator("form.source-registration")
     .evaluate((e) => e.getBoundingClientRect().width);
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   const card = page.locator(".manual-registration-card");
   expect(
     Math.abs((await card.boundingBox())!.width - width),
@@ -23,7 +25,7 @@ test("manual card matches source width and type buttons sit above the shared tit
     kind.getByRole("button", { name: "할 일", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
   const intro = await card
-    .getByRole("tablist", { name: "수동 입력 방식" })
+    .getByRole("tablist", { name: "직접 입력 방식" })
     .boundingBox();
   const menu = await kind.boundingBox(),
     title = await page.getByLabel("일정명", { exact: true }).boundingBox();
@@ -165,7 +167,7 @@ test("pending deadline saves lock type switches and failures preserve inputs", a
         .getByRole("button", { name: "할 일", exact: true }),
     ).toBeDisabled();
     await expect(
-      page.getByRole("tab", { name: "자료로 등록", exact: true }),
+      page.getByRole("tab", { name: "자료에서 자동 찾기", exact: true }),
     ).toBeDisabled();
     await expect(
       page.getByRole("button", { name: "저장 중…", exact: true }),
@@ -208,7 +210,7 @@ test("a late deadline save does not navigate away from a newly opened registrati
   try {
     page.once("dialog", (dialog) => dialog.accept());
     await page
-      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
       .click();
     await expect(page).toHaveURL(/\/sources\/new\?new=.+$/);
     await page.getByLabel("일정 제목 (선택)").fill("[테스트] 새 입력 유지");
@@ -221,7 +223,7 @@ test("a late deadline save does not navigate away from a newly opened registrati
     await (await response).finished();
     await expect(page).toHaveURL(fresh);
     await page
-      .getByRole("tab", { name: "수동 일정 등록", exact: true })
+      .getByRole("tab", { name: "직접 일정 만들기", exact: true })
       .click();
     await expect(
       page.getByRole("button", { name: "할 일", exact: true }),

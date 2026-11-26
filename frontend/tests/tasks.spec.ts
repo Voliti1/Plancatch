@@ -227,9 +227,11 @@ test("list filters, pagination and completion update refresh matching results", 
   await seed(page, tasks);
   await login(page);
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page
     .getByRole("link", { name: "등록한 일정 보기 →", exact: true })
     .click();

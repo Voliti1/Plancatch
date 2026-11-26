@@ -25,9 +25,11 @@ test("existing manual registration appears immediately as a white-title colour b
   await mockApi(page, [], { deadlines: [deadline] });
   await login(page);
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page.getByLabel("일정명", { exact: true }).fill("팀 프로젝트 회의");
   await page.getByLabel("시작 일시", { exact: true }).fill("2026-11-06T09:00");
   await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
