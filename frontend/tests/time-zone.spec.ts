@@ -9,7 +9,7 @@ test("guest choice stays in its browser across reloads", async ({ page }) => {
   await expect(picker).toHaveValue("Asia/Seoul");
   await expect(page.getByLabel("현재 시각")).toHaveText("한국 10:30");
   const trigger = page.locator(".timezone.time-zone-select");
-  await expect(trigger).toContainText("Asia/Seoul · 한국 시간");
+  await expect(trigger).toContainText("한국 시간 (Asia/Seoul)");
   await expect(trigger).toHaveCSS("font-size", "12px");
   await expect(trigger).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(trigger.locator("svg")).toHaveCount(0);
