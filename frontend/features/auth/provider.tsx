@@ -9,6 +9,7 @@ import {
 } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { authApi } from "./api";
+import { kakaoApi } from "./kakao-api";
 import { SESSION_EXPIRED, tokenStore } from "@/lib/auth/token";
 import { errorMessage } from "@/lib/api/client";
 import type { TokenResponse, User } from "@/types/api";
@@ -18,6 +19,7 @@ interface AuthState {
   error: string;
   login: (email: string, password: string) => Promise<void>;
   loginGoogle: (credential: string, password?: string) => Promise<void>;
+  loginKakao: (code: string, state: string) => Promise<void>;
   logout: () => void;
   refresh: () => void;
   saveTimeZone: (zone: string) => Promise<void>;
@@ -109,6 +111,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       establishSession(() => authApi.googleLogin(credential, password)),
     [establishSession],
   );
+  const loginKakao = useCallback(
+    (code: string, state: string) =>
+      establishSession(() => kakaoApi.login(code, state)),
+    [establishSession],
+  );
   async function saveTimeZone(zone: string) {
     const current = generation.current;
     const updated = await authApi.saveTimeZone(zone);
@@ -135,6 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error,
         login,
         loginGoogle,
+        loginKakao,
         logout,
         refresh,
         changePassword,

@@ -2,7 +2,13 @@
 import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useSyncExternalStore } from "react";
+import { useAuth } from "@/features/auth/provider";
+import {
+  hasPdfScanConsent,
+  setPdfScanConsent,
+  subscribePdfScanConsent,
+} from "@/features/settings/pdf-scan-consent";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { ApiError, errorMessage } from "@/lib/api/client";
@@ -20,6 +26,12 @@ import { extractedSummary } from "./extracted-summary";
 
 export function SourceDetail({ id }: { id: string }) {
   const { formatLocal } = useScheduleTime();
+  const userId = useAuth().user?.id;
+  const savedPdfConsent = useSyncExternalStore(
+    subscribePdfScanConsent,
+    () => hasPdfScanConsent(userId),
+    () => false,
+  );
   const loader = useCallback(async () => {
     try {
       return await sourcesApi.get(id);
@@ -194,6 +206,15 @@ export function SourceDetail({ id }: { id: string }) {
                   >
                     {pdf ? "PDF" : "이미지"} 마감일 검토 →
                   </Link>
+                  {pdf && savedPdfConsent && userId && (
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setPdfScanConsent(userId, false)}
+                    >
+                      저장된 스캔 PDF 동의 끄기
+                    </button>
+                  )}
                 </div>
               </>
             ) : (

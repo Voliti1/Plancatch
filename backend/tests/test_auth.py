@@ -413,3 +413,89 @@ def test_password_recovery_gmail_uses_send_api(monkeypatch):
     assert mime["To"] == "recipient@example.com"
     assert "test-only-temporary-password" in mime.get_content()
     assert "test-only-refresh" not in mime.get_content()
+
+
+def test_kakao_uses_separate_scopes_and_never_auto_links_an_existing_email(monkeypatch):
+    from urllib.parse import parse_qs, urlsplit
+
+    from cryptography.fernet import Fernet
+
+    from app.services import kakao
+
+    config = kakao.Configuration(
+        "test-kakao-key", "test-only-kakao-secret", "http://localhost:3000/auth/kakao", False, Fernet(Fernet.generate_key()),
+    )
+    monkeypatch.setattr(kakao, "configuration", lambda: config)
+    exchanges = []
+    def exchange(_config, fields):
+        exchanges.append(fields)
+        return {"access_token": "test-kakao-access", "refresh_token": "test-kakao-refresh", "expires_in": 3600}
+    monkeypatch.setattr(kakao, "exchange", exchange)
+    monkeypatch.setattr(kakao, "identity", lambda _access: ("11645020", "existing-kakao@example.com"))
+    monkeypatch.setattr(kakao, "calendar_names", lambda _access: [{"id": "primary", "name": "기본 캘린더"}])
+
+    with TestClient(app) as browser:
+        email = "existing-kakao@example.com"
+        assert browser.post("/api/auth/signup", json={"email": email, "password": "test-only-password"}).status_code == 201
+        response = browser.post("/api/auth/login", json={"email": email, "password": "test-only-password"})
+        auth = {"Authorization": f"Bearer {response.json()['access_token']}"}
+
+        def start(mode, headers=None):
+            result = browser.post(f"/api/kakao/{mode}/start", headers=headers)
+            query = parse_qs(urlsplit(result.json()["authorization_url"]).query)
+            assert query["code_challenge_method"] == ["S256"]
+            return query
+
+        def finish(mode, state, headers=None):
+            return browser.post(f"/api/kakao/{mode}/complete", json={"state": state, "code": "test-only-code"}, headers=headers)
+
+        login = start("login")
+        assert login["scope"] == ["account_email"]
+        assert finish("login", "wrong-state").status_code == 400
+        assert not exchanges
+        assert finish("login", login["state"][0]).json() == {"detail": "kakao_link_existing"}
+
+        linked = start("account", auth)
+        assert "scope" not in linked
+        assert finish("account", linked["state"][0], auth).json() == {"connected": True}
+        assert finish("login", start("login")["state"][0]).status_code == 200
+        assert browser.get("/api/kakao/calendar/status", headers=auth).json()["connected"] is False
+
+        calendar = start("calendar", auth)
+        assert calendar["scope"] == ["talk_calendar"]
+        assert "code_verifier" in exchanges[0]
+        assert browser.delete("/api/kakao/calendar/connection", headers=auth).status_code == 200
+        assert finish("calendar", calendar["state"][0], auth).status_code == 400
+        calendar = start("calendar", auth)
+        assert finish("calendar", calendar["state"][0], auth).json() == {
+            "connected": True, "calendars": [{"id": "primary", "name": "기본 캘린더"}],
+        }
+        assert browser.post("/api/kakao/calendar/calendars", headers=auth).json()["calendars"][0]["id"] == "primary"
+        assert browser.get("/api/kakao/account/status", headers=auth).json()["connected"] is True
+        assert browser.delete("/api/kakao/calendar/connection", headers=auth).json() == {"connected": False}
+        assert browser.get("/api/kakao/account/status", headers=auth).json()["connected"] is True
+
+
+def test_kakao_signup_requires_verified_email(monkeypatch):
+    from app.services import kakao
+
+    monkeypatch.setattr(kakao, "configuration", lambda: kakao.Configuration(
+        "test-kakao-key", "test-only-kakao-secret", "http://localhost:3000/auth/kakao", False,
+    ))
+    monkeypatch.setattr(kakao, "exchange", lambda *_args: {"access_token": "test-only-access"})
+    monkeypatch.setattr(kakao, "identity", lambda _access: ("80913152", None))
+    from urllib.parse import parse_qs, urlsplit
+
+    with TestClient(app) as browser:
+        def login():
+            start = browser.post("/api/kakao/login/start").json()["authorization_url"]
+            state = parse_qs(urlsplit(start).query)["state"][0]
+            return browser.post("/api/kakao/login/complete", json={"state": state, "code": "test-only-code"})
+
+        assert login().json() == {"detail": "kakao_verified_email_required"}
+        monkeypatch.setattr(kakao, "identity", lambda _access: ("80913152", "new-kakao@example.com"))
+        session = login()
+        assert session.status_code == 200
+        auth = {"Authorization": f"Bearer {session.json()['access_token']}"}
+        me = browser.get("/api/auth/me", headers=auth).json()
+        assert me["email"] == "new-kakao@example.com" and me["password_enabled"] is False

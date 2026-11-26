@@ -1,0 +1,23 @@
+.settings-calendar-connections {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.settings-calendar-connections details {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0.55rem 0.75rem;
+}
+
+.settings-calendar-connections summary {
+  cursor: pointer;
+  font-weight: 650;
+  padding: 0.25rem 0;
+}
+
+.settings-calendar-inline,
+.kakao-login-connection {
+  border-top: 1px solid var(--line);
+  margin-top: 0.45rem;
+  padding-top: 0.6rem;
+}

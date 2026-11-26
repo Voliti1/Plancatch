@@ -24,9 +24,25 @@
   border-top: 1px solid var(--line);
 }
 
-.google-login-options > div {
+.social-login-buttons {
   display: flex;
+  align-items: center;
   justify-content: center;
+  gap: 0.75rem;
+}
+
+.kakao-login-button {
+  padding: 0;
+  min-height: 40px;
+  background: transparent;
+  border: 0;
+  line-height: 0;
+  border-radius: 8px;
+}
+
+.kakao-login-button img {
+  width: auto;
+  height: 40px;
 }
 
 .google-login-options iframe {
