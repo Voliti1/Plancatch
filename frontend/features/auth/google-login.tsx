@@ -44,13 +44,7 @@ const errors: Record<string, string> = {
     "계정이 변경되었습니다. Google 로그인을 다시 시도해 주세요.",
 };
 
-export function GoogleLoginButton({
-  blocked,
-  children,
-}: {
-  blocked: boolean;
-  children: React.ReactNode;
-}) {
+export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
   const { loginGoogle } = useAuth();
   const theme = useTheme();
   const holder = useRef<HTMLDivElement>(null);
@@ -141,6 +135,8 @@ export function GoogleLoginButton({
     return () => node.replaceChildren();
   }, [challenge, sdkReady, retry, theme]);
 
+  if (!challenge) return null;
+
   function restart() {
     setCredential(null);
     setError("");
@@ -152,26 +148,25 @@ export function GoogleLoginButton({
 
   return (
     <div className="google-login">
-      {challenge && (
-        <Script
-          src="https://accounts.google.com/gsi/client"
-          strategy="afterInteractive"
-          onReady={() => setSdkReady(true)}
-          onError={() => {
-            setError("Google 로그인 버튼을 불러오지 못했습니다.");
-            setRetry(true);
-          }}
-        />
-      )}
-      <div className="google-login-options" hidden={Boolean(credential)}>
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onReady={() => setSdkReady(true)}
+        onError={() => {
+          setError("Google 로그인 버튼을 불러오지 못했습니다.");
+          setRetry(true);
+        }}
+      />
+      <div
+        className="google-login-options"
+        hidden={Boolean(credential) || retry || !sdkReady}
+      >
         <p className="google-login-divider">간편 로그인</p>
         <div className="social-login-buttons">
           <div
             ref={holder}
-            hidden={!challenge || retry || !sdkReady}
             inert={blocked || submitting || Boolean(credential) || retry}
           />
-          {children}
         </div>
       </div>
       {submitting && (

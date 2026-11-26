@@ -6,7 +6,6 @@ import { useAuth } from "./provider";
 import { TimeZoneControl } from "@/features/settings/time-zone";
 import { ThemeToggle } from "@/features/settings/theme";
 import { GoogleLoginButton } from "./google-login";
-import { KakaoLoginButton } from "./kakao-controls";
 import { authApi } from "./api";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
@@ -168,11 +167,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
               </fieldset>
             </form>
           )}
-          {!registered && (
-            <GoogleLoginButton blocked={busy || !hydrated}>
-              <KakaoLoginButton blocked={busy || !hydrated} />
-            </GoogleLoginButton>
-          )}
+          {!registered && <GoogleLoginButton blocked={busy || !hydrated} />}
           {!signup && (
             <p className="auth-switch">
               <Link href="/password-recovery">비밀번호 찾기</Link>
