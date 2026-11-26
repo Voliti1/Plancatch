@@ -7,6 +7,13 @@ import {
   slotRegistrationHref,
 } from "../features/calendar/time-layout";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
 test("time geometry clips midnight, separates overlap and ends at 24:00", () => {
   expect(timetableDays("2026-11-02", "week")).toEqual([
     "2026-11-02",

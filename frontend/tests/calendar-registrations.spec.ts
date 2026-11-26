@@ -19,6 +19,13 @@ const deadline: Deadline = {
   updated_at: "2026-10-20T00:00:00Z",
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
 test("existing manual registration appears immediately as a white-title colour bar without another placement", async ({
   page,
 }) => {

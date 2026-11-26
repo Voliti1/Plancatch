@@ -257,6 +257,8 @@ function AvailabilityEditor({
   onReload: () => void;
 }) {
   const [draft, setDraft] = useState(initial);
+  const [saved, setSaved] = useState(initial);
+  const dirty = JSON.stringify(draft) !== JSON.stringify(saved);
   const [day, setDay] = useState(todaySeoul);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -294,6 +296,7 @@ function AvailabilityEditor({
             body: JSON.stringify(draft),
           });
           setDraft(result);
+          setSaved(result);
           guard.markSaved(JSON.stringify(result));
           setMessage("가능 시간을 저장했어요. 새 미리보기부터 적용돼요.");
         } catch (err) {
@@ -320,6 +323,84 @@ function AvailabilityEditor({
         />
         <section className="card">
           <h2>요일별 기본 시간</h2>
+          <div
+            className="availability-presets"
+            role="group"
+            aria-label="요일별 빠른 설정"
+          >
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                change({
+                  ...draft,
+                  weekly: days.map((_, weekday) => ({
+                    weekday,
+                    intervals: weekday < 5 ? [fresh()] : [],
+                    rest_day: weekday >= 5,
+                  })),
+                })
+              }
+            >
+              평일 09:00~18:00
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                change({
+                  ...draft,
+                  weekly: days.map((_, weekday) => ({
+                    weekday,
+                    intervals: [fresh()],
+                    rest_day: false,
+                  })),
+                })
+              }
+            >
+              매일 09:00~18:00
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                const monday = draft.weekly.find((item) => item.weekday === 0);
+                if (!monday) return;
+                change({
+                  ...draft,
+                  weekly: draft.weekly.map((item) =>
+                    item.weekday < 5
+                      ? {
+                          ...item,
+                          rest_day: monday.rest_day ?? false,
+                          intervals: monday.intervals.map((interval) => ({
+                            ...interval,
+                          })),
+                        }
+                      : item,
+                  ),
+                });
+              }}
+            >
+              월요일 시간을 평일 전체에 복사
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              onClick={() =>
+                change({
+                  ...draft,
+                  weekly: draft.weekly.map((item) =>
+                    item.weekday >= 5
+                      ? { ...item, intervals: [], rest_day: true }
+                      : item,
+                  ),
+                })
+              }
+            >
+              주말 쉬는 날로 설정
+            </button>
+          </div>
           <p className="small muted">
             하루에 시간대를 최대 8개까지 추가할 수 있어요. 종료를 00:00으로
             입력하면 다음 날 0시까지로 설정돼요.
@@ -444,11 +525,25 @@ function AvailabilityEditor({
             </button>
           )}
           {message && <p role="status">{message}</p>}
-          <div className="form-actions">
-            <button>{busy ? "저장 중…" : "가능 시간 저장"}</button>
-          </div>
+          {!dirty && (
+            <div className="form-actions">
+              <button disabled={busy}>가능 시간 저장</button>
+            </div>
+          )}
         </section>
       </fieldset>
+      {dirty && (
+        <div
+          className="availability-save-bar"
+          role="region"
+          aria-label="가능 시간 변경 저장"
+        >
+          <span role="status">변경 사항이 있습니다</span>
+          <button type="submit" disabled={busy}>
+            {busy ? "저장 중…" : "가능 시간 저장"}
+          </button>
+        </div>
+      )}
     </form>
   );
 }

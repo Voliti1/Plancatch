@@ -2,6 +2,13 @@ import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { calendarTask } from "./calendar-fixtures";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
 test("schedule registration uses the shared fresh page and source library has no registration button", async ({
   page,
 }) => {

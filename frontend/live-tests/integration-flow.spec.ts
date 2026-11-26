@@ -334,6 +334,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
       page.getByRole("heading", { name: `${marker} 수동 일정`, exact: true }),
     ).toBeVisible();
     await page.goto("/calendar");
+    await page.getByRole("button", { name: "월간", exact: true }).click();
     await page.getByLabel("기준 날짜", { exact: true }).fill(day);
     await expect(
       page.getByText(`${marker} 수동 일정`, { exact: true }).first(),

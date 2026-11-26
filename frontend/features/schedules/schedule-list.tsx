@@ -70,16 +70,16 @@ function ScheduleRows({
                     <TaskTimes task={entry.item} />
                   </span>
                   {entry.item.schedule_type === "flexible" && (
-                    <span className="small muted">
+                    <span className="small muted schedule-time-badge">
                       {entry.item.placement
                         ? `캘린더에 등록한 시간 · ${entry.item.placement.block_count}개 구간`
-                        : "가능 기간 · 캘린더 시간 등록 전"}
+                        : "시간 추천 가능"}
                     </span>
                   )}
                   {entry.item.recurrence && (
                     <span className="small muted">
-                      {recurrenceSummary(entry.item.recurrence)} · 삭제 시 전체
-                      반복 삭제
+                      {recurrenceSummary(entry.item.recurrence)}
+                      {deletion.mode && " · 삭제 시 전체 반복 삭제"}
                     </span>
                   )}
                 </>
@@ -131,6 +131,7 @@ export function ScheduleList() {
       deadline: true,
       task: true,
       category: null as Category | null,
+      hideCompleted: false,
     }),
     [version, setVersion] = useState(0);
   const deletion = useListDeletion(removeSchedule, () =>
@@ -200,11 +201,28 @@ export function ScheduleList() {
                 {kind === "deadline" ? "마감일" : "할 일"}
               </label>
             ))}
+            <label className={kinds.hideCompleted ? "is-checked" : ""}>
+              <input
+                type="checkbox"
+                checked={kinds.hideCompleted}
+                disabled={deletion.busy}
+                onChange={(event) => {
+                  if (deletion.busy) return;
+                  deletion.exit();
+                  search.setPage(0);
+                  setKinds((value) => ({
+                    ...value,
+                    hideCompleted: event.target.checked,
+                  }));
+                }}
+              />
+              완료된 항목 숨기기
+            </label>
           </div>
         </div>
         <p className="small muted">날짜가 빠른 순</p>
         <ScheduleResults
-          key={`${search.query}:${search.page}:${version}:${kinds.deadline}:${kinds.task}:${kinds.category}`}
+          key={`${search.query}:${search.page}:${version}:${kinds.deadline}:${kinds.task}:${kinds.category}:${kinds.hideCompleted}`}
           page={search.page}
           query={search.query}
           kinds={kinds}
@@ -230,7 +248,12 @@ function ScheduleResults({
 }: {
   page: number;
   query: string;
-  kinds: { deadline: boolean; task: boolean; category: Category | null };
+  kinds: {
+    deadline: boolean;
+    task: boolean;
+    category: Category | null;
+    hideCompleted: boolean;
+  };
   deletion: ListDeletion;
   onPage: (page: number) => void;
 }) {
@@ -243,8 +266,16 @@ function ScheduleResults({
         kinds.task,
         signal,
         kinds.category,
+        kinds.hideCompleted,
       ),
-    [page, query, kinds.deadline, kinds.task, kinds.category],
+    [
+      page,
+      query,
+      kinds.deadline,
+      kinds.task,
+      kinds.category,
+      kinds.hideCompleted,
+    ],
   );
   const { data, loading, error, reload } = useResource(loader);
   if (loading) return <Loading />;
@@ -264,7 +295,9 @@ function ScheduleResults({
               ? "검색 결과가 없어요"
               : !kinds.deadline && !kinds.task
                 ? "표시할 일정 종류를 선택해 주세요"
-                : "아직 일정이 없어요"
+                : kinds.hideCompleted
+                  ? "표시할 미완료 항목이 없어요"
+                  : "아직 일정이 없어요"
           }
         >
           {query

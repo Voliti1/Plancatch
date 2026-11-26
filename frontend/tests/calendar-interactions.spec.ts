@@ -11,6 +11,13 @@ const task = {
   latest_end: "2026-11-23T01:00:00Z",
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
 test("editing the default color updates only items using the default and persists it", async ({
   page,
 }) => {
