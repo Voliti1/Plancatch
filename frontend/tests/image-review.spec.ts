@@ -400,9 +400,8 @@ test("scan consent is opt-in, applies to later scans and can be revoked", async 
   await page.goto("/sources/ai-source/review");
   await expect(page).toHaveURL(/\/analyses\/analysis-3$/);
   expect(permissions).toEqual([false, true, true]);
-  await page.getByRole("button", { name: "설정 열기" }).first().click();
+  await page.goto("/sources/ai-source");
   await page.getByRole("button", { name: "저장된 스캔 PDF 동의 끄기" }).click();
-  await page.getByRole("button", { name: "설정 닫기" }).click();
   state.analyses.length = 0;
   await page.goto("/sources/ai-source/review");
   await expect(scan).toBeVisible();

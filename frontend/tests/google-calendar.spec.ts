@@ -50,11 +50,11 @@ async function setup(page: Page, initial = {}) {
     },
   );
   await login(page);
-  await page
-    .getByRole("link", { name: "구글 캘린더 연결", exact: true })
-    .click();
+  await page.getByRole("button", { name: "설정 열기" }).click();
+  const settings = page.getByRole("dialog", { name: "설정" });
+  await settings.getByText("구글 캘린더 연결", { exact: true }).click();
   await expect(
-    page.getByRole("heading", { name: "구글 캘린더 연결", exact: true }),
+    settings.getByRole("region", { name: "구글 계정 연결 설정" }),
   ).toBeVisible();
   return { requests };
 }
@@ -147,7 +147,7 @@ test("서버가 잘못된 인증 주소를 주면 외부 이동을 막는다", a
       .getByRole("region", { name: "구글 계정 연결 설정" })
       .getByRole("alert"),
   ).toContainText("안전한 Google 인증 주소");
-  await expect(page).toHaveURL(/\/settings\/google-calendar$/);
+  await expect(page).toHaveURL(/\/dashboard$/);
 });
 
 test("연결 해제는 확인 후에만 수행하고 취소하면 유지한다", async ({ page }) => {
@@ -231,7 +231,7 @@ test("연결 오류는 재시도 가능하고 상태 조회 실패를 연결 해
   ).toHaveCount(0);
 });
 
-test("페이지 이탈 후 늦은 연결 응답은 Google로 이동시키지 않는다", async ({
+test("설정창을 닫은 뒤 늦은 연결 응답은 Google로 이동시키지 않는다", async ({
   page,
 }) => {
   await setup(page);
@@ -254,7 +254,8 @@ test("페이지 이탈 후 늦은 연결 응답은 Google로 이동시키지 않
     .getByRole("button", { name: "Google 계정 연결", exact: true })
     .click();
   await requested;
-  await page.getByRole("link", { name: "대시보드", exact: true }).click();
+  await page.getByRole("button", { name: "설정 닫기", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "설정" })).toHaveCount(0);
   await expect(page).toHaveURL(/\/dashboard$/);
   const response = page.waitForResponse((item) =>
     item.url().endsWith("/google-calendar/connect"),

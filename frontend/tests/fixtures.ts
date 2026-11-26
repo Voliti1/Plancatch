@@ -90,6 +90,8 @@ export async function mockApi(
           expires_in: 3600,
         },
       });
+    if (path === "/api/kakao/login/status")
+      return route.fulfill({ json: { configured: false } });
     expect(request.headers().authorization).toBe(
       "Bearer test-only-placeholder",
     );
