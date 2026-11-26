@@ -21,6 +21,7 @@ from app.core.security import (
 )
 from app.models.user import User
 from app.schemas.user import (
+    AccountDelete,
     GoogleLogin,
     GoogleLoginChallenge,
     PasswordChange,
@@ -260,3 +261,36 @@ def update_profile(payload: ProfileUpdate, current_user: CurrentUser, db: Databa
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/delete", status_code=204)
+def delete_account(payload: AccountDelete, session: AuthSession, db: DatabaseSession) -> Response:
+    """Delete only the authenticated account, then clean its private uploads."""
+    if session.recovery:
+        raise HTTPException(403, "password_change_required")
+    user = db.scalar(select(User).where(User.id == session.user.id).with_for_update()
+                     .execution_options(populate_existing=True))
+    if user is None or not user.is_active:
+        raise unauthorized()
+    try:
+        verify_access_password(session.claims, user.password_hash)
+    except jwt.InvalidTokenError:
+        raise unauthorized() from None
+    if user.password_enabled:
+        if not payload.current_password or not verify_password(payload.current_password, user.password_hash):
+            raise HTTPException(400, "current_password_incorrect")
+    elif payload.confirmation_email is None or str(payload.confirmation_email).strip().lower() != user.email.lower():
+        raise HTTPException(400, "confirmation_email_incorrect")
+    from app.models.source import Source
+    from app.services.upload_cleanup import remove_after_commit
+    keys = set(db.scalars(select(Source.storage_key).where(Source.user_id == user.id, Source.storage_key.is_not(None))).all())
+    db.delete(user)
+    try:
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    # The transaction must succeed before any immutable uploaded file is removed.
+    for key in keys:
+        remove_after_commit(key)
+    return Response(status_code=204, headers={"Cache-Control": "no-store"})

@@ -1612,3 +1612,13 @@ textarea {
   border-radius: 50%;
   margin-right: 4px;
 }
+
+.account-delete {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+  margin-top: 20px;
+}
+.account-delete button[type="submit"] {
+  background: #b42333;
+  color: white;
+}

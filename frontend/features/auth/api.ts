@@ -1,6 +1,14 @@
 import { api } from "@/lib/api/client";
 import type { User, TokenResponse } from "@/types/api";
 export const authApi = {
+  deleteAccount: (payload: {
+    current_password?: string;
+    confirmation_email?: string;
+  }) =>
+    api<void>("/api/auth/delete", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   updateProfile: (payload: { display_name: string | null }) =>
     api<User>("/api/auth/me", {
       method: "PATCH",

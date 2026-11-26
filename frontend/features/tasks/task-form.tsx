@@ -477,7 +477,6 @@ export function TaskForm({
     <>
       {canChooseKind && (
         <>
-          <CategorySelect value={category} onChange={setCategory} />
           {!isDeadline && (
             <>
               {priorityField}
@@ -607,13 +606,6 @@ export function TaskForm({
           retry={options.reload}
         />
       )}
-      {!canChooseKind && (
-        <CategorySelect
-          value={category}
-          onChange={setCategory}
-          disabled={disabled || busy || !hydrated}
-        />
-      )}
       <fieldset
         disabled={
           disabled ||
@@ -647,6 +639,7 @@ export function TaskForm({
             }
           />
         </label>
+        <CategorySelect value={category} onChange={setCategory} />
         {simple ? (
           <>
             {canChooseKind && (
