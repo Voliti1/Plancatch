@@ -1,6 +1,7 @@
 import { localInput, SEOUL, zonedInputToUtc } from "@/lib/date/time-zones";
 import { addDays, utcMidnight } from "./dates";
 export type TimetableEvent = {
+  category?: import("@/components/category-badge").Category | null;
   id: string;
   title: string;
   kind: "deadline" | "task";

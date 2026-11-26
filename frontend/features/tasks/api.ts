@@ -8,6 +8,7 @@ export const tasksApi = {
   updateOccurrence: (id: string, at: string, payload: Partial<TaskInput>) => {
     const allowed = new Set([
       "title",
+      "category",
       "description",
       "earliest_start",
       "latest_end",
@@ -38,6 +39,8 @@ export const tasksApi = {
       limit: "50",
       offset: String(filters.offset ?? 0),
     });
+    if (filters.dashboard) query.set("dashboard", "true");
+    if (filters.category) query.set("category", filters.category);
     if (filters.deadline_id) query.set("deadline_id", filters.deadline_id);
     if (filters.is_completed !== undefined)
       query.set("is_completed", String(filters.is_completed));

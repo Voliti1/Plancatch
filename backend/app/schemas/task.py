@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.schemas.category import Category
 from app.schemas.google_reminders import GoogleReminders, default_reminders
 from app.schemas.recurrence import Recurrence
 from app.services.recurrence import validate as validate_recurrence
@@ -34,6 +35,7 @@ class TaskCreate(TaskTimes):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     deadline_id: uuid.UUID | None = None
+    category: Category | None = None
     title: str = Field(min_length=1, max_length=255)
     description: str | None = None
     recurrence: Recurrence | None = None
@@ -61,6 +63,7 @@ class TaskUpdate(TaskTimes):
     model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
 
     deadline_id: uuid.UUID | None = None
+    category: Category | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     description: str | None = None
     recurrence: Recurrence | None = None
@@ -98,6 +101,7 @@ class TaskResponse(BaseModel):
 
     id: uuid.UUID
     deadline_id: uuid.UUID | None
+    category: Category | None = None
     title: str
     description: str | None
     recurrence: Recurrence | None = None

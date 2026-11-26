@@ -4,7 +4,7 @@ import { mockApi, user } from "./fixtures";
 test("retires the temporary session after forcing a password change", async ({
   page,
 }) => {
-  await mockApi(page);
+  await mockApi(page, [], {token: "regular-test-token"});
   await page.route("**/api/auth/password-recovery", async (route) => {
     expect(route.request().postDataJSON()).toEqual({ email: user.email });
     await route.fulfill({ status: 202, json: { accepted: true } });

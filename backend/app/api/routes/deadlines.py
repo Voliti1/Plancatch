@@ -1,3 +1,4 @@
+
 """Authenticated deadline CRUD endpoints."""
 
 import uuid
@@ -10,6 +11,7 @@ from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models.analysis import Analysis
 from app.models.deadline import Deadline
 from app.models.source import Source
+from app.schemas.category import Category
 from app.schemas.deadline import DeadlineCreate, DeadlineResponse, DeadlineUpdate
 from app.schemas.deadline_readiness import DeadlineReadiness
 from app.services import google_sync as sync
@@ -107,6 +109,8 @@ def list_deadlines(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
     q: Annotated[str, Query(max_length=255)] = "",
+    category: Category | None = None,
+    upcoming_first: bool = False,
 ) -> list[Deadline]:
     """List owned deadlines in chronological order."""
     statement = select(Deadline).where(Deadline.user_id == current_user.id)
@@ -115,6 +119,11 @@ def list_deadlines(
     if is_confirmed is not None:
         statement = statement.where(Deadline.is_confirmed == is_confirmed)
 
+    if category is not None:
+        statement = statement.where(Deadline.category == category)
+    if upcoming_first:
+        from sqlalchemy import case, func
+        statement = statement.order_by(case((Deadline.due_at < func.now(), 1), else_=0))
     return list(
         db.scalars(
             statement.order_by(Deadline.due_at.asc(), Deadline.id).limit(limit).offset(offset),

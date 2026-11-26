@@ -3,6 +3,7 @@ import { SEOUL } from "@/lib/date/time-zones";
 import { addDays, utcMidnight } from "./dates";
 
 export interface CalendarRegistration {
+  category?: import("@/components/category-badge").Category | null;
   id: string;
   kind: "deadline" | "fixed_task";
   title: string;
@@ -18,8 +19,10 @@ export function readRegistrations(
   start: string,
   end: string,
   signal?: AbortSignal,
+  category?: string | null,
 ) {
   const query = new URLSearchParams({ start_from: start, end_before: end });
+  if (category) query.set("category", category);
   return api<{ entries: CalendarRegistration[]; has_more: boolean }>(
     `/api/calendar/registrations?${query}`,
     { signal },

@@ -1,4 +1,9 @@
 "use client";
+import {
+  CategoryBadge,
+  CategoryFilter,
+  type Category,
+} from "@/components/category-badge";
 import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useMemo, useRef, useState } from "react";
@@ -245,21 +250,23 @@ function CalendarBody({
   function refreshGoogle() {
     google.reload();
   }
+  const [category, setCategory] = useState<Category | null>(null);
   const load = useCallback(
     (signal: AbortSignal) =>
       eventsApi.all(
         {
           start_from: first,
           end_before: last,
+          category,
         },
         signal,
       ),
-    [first, last],
+    [first, last, category],
   );
   const { data, loading, error, reload } = useResource(load);
   const loadRegistered = useCallback(
-    (signal: AbortSignal) => readRegistrations(first, last, signal),
-    [first, last],
+    (signal: AbortSignal) => readRegistrations(first, last, signal, category),
+    [first, last, category],
   );
   const registrations = useResource(loadRegistered);
   function openPopup(selection: CalendarPopupSelection) {
@@ -314,10 +321,10 @@ function CalendarBody({
   );
   const googleRows = useMemo(
     () =>
-      showGoogle
+      showGoogle && !category
         ? withoutLocalDuplicates(google.data?.events ?? [], events, registered)
         : [],
-    [showGoogle, google.data, events, registered],
+    [showGoogle, google.data, events, registered, category],
   );
   const dayBars = useMemo(
     () =>
@@ -362,6 +369,7 @@ function CalendarBody({
         start: item.start_at,
         end: item.end_at,
         href: registrationHref(item),
+        category: item.category,
         target: registrationTarget(item),
       })),
       ...events.map((item) => ({
@@ -371,6 +379,7 @@ function CalendarBody({
         start: item.start_at,
         end: item.end_at,
         href: `/tasks/${encodeURIComponent(item.task_id)}`,
+        category: item.category,
         cancelled: item.status === "cancelled",
         target: {
           kind: "placement" as const,
@@ -398,6 +407,7 @@ function CalendarBody({
   const today = todayInZone(zone);
   return (
     <>
+      <CategoryFilter value={category} onChange={setCategory} />
       <PageHeading
         eyebrow="MY CALENDAR"
         title="캘린더"
@@ -651,6 +661,7 @@ function CalendarBody({
                                 }}
                               >
                                 {bar.title}
+                                <CategoryBadge value={event.category} />
                               </button>
                             );
                           })}

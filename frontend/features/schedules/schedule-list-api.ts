@@ -13,6 +13,7 @@ export function listSchedules(
   deadlines: boolean,
   tasks: boolean,
   signal?: AbortSignal,
+  category?: string | null,
 ) {
   const params = new URLSearchParams({
     offset: String(offset),
@@ -21,6 +22,7 @@ export function listSchedules(
     include_deadlines: String(deadlines),
     include_tasks: String(tasks),
   });
+  if (category) params.set("category", category);
   return api<SchedulePage>(`/api/schedules?${params}`, { signal });
 }
 export function removeSchedule(key: string, signal?: AbortSignal) {

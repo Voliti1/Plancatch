@@ -15,7 +15,12 @@ export function AccountControls({
   const dialog = useRef<HTMLDialogElement>(null);
   const pending = useRef(false);
   const heading = useId();
-  const { changePassword, user } = useAuth();
+  const { changePassword, updateProfile, user } = useAuth();
+  const [profileName, setProfileName] = useState(user?.display_name ?? "");
+  const [profileBusy, setProfileBusy] = useState(false);
+  const profilePending = useRef(false);
+  const [profileMessage, setProfileMessage] = useState("");
+  const [profileError, setProfileError] = useState("");
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -83,7 +88,12 @@ export function AccountControls({
           aria-label="설정 열기"
           title="설정"
           aria-haspopup="dialog"
-          onClick={() => dialog.current?.showModal()}
+          onClick={() => {
+            setProfileName(user?.display_name ?? "");
+            setProfileMessage("");
+            setProfileError("");
+            dialog.current?.showModal();
+          }}
         >
           <svg
             viewBox="0 0 24 24"
@@ -108,10 +118,10 @@ export function AccountControls({
         aria-labelledby={heading}
         onClose={clear}
         onCancel={(event) => {
-          if (pending.current) event.preventDefault();
+          if (pending.current || profilePending.current) event.preventDefault();
         }}
         onClick={(event) => {
-          if (pending.current || event.target !== event.currentTarget) return;
+          if (pending.current || profilePending.current || event.target !== event.currentTarget) return;
           const box = event.currentTarget.getBoundingClientRect();
           if (
             event.clientX < box.left ||
@@ -128,13 +138,49 @@ export function AccountControls({
             type="button"
             className="account-icon"
             aria-label="설정 닫기"
-            disabled={busy}
+            disabled={busy || profileBusy}
             onClick={() => dialog.current?.close()}
           >
             ×
           </button>
         </div>
         <div className="account-settings-body">
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (profilePending.current) return;
+              profilePending.current = true;
+              setProfileBusy(true);
+              setProfileError("");
+              setProfileMessage("");
+              try {
+                await updateProfile({
+                  display_name: profileName.trim() || null,
+                });
+                setProfileMessage("이름을 저장했어요.");
+              } catch (error) {
+                setProfileError(errorMessage(error));
+              } finally {
+                profilePending.current = false;
+                setProfileBusy(false);
+              }
+            }}
+          >
+            <fieldset disabled={profileBusy}>
+              <label>
+                프로필 이름
+                <input
+                  value={profileName}
+                  maxLength={100}
+                  autoComplete="name"
+                  onChange={(event) => setProfileName(event.target.value)}
+                />
+              </label>
+              <button type="submit">이름 저장</button>
+            </fieldset>
+            {profileMessage && <p role="status">{profileMessage}</p>}
+            {profileError && <p role="alert">{profileError}</p>}
+          </form>
           <dl className="settings-profile">
             <div>
               <dt>이름</dt>

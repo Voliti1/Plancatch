@@ -13,6 +13,7 @@ from pydantic import (
     model_validator,
 )
 
+from app.schemas.category import Category
 from app.schemas.google_reminders import GoogleReminders, default_reminders
 from app.services.deadline_safety import calculate_safe_due_at
 
@@ -35,6 +36,7 @@ class DeadlineCreate(DeadlineTimes):
     """Fields accepted when a user creates a deadline."""
 
     source_id: uuid.UUID | None = None
+    category: Category | None = None
     title: str = Field(min_length=1, max_length=255)
     due_at: AwareDatetime
     safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
@@ -55,6 +57,7 @@ class DeadlineUpdate(DeadlineTimes):
     """Editable deadline fields."""
 
     source_id: uuid.UUID | None = None
+    category: Category | None = None
     title: str | None = Field(default=None, min_length=1, max_length=255)
     due_at: AwareDatetime | None = None
     safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
@@ -86,6 +89,7 @@ class DeadlineResponse(BaseModel):
 
     id: uuid.UUID
     source_id: uuid.UUID | None
+    category: Category | None = None
     title: str
     due_at: datetime
     safety_buffer_minutes: int | None

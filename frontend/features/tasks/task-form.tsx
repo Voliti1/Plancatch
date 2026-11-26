@@ -1,4 +1,5 @@
 "use client";
+import { CategorySelect, type Category } from "@/components/category-badge";
 import { useScheduleTime } from "@/features/settings/time-zone";
 import { useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -98,6 +99,9 @@ export function TaskForm({
   const priorityLabelId = useId();
   const typeLabelId = useId();
   const options = useResource(loadDeadlineOptions);
+  const [category, setCategory] = useState<Category | null>(
+    initial?.category ?? null,
+  );
   const [title, setTitle] = useState(initial?.title ?? draft?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [recurrence, setRecurrence] = useState<Recurrence | null>(
@@ -148,6 +152,7 @@ export function TaskForm({
     JSON.stringify([
       registrationKind,
       title,
+      category,
       description,
       deadline,
       minutes,
@@ -206,6 +211,7 @@ export function TaskForm({
         await onSaveDeadline({
           ...(reminders ? { google_reminders: reminders } : {}),
           title: title.trim(),
+          ...(category ? { category } : {}),
           due_at: fromLocalInput(end),
           description: description.trim() || null,
           source_id: null,
@@ -290,6 +296,7 @@ export function TaskForm({
           : {}),
         ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
+        ...(category !== (initial?.category ?? null) ? { category } : {}),
         deadline_id: deadline || null,
         description: description.trim() || null,
         estimated_minutes: estimated,
@@ -521,6 +528,11 @@ export function TaskForm({
           retry={options.reload}
         />
       )}
+      <CategorySelect
+        value={category}
+        onChange={setCategory}
+        disabled={disabled || busy || !hydrated}
+      />
       <fieldset
         disabled={
           disabled ||

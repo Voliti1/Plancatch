@@ -1,4 +1,5 @@
 "use client";
+import { CategoryFilter, type Category } from "@/components/category-badge";
 import { useCallback, useId, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
@@ -15,6 +16,7 @@ export function TaskList() {
   const [filters, setFilters] = useState({
     completed: "all",
     type: "all",
+    category: null as Category | null,
     page: 0,
   });
   return (
@@ -28,6 +30,10 @@ export function TaskList() {
             ＋ 수동 일정 등록
           </NewRegistrationLink>
         }
+      />
+      <CategoryFilter
+        value={filters.category}
+        onChange={(category) => setFilters({ ...filters, category, page: 0 })}
       />
       <div className="task-filters">
         <label>
@@ -61,6 +67,7 @@ export function TaskList() {
       </div>
       <TaskPage
         key={`${filters.completed}-${filters.type}-${filters.page}`}
+        category={filters.category}
         completed={filters.completed}
         type={filters.type}
         page={filters.page}
@@ -70,11 +77,13 @@ export function TaskList() {
   );
 }
 function TaskPage({
+  category,
   completed,
   type,
   page,
   onPage,
 }: {
+  category: Category | null;
   completed: string;
   type: string;
   page: number;
@@ -83,11 +92,12 @@ function TaskPage({
   const loader = useCallback(
     () =>
       tasksApi.list({
+        category,
         offset: page * 50,
         is_completed: completed === "all" ? undefined : completed === "true",
         schedule_type: type === "all" ? undefined : (type as ScheduleType),
       }),
-    [completed, type, page],
+    [completed, type, page, category],
   );
   const { data, error, loading, reload } = useResource(loader);
   if (loading) return <Loading />;

@@ -1,3 +1,4 @@
+import type { Category } from "@/components/category-badge";
 import type { GoogleReminderSettings } from "./google-reminders";
 export interface User {
   id: string;
@@ -43,6 +44,7 @@ export type SourceUpdateInput =
   | { title: string | null; original_url: string; original_text?: never }
   | { title: string | null; original_text: string; original_url?: never };
 export interface Deadline {
+  category?: Category | null;
   google_reminders?: GoogleReminderSettings | null;
   id: string;
   source_id: string | null;
@@ -59,6 +61,7 @@ export interface Deadline {
   updated_at: string;
 }
 export interface DeadlineInput {
+  category?: Category | null;
   google_reminders?: GoogleReminderSettings;
   title: string;
   due_at: string;

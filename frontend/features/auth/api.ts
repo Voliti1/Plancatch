@@ -1,6 +1,11 @@
 import { api } from "@/lib/api/client";
 import type { User, TokenResponse } from "@/types/api";
 export const authApi = {
+  updateProfile: (payload: { display_name: string | null }) =>
+    api<User>("/api/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   signup: (payload: {
     email: string;
     password: string;

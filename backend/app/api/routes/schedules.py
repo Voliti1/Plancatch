@@ -1,3 +1,4 @@
+
 """Read-only, globally paginated list of owned deadlines and tasks."""
 
 from typing import Annotated
@@ -7,6 +8,7 @@ from sqlalchemy import DateTime, func, literal, select, union_all
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models import Deadline, Task
+from app.schemas.category import Category
 from app.schemas.deadline import DeadlineResponse
 from app.schemas.task import TaskResponse
 from app.services.task_placements import placement, placement_summary
@@ -22,6 +24,7 @@ def list_schedules(
     q: Annotated[str, Query(max_length=255)] = "",
     include_deadlines: bool = True,
     include_tasks: bool = True,
+    category: Category | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ):
@@ -53,6 +56,8 @@ def list_schedules(
                 literal(None, DateTime(timezone=True)).label("end_at"),
                 literal(None).label("block_count"),
             )
+        if category is not None:
+            statement = statement.where(model.category == category)
         if query:
             statement = statement.where(model.title.icontains(query, autoescape=True))
         queries.append(statement)

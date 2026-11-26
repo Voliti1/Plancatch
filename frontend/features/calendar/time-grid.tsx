@@ -1,4 +1,5 @@
 "use client";
+import { CategoryBadge } from "@/components/category-badge";
 import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import type { CSSProperties } from "react";
@@ -190,6 +191,7 @@ export function TimeGrid({
                   const content = (
                     <>
                       <strong className="time-event-title">
+                        <CategoryBadge value={event.category} compact />
                         {event.title}
                       </strong>
                       <small className="time-event-clock">
