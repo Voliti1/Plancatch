@@ -25,7 +25,7 @@ class UserCreate(BaseModel):
         """Remove surrounding whitespace from optional display names."""
         if value is None:
             return None
-        return value.strip()
+        return value.strip() or None
 
 
 class UserResponse(BaseModel):

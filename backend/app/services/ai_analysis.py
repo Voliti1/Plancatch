@@ -138,7 +138,8 @@ def apply_timezone_policy(result: ProviderResult, text: str) -> bool:
             continue
         if original.utcoffset() is None:
             start = policy_free_text.find(evidence)
-            context = policy_free_text[max(0, start - 100):start + len(evidence) + 100]
+            context = (policy_free_text[max(0, start - 100):start + len(evidence) + 100]
+                       if start != -1 else "")
             if TEXTUAL_TIMEZONE.search(evidence) or TEXTUAL_TIMEZONE.search(context):
                 continue  # A separately written zone must be interpreted by the model.
             expected = original.replace(tzinfo=SEOUL)

@@ -21,7 +21,7 @@ class SourceCreate(BaseModel):
     source_type: Literal["url", "text"]
     title: str | None = Field(default=None, min_length=1, max_length=255)
     original_url: AnyHttpUrl | None = None
-    original_text: str | None = Field(default=None, min_length=1)
+    original_text: str | None = Field(default=None, min_length=1, max_length=100_000)
 
     @model_validator(mode="after")
     def validate_source_content(self) -> "SourceCreate":
@@ -38,7 +38,7 @@ class SourceUpdate(BaseModel):
 
     title: str | None = Field(default=None, min_length=1, max_length=255)
     original_url: AnyHttpUrl | None = None
-    original_text: str | None = Field(default=None, min_length=1)
+    original_text: str | None = Field(default=None, min_length=1, max_length=100_000)
 
 
 class FileMetadata(BaseModel):

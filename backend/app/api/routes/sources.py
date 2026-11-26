@@ -115,12 +115,12 @@ def request_source_analysis(
         if result.rowcount != 1:
             raise HTTPException(status_code=409, detail="Source is already processing")
         db.commit()
+        db.refresh(source)
+        background_tasks.add_task(process_source, source.id, db.get_bind(), run_id)
     except Exception:
         db.rollback()
         slots.release()
         raise
-    db.refresh(source)
-    background_tasks.add_task(process_source, source.id, db.get_bind(), run_id)
     return source
 
 
