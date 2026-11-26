@@ -63,7 +63,7 @@ export default function WorkspaceLayout({
       </a>
       <aside className="sidebar">
         <Link className="brand" href="/dashboard">
-          <span className="logo">P</span>플랜캐치
+          <span className="logo">P</span>PlanCatch
           <span className="brand-dot">.</span>
         </Link>
         <NewRegistrationLink className="sidebar-new-registration">
