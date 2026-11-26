@@ -157,14 +157,18 @@ export function SourceDetail({ id }: { id: string }) {
                       )}
                     </section>
                   )}
-                  {data.original_text !== null && (
-                    <section className="source-content">
-                      <h3>글 내용</h3>
-                      <p className="source-text">
-                        {data.original_text || "저장된 텍스트가 없어요."}
-                      </p>
-                    </section>
-                  )}
+                  {data.original_text !== null &&
+                    !(
+                      data.source_type === "text" &&
+                      data.original_text === data.extracted_text
+                    ) && (
+                      <section className="source-content">
+                        <h3>글 내용</h3>
+                        <p className="source-text">
+                          {data.original_text || "저장된 텍스트가 없어요."}
+                        </p>
+                      </section>
+                    )}
                   {data.extracted_text !== null && (
                     <SourceExtractedContent
                       text={data.extracted_text}

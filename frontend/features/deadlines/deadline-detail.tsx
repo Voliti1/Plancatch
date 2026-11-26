@@ -53,10 +53,10 @@ export function DeadlineDetail({ id }: { id: string }) {
           }}
         />
         {data.evidence_text && (
-          <div className="notice">
-            <h3>분석 근거</h3>
+          <details className="notice">
+            <summary>원문에서 찾은 근거 보기</summary>
             <p className="source-text">{data.evidence_text}</p>
-          </div>
+          </details>
         )}
       </section>
       <DeadlineReadiness
@@ -89,9 +89,9 @@ export function DeadlineDetail({ id }: { id: string }) {
         <div>
           <h2>마감일 삭제</h2>
           <p className="muted">
-            다른 마감일이 연결되어 있지 않으면 자료와 검토 기록도 함께 삭제돼요.
-            연결된 할 일은 유지되며 관리 중인 구글 캘린더에 복사한 일정은 자동
-            삭제돼요. 삭제한 내용은 복구할 수 없어요.
+            마감일과 플랜캐치가 등록한 구글 캘린더 일정은 삭제되며 복구할 수
+            없어요. 연결된 할 일은 유지돼요. 다른 마감일에서 쓰지 않는 자료·검토
+            기록만 함께 삭제돼요.
           </p>
         </div>
         {!confirm ? (

@@ -24,6 +24,28 @@ async function open(page: Page, initial: Deadline[] = [deadline]) {
   await page.goto("/deadlines");
 }
 
+test("마감일 근거는 펼쳐서 확인하고 삭제 범위 안내는 유지한다", async ({
+  page,
+}) => {
+  await open(page);
+  await page.goto("/deadlines/deadline-1");
+  const evidence = page
+    .locator("details.notice")
+    .filter({ hasText: "원문에서 찾은 근거 보기" });
+  await expect(evidence).not.toHaveAttribute("open");
+  await expect(
+    evidence.getByText(deadline.evidence_text!, { exact: true }),
+  ).not.toBeVisible();
+  await evidence.locator("summary").click();
+  await expect(
+    evidence.getByText(deadline.evidence_text!, { exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".danger-zone")).toContainText("자료·검토 기록");
+  await expect(page.locator(".danger-zone")).toContainText(
+    "연결된 할 일은 유지돼요",
+  );
+});
+
 test("dashboard displays server safety dates and opens the shared registration screen", async ({
   page,
 }) => {
@@ -170,10 +192,11 @@ test("editing preserves buffer, official precision, source and evidence; updates
     safety_buffer_minutes: 1640,
     source_id: deadline.source_id,
   });
+  await expect(page.getByText("변경 사항을 저장했어요.")).toBeVisible();
+  await page.getByText("원문에서 찾은 근거 보기", { exact: true }).click();
   await expect(
     page.getByText(deadline.evidence_text!, { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("변경 사항을 저장했어요.")).toBeVisible();
   await page.getByLabel("여유시간 (일)", { exact: true }).fill("0");
   await page.getByLabel("여유시간 (시간)", { exact: true }).fill("3");
   await page.getByLabel("여유시간 (분)", { exact: true }).fill("0");

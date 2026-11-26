@@ -115,10 +115,8 @@ export default function DashboardPage() {
                 <DeadlineRows deadlines={data.deadlines.slice(0, 5)} />
               ) : (
                 <Empty title="아직 등록된 마감일이 없어요">
-                  <p>
-                    공고 링크나 파일을 올리거나 직접 날짜를 입력해 첫 마감일을
-                    등록해 보세요.
-                  </p>
+                  공고 링크나 파일을 올리거나 직접 날짜를 입력해 첫 마감일을
+                  등록해 보세요.
                   <NewRegistrationLink className="button secondary">
                     첫 일정 등록하기
                   </NewRegistrationLink>
