@@ -1,3 +1,4 @@
+
 """Owner-scoped CRUD for local calendar placements."""
 
 import uuid
@@ -12,6 +13,7 @@ from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.tasks import get_owned_task
 from app.models.scheduled_event import ScheduledEvent
 from app.models.task import Task
+from app.schemas.category import Category
 from app.schemas.scheduled_event import (
     ScheduledEventCreate,
     ScheduledEventResponse,
@@ -86,6 +88,7 @@ def list_events(
     status: Literal["recommended", "approved", "synced", "cancelled"] | None = None,
     start_from: AwareDatetime | None = None,
     end_before: AwareDatetime | None = None,
+    category: Category | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[ScheduledEventResponse]:
@@ -94,13 +97,15 @@ def list_events(
             status_code=422, detail="end_before must be after start_from"
         )
     statement = (
-        select(ScheduledEvent, Task.title)
+        select(ScheduledEvent, Task.title, Task.category)
         .join(Task, Task.id == ScheduledEvent.task_id)
         .where(
             ScheduledEvent.user_id == current_user.id,
             Task.user_id == current_user.id,
         )
     )
+    if category is not None:
+        statement = statement.where(Task.category == category)
     if task_id is not None:
         statement = statement.where(ScheduledEvent.task_id == task_id)
     if status is not None:
@@ -112,9 +117,9 @@ def list_events(
         statement = statement.where(ScheduledEvent.start_at < utc(end_before))
     return [
         ScheduledEventResponse.model_validate(event).model_copy(
-            update={"task_title": title}
+            update={"task_title": title, "category": category}
         )
-        for event, title in db.execute(
+        for event, title, category in db.execute(
             statement.order_by(
                 ScheduledEvent.start_at,
                 ScheduledEvent.id,

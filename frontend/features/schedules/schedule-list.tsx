@@ -1,4 +1,10 @@
 "use client";
+import {
+  CategoryFilter,
+  type Category,
+  CategoryBadge,
+} from "@/components/category-badge";
+import { DeadlineDday } from "@/components/deadline-dday";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { PageHeading } from "@/components/page-heading";
@@ -49,11 +55,15 @@ function ScheduleRows({
               {entry.kind === "deadline" ? "◷" : <TaskListIcon />}
             </span>
             <div className="row-title">
+              <CategoryBadge value={entry.item.category} />
               <strong>
                 <HighlightTitle title={entry.item.title} query={query} />
               </strong>
               {entry.kind === "deadline" ? (
-                <DeadlineTimes deadline={entry.item} compact />
+                <>
+                  <DeadlineDday due={entry.item.due_at} />
+                  <DeadlineTimes deadline={entry.item} compact />
+                </>
               ) : (
                 <>
                   <span>
@@ -117,7 +127,11 @@ function ScheduleRows({
 }
 export function ScheduleList() {
   const search = useTitleSearch();
-  const [kinds, setKinds] = useState({ deadline: true, task: true }),
+  const [kinds, setKinds] = useState({
+      deadline: true,
+      task: true,
+      category: null as Category | null,
+    }),
     [version, setVersion] = useState(0);
   const deletion = useListDeletion(removeSchedule, () =>
     setVersion((v) => v + 1),
@@ -141,6 +155,15 @@ export function ScheduleList() {
             </NewRegistrationLink>
           </ListDeleteActions>
         }
+      />
+      <CategoryFilter
+        value={kinds.category}
+        onChange={(category) => {
+          if (deletion.busy) return;
+          deletion.exit();
+          search.setPage(0);
+          setKinds((value) => ({ ...value, category }));
+        }}
       />
       <TitleSearch
         label="일정 제목 검색"
@@ -181,7 +204,7 @@ export function ScheduleList() {
         </div>
         <p className="small muted">날짜가 빠른 순</p>
         <ScheduleResults
-          key={`${search.query}:${search.page}:${version}:${kinds.deadline}:${kinds.task}`}
+          key={`${search.query}:${search.page}:${version}:${kinds.deadline}:${kinds.task}:${kinds.category}`}
           page={search.page}
           query={search.query}
           kinds={kinds}
@@ -207,14 +230,21 @@ function ScheduleResults({
 }: {
   page: number;
   query: string;
-  kinds: { deadline: boolean; task: boolean };
+  kinds: { deadline: boolean; task: boolean; category: Category | null };
   deletion: ListDeletion;
   onPage: (page: number) => void;
 }) {
   const loader = useCallback(
     (signal: AbortSignal) =>
-      listSchedules(page * 50, query, kinds.deadline, kinds.task, signal),
-    [page, query, kinds.deadline, kinds.task],
+      listSchedules(
+        page * 50,
+        query,
+        kinds.deadline,
+        kinds.task,
+        signal,
+        kinds.category,
+      ),
+    [page, query, kinds.deadline, kinds.task, kinds.category],
   );
   const { data, loading, error, reload } = useResource(loader);
   if (loading) return <Loading />;

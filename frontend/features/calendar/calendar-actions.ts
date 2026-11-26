@@ -85,6 +85,7 @@ export async function duplicateCalendarEvent(
     const item = await deadlinesApi.get(target.id);
     const copy = await deadlinesApi.create({
       title: item.title,
+      ...(item.category ? { category: item.category } : {}),
       due_at: event.start,
       source_id: null,
       safety_buffer_minutes: item.safety_buffer_minutes,
@@ -98,6 +99,7 @@ export async function duplicateCalendarEvent(
   const item = await readTask(target);
   const copy = await tasksApi.create({
     title: item.title,
+    ...(item.category ? { category: item.category } : {}),
     description: item.description,
     earliest_start: event.start,
     latest_end: event.end,

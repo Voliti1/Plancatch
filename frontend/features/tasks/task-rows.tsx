@@ -1,4 +1,5 @@
 "use client";
+import { CategoryBadge } from "@/components/category-badge";
 import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRef, useState } from "react";
@@ -53,6 +54,7 @@ function TaskRow({ task, onUpdated }: { task: Task; onUpdated: () => void }) {
           >
             {task.title}
           </Link>
+          <CategoryBadge value={task.category} />
           <p className="muted small">
             {task.estimated_minutes === null
               ? "소요시간 미정"

@@ -25,6 +25,7 @@ from app.schemas.user import (
     GoogleLoginChallenge,
     PasswordChange,
     PasswordRecoveryRequest,
+    ProfileUpdate,
     TimeZoneUpdate,
     TokenResponse,
     UserCreate,
@@ -247,3 +248,15 @@ def change_password(payload: PasswordChange, session: AuthSession, db: DatabaseS
     db.commit()
     http_response.headers["Cache-Control"] = "no-store"
     return response
+
+
+@router.patch("/me", response_model=UserResponse)
+def update_profile(payload: ProfileUpdate, current_user: CurrentUser, db: DatabaseSession):
+    user = db.scalar(select(User).where(User.id == current_user.id).with_for_update().execution_options(populate_existing=True))
+    if user is None or not user.is_active:
+        raise unauthorized()
+    if "display_name" in payload.model_fields_set:
+        user.display_name = payload.display_name
+    db.commit()
+    db.refresh(user)
+    return user

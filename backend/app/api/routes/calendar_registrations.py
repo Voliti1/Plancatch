@@ -1,3 +1,4 @@
+
 """Show existing source deadlines and fixed manual schedules without DB writes."""
 
 from datetime import timedelta
@@ -17,6 +18,7 @@ from app.schemas.calendar_registration import (
     CalendarRegistration,
     CalendarRegistrationsPage,
 )
+from app.schemas.category import Category
 from app.services.recurrence import occurrences
 
 router = APIRouter(prefix="/api/calendar/registrations", tags=["calendar"])
@@ -30,6 +32,7 @@ def list_registrations(
     response: Response,
     start_from: AwareDatetime,
     end_before: AwareDatetime,
+    category: Category | None = None,
 ) -> CalendarRegistrationsPage:
     response.headers["Cache-Control"] = "no-store"
     if not timedelta(0) < end_before - start_from <= timedelta(days=62):
@@ -37,9 +40,10 @@ def list_registrations(
     first, last = utc(start_from), utc(end_before)
     deadlines = list(
         db.execute(
-            select(Deadline.id, Deadline.title, Deadline.due_at, Deadline.is_confirmed)
+            select(Deadline.id, Deadline.title, Deadline.due_at, Deadline.is_confirmed, Deadline.category)
             .where(
                 Deadline.user_id == current_user.id,
+                True if category is None else Deadline.category == category,
                 Deadline.due_at >= first,
                 Deadline.due_at < last,
             )
@@ -55,9 +59,10 @@ def list_registrations(
     tasks = list(
         db.execute(
             select(Task.id, Task.title, Task.earliest_start, Task.latest_end, Task.is_completed,
-                   Task.recurrence, Task.excluded_starts, Task.series_id, Task.original_start)
+                   Task.recurrence, Task.excluded_starts, Task.series_id, Task.original_start, Task.category)
             .where(
                 Task.user_id == current_user.id,
+                True if category is None else Task.category == category,
                 Task.schedule_type == "fixed",
                 Task.earliest_start.is_not(None),
                 Task.latest_end.is_not(None),
@@ -74,7 +79,7 @@ def list_registrations(
         CalendarRegistration(
             id=d.id,
             kind="deadline",
-            title=d.title,
+            title=d.title, category=d.category,
             start_at=utc(d.due_at),
             is_confirmed=d.is_confirmed,
         )
@@ -84,7 +89,7 @@ def list_registrations(
         CalendarRegistration(
             id=t.id,
             kind="fixed_task",
-            title=t.title,
+            title=t.title, category=t.category,
             start_at=start,
             end_at=end,
             is_completed=t.is_completed,

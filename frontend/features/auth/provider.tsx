@@ -22,6 +22,7 @@ interface AuthState {
   loginKakao: (code: string, state: string) => Promise<void>;
   logout: () => void;
   refresh: () => void;
+  updateProfile: (payload: { display_name: string | null }) => Promise<void>;
   saveTimeZone: (zone: string) => Promise<void>;
   changePassword: (current: string, next: string) => Promise<void>;
 }
@@ -120,7 +121,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const current = generation.current;
     const updated = await authApi.saveTimeZone(zone);
     if (current !== generation.current) return;
-    setUser((previous) => (previous?.id === updated.id ? updated : previous));
+    setUser((previous) => (previous?.id === updated.id ? { ...previous, time_zone: updated.time_zone } : previous));
   }
   async function changePassword(currentPassword: string, nextPassword: string) {
     const current = generation.current;
@@ -132,6 +133,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       previous?.password_change_required
         ? { ...previous, password_change_required: false }
         : previous,
+    );
+  }
+  async function updateProfile(payload: { display_name: string | null }) {
+    const current = generation.current;
+    const updated = await authApi.updateProfile(payload);
+    if (current !== generation.current)
+      throw new Error("로그인 상태가 바뀌었어요.");
+    setUser((previous) =>
+      previous?.id === updated.id ? { ...previous, display_name: updated.display_name } : previous,
     );
   }
   return (
@@ -147,6 +157,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         refresh,
         changePassword,
         saveTimeZone,
+        updateProfile,
       }}
     >
       {!mustRedirect && children}

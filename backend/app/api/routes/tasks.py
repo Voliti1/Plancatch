@@ -1,18 +1,21 @@
+
 """Authenticated task CRUD endpoints."""
 
 import uuid
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, HTTPException, Query, Response, status
 from pydantic import AwareDatetime
-from sqlalchemy import or_, select
+from sqlalchemy import and_, case, func, or_, select
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.api.routes.deadlines import get_owned_deadline
 from app.models.scheduled_event import ScheduledEvent
 from app.models.task import Task
 from app.models.task_plan import TaskDependency
+from app.schemas.category import Category
 from app.schemas.task import (
     OccurrenceUpdate,
     ScheduleType,
@@ -66,6 +69,8 @@ def list_tasks(
     schedule_type: ScheduleType | None = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
+    category: Category | None = None,
+    dashboard: bool = False,
 ) -> list[TaskResponse]:
     response.headers["Cache-Control"] = "no-store"
     summary = placement_summary(current_user.id)
@@ -78,6 +83,14 @@ def list_tasks(
         statement = statement.where(Task.is_completed == is_completed)
     if schedule_type is not None:
         statement = statement.where(Task.schedule_type == schedule_type)
+    if category is not None:
+        statement = statement.where(Task.category == category)
+    if dashboard:
+        today = datetime.now(ZoneInfo("Asia/Seoul")).replace(hour=0, minute=0, second=0, microsecond=0).astimezone(UTC)
+        start = func.coalesce(summary.c.start_at, Task.earliest_start)
+        statement = statement.order_by(case(
+            (and_(Task.is_completed.is_(False), start >= today, start < today + timedelta(days=1)), 0),
+            (Task.is_completed.is_(False), 1), else_=2), start.asc().nulls_last())
     rows = db.execute(statement.order_by(Task.created_at.desc(), Task.id).limit(limit).offset(offset))
     return [
         TaskResponse.model_validate(task).model_copy(update={"placement": placement(start, end, count)})

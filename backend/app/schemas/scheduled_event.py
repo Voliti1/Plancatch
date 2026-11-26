@@ -47,7 +47,11 @@ class ScheduledEventUpdate(BaseModel):
         return self
 
 
+from app.schemas.category import Category
+
+
 class ScheduledEventResponse(BaseModel):
+    category: Category | None = None
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID

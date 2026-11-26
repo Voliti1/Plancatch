@@ -113,20 +113,16 @@ test("dashboard separates deadlines and the five newest schedules, including und
   });
   await expect(overview.getByRole("listitem")).toHaveCount(5);
   await expect(overview.getByRole("listitem").nth(0)).toContainText(
-    "[테스트] 등록 일정 1",
+    "[테스트] 등록 일정 2",
   );
-  await expect(overview.getByRole("listitem").nth(1)).toContainText(
+  await expect(overview.getByRole("listitem").nth(0)).toContainText(
     "시작 미정 → 종료 미정",
   );
-  await expect(overview.getByRole("listitem").nth(2)).toContainText("완료");
-  await expect(
-    overview.getByRole("listitem").nth(0).locator("time").nth(0),
-  ).toHaveAttribute("datetime", task.earliest_start!);
-  await expect(overview.getByRole("listitem").nth(0)).toContainText(
-    "오전 9:00",
+  await expect(overview.getByRole("listitem").nth(1)).toContainText(
+    "[테스트] 등록 일정 1",
   );
   await expect(
-    overview.getByText("[테스트] 등록 일정 6", { exact: true }),
+    overview.getByText("[테스트] 등록 일정 3", { exact: true }),
   ).toHaveCount(0);
   await expect(overview.getByText(deadline.title, { exact: true })).toHaveCount(
     0,

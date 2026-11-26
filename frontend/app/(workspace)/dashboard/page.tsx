@@ -1,4 +1,5 @@
 "use client";
+import { useAuth } from "@/features/auth/provider";
 import Link from "next/link";
 import { deadlinesApi } from "@/features/deadlines/api";
 import { sourcesApi } from "@/features/sources/api";
@@ -11,16 +12,18 @@ import { DashboardSchedules } from "@/features/tasks/dashboard-schedules";
 
 const load = async () => {
   const [deadlines, sources] = await Promise.all([
-    deadlinesApi.list(),
+    deadlinesApi.list(0, "", undefined, undefined, true),
     sourcesApi.list(),
   ]);
   return { deadlines, sources };
 };
 
 export default function DashboardPage() {
+  const { user } = useAuth();
   const { data, loading, error, reload } = useResource(load);
   return (
     <div className="dashboard-reference">
+      <p>{user?.display_name || "사용자"}님, 오늘도 차근차근.</p>
       <section
         className="card dashboard-onboarding"
         aria-labelledby="dashboard-start-title"
