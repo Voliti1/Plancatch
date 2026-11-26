@@ -35,7 +35,7 @@ test("dashboard opens the separate registration screen with responsive inputs", 
   await expect(await sourceInput(page, "text")).toBeVisible();
   await sourceInput(page, "file");
   await expect(
-    page.getByText("PDF·이미지 지원", { exact: true }),
+    page.getByText("지원 파일과 분석 안내", { exact: true }),
   ).toBeVisible();
   const tabs = page.getByRole("tablist", { name: "자료 입력 방식" });
   await tabs.getByRole("tab").first().focus();

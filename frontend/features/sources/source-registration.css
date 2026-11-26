@@ -8,9 +8,7 @@
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 14px;
-  border-bottom: 1px solid var(--line);
-  margin-bottom: 24px;
-  padding-bottom: 20px;
+  margin-bottom: 22px;
 }
 .source-registration h2 {
   margin: 0;
@@ -60,6 +58,16 @@
 .source-file-input,
 .source-registration-fields {
   min-width: 0;
+}
+.source-file-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .source-file-heading {
   display: flex;
@@ -218,18 +226,21 @@
 .source-kind-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-  margin: 14px 0 22px;
-}
-.source-kind-tabs button {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 14px 16px;
-  text-align: left;
+  gap: 0;
+  margin: 0 0 20px;
   border: 1px solid var(--line);
   border-radius: 10px;
+}
+.readability-preview .schedule-registration .source-kind-tabs button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 14px 16px;
+  text-align: center;
+  border: 0;
+  border-radius: 0;
   background: var(--white);
   color: var(--ink);
 }
@@ -237,24 +248,100 @@
   font-size: 14px;
   font-weight: 700;
 }
+.readability-preview .schedule-registration .source-kind-tabs button + button {
+  border-left: 1px solid var(--line);
+}
+.readability-preview
+  .schedule-registration
+  .source-kind-tabs
+  button:first-child {
+  border-radius: 9px 0 0 9px;
+}
+.readability-preview
+  .schedule-registration
+  .source-kind-tabs
+  button:last-child {
+  border-radius: 0 9px 9px 0;
+}
 .source-kind-tabs button small {
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
 }
-.source-kind-tabs button[aria-selected="true"] {
-  border-color: var(--blue);
-  background: var(--blue-soft);
-  color: var(--blue);
+.readability-preview
+  .schedule-registration
+  .source-kind-tabs
+  button[aria-selected="true"] {
+  background: var(--workspace-soft, var(--blue-soft));
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1.5px var(--workspace-accent, var(--blue));
 }
 .source-kind-tabs button[aria-selected="true"] small {
-  color: var(--blue);
+  color: var(--ink);
 }
 .source-kind-panel {
   margin-top: 16px;
 }
+.source-file-support {
+  font-size: 13px;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.source-file-support summary {
+  width: fit-content;
+  cursor: pointer;
+}
+.source-file-support p {
+  margin: 8px 0;
+}
+html.readability-preview .workspace .schedule-registration .source-file-drop {
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 88px;
+  padding: 20px;
+  border: 1.5px dashed var(--workspace-accent, var(--blue));
+  background: var(--workspace-soft, var(--blue-soft));
+  border-radius: 9px;
+  color: var(--workspace-accent, var(--blue));
+}
+html.readability-preview
+  .workspace
+  .schedule-registration
+  .source-file-drop
+  strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.source-registration .source-registration-steps li + li::before {
+  content: "";
+  width: 12px;
+  height: 1px;
+  background: var(--line);
+}
 @media (max-width: 760px) {
   .source-kind-tabs {
     grid-template-columns: minmax(0, 1fr);
+  }
+  .readability-preview
+    .schedule-registration
+    .source-kind-tabs
+    button
+    + button {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+  .readability-preview
+    .schedule-registration
+    .source-kind-tabs
+    button:first-child {
+    border-radius: 9px 9px 0 0;
+  }
+  .readability-preview
+    .schedule-registration
+    .source-kind-tabs
+    button:last-child {
+    border-radius: 0 0 9px 9px;
   }
 }

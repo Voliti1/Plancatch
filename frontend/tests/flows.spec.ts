@@ -16,7 +16,10 @@ test("protected routes, signup, login restore and logout", async ({ page }) => {
   await login(page);
   await page.reload();
   await expect(
-    page.getByRole("heading", { name: "테스터님, 오늘도 차근차근." }),
+    page.getByRole("heading", {
+      name: "머릿속 할 일 대신, 눈앞의 계획으로.",
+      level: 1,
+    }),
   ).toBeVisible();
   await page.screenshot({
     path: test.info().outputPath("dashboard.png"),
