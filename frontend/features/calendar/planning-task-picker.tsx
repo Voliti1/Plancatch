@@ -247,7 +247,8 @@ export function PlanningTaskPicker({
             ) : (
               <span className="planning-picker-empty-action">
                 <span>
-                  시간 미정 할 일을 만들면 여기에서 바로 선택할 수 있어요.
+                  추천받을 할 일이 없나요? 시간이 정해지지 않은 할 일로 등록하고
+                  예상 소요시간을 입력해 주세요.
                 </span>
                 <Link href={newPlanningTask} className="button secondary">
                   새 할 일 만들기

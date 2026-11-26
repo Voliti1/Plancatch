@@ -11,7 +11,14 @@ const draft = {
   notices: [],
 };
 
-test("today is the default and uses the same short date header as week", async ({
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
+test("remembered day view uses the same short date header as week", async ({
   page,
 }) => {
   await page.clock.install({ time: new Date("2026-11-02T03:00:00Z") });

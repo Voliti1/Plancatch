@@ -116,7 +116,7 @@ test("dashboard separates deadlines and the five newest schedules, including und
     "[테스트] 등록 일정 2",
   );
   await expect(overview.getByRole("listitem").nth(0)).toContainText(
-    "시작 미정 → 종료 미정",
+    "시간 미정",
   );
   await expect(overview.getByRole("listitem").nth(1)).toContainText(
     "[테스트] 등록 일정 1",

@@ -57,6 +57,22 @@ import {
 import { useCalendarColors } from "./calendar-colors";
 import "./calendar.css";
 
+type CalendarView = "month" | "week" | "day";
+function readPreference(key: string) {
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+function savePreference(key: string, value: string) {
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    /* Keep session choices when storage is blocked. */
+  }
+}
+
 const emptyRegistrations: CalendarRegistration[] = [];
 
 function TaskTitle({ id }: { id: string }) {
@@ -105,7 +121,7 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
               <span className="tag schedule-kind-task">할 일</span>
               <span className="small muted">{statusLabel[event.status]}</span>
               <Link href={`/tasks/${encodeURIComponent(event.task_id)}`}>
-                상세, 수정 →
+                상세 보기 →
               </Link>
             </div>
             {event.sync_error && (
@@ -177,7 +193,7 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
                     ? "확인 필요"
                     : ""}
               </span>
-              <Link href={registrationHref(item)}>상세, 수정 →</Link>
+              <Link href={registrationHref(item)}>상세 보기 →</Link>
             </div>
           </li>
         ))}
@@ -218,9 +234,19 @@ function CalendarBody({
   const [selected, setSelected] = useState(
     () => initialDate ?? todayInZone(zone),
   );
-  const [view, setView] = useState<"month" | "week" | "day">("day");
+  const [view, setView] = useState<CalendarView>(() => {
+    const stored = readPreference("plancatch.calendar.view");
+    return stored === "day" || stored === "week" ? stored : "month";
+  });
   const [showCancelled, setShowCancelled] = useState(false);
-  const [showGoogle, setShowGoogle] = useState(false);
+  const [showGoogle, setShowGoogle] = useState(
+    () => readPreference("plancatch.calendar.showGoogle") === "true",
+  );
+  // CalendarBody mounts only after useHydrated, so reading browser preferences cannot alter server markup.
+  function chooseView(next: CalendarView) {
+    setView(next);
+    savePreference("plancatch.calendar.view", next);
+  }
   const [popup, setPopup] = useState<CalendarPopupSelection | null>(null);
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState("");
@@ -470,7 +496,7 @@ function CalendarBody({
               aria-pressed={view === "day"}
               onClick={() => {
                 setSelected(todayInZone(zone));
-                setView("day");
+                chooseView("day");
               }}
             >
               오늘
@@ -478,14 +504,14 @@ function CalendarBody({
             <button
               className={view === "week" ? "selected" : "secondary"}
               aria-pressed={view === "week"}
-              onClick={() => setView("week")}
+              onClick={() => chooseView("week")}
             >
               주간
             </button>
             <button
               className={view === "month" ? "selected" : "secondary"}
               aria-pressed={view === "month"}
-              onClick={() => setView("month")}
+              onClick={() => chooseView("month")}
             >
               월간
             </button>
@@ -518,7 +544,13 @@ function CalendarBody({
             <input
               type="checkbox"
               checked={showGoogle}
-              onChange={(e) => setShowGoogle(e.target.checked)}
+              onChange={(e) => {
+                setShowGoogle(e.target.checked);
+                savePreference(
+                  "plancatch.calendar.showGoogle",
+                  String(e.target.checked),
+                );
+              }}
             />
             구글 일정 함께 보기
           </label>

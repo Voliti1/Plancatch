@@ -105,3 +105,10 @@ test("regional wall times round-trip and account for daylight saving", () => {
     "2026-11-25T01:30:00.000Z",
   );
 });
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});

@@ -325,3 +325,21 @@
     width: 100%;
   }
 }
+
+.planning-conditions-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+.planning-conditions-values > span {
+  display: inline-block;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: var(--blue-soft);
+  color: var(--ink);
+  overflow-wrap: anywhere;
+  line-height: 1.5;
+}
