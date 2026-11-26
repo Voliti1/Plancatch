@@ -17,17 +17,17 @@ export function DashboardSchedules() {
       aria-labelledby="dashboard-schedules-title"
     >
       <div className="section-header">
-        <h2 id="dashboard-schedules-title">등록한 일정</h2>
+        <h2 id="dashboard-schedules-title">할 일</h2>
         <div className="calendar-dashboard-links">
           <Link href="/calendar">캘린더 보기 →</Link>
-          <Link href="/tasks">전체 일정 보기 →</Link>
+          <Link href="/tasks">전체 할 일 보기 →</Link>
         </div>
       </div>
       {loading ? (
         <Loading />
       ) : error ? (
         <ErrorNotice
-          message={`일정을 불러오지 못했어요. ${error}`}
+          message={`할 일을 불러오지 못했어요. ${error}`}
           retry={reload}
         />
       ) : data?.length ? (
@@ -55,7 +55,7 @@ export function DashboardSchedules() {
           ))}
         </ul>
       ) : (
-        <Empty title="등록한 일정이 없어요">
+        <Empty title="등록한 할 일이 없어요">
           새 일정 등록하기에서 수동 일정을 입력해 보세요.
         </Empty>
       )}

@@ -7,15 +7,14 @@ import { NewRegistrationLink } from "@/features/deadlines/new-registration-link"
 import { useResource } from "@/lib/api/use-resource";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { WorkspaceIcon } from "@/components/workspace-icon";
-import { tasksApi } from "@/features/tasks/api";
+import { DashboardSchedules } from "@/features/tasks/dashboard-schedules";
 
 const load = async () => {
-  const [deadlines, sources, tasks] = await Promise.all([
+  const [deadlines, sources] = await Promise.all([
     deadlinesApi.list(),
     sourcesApi.list(),
-    tasksApi.list(),
   ]);
-  return { deadlines, sources, tasks };
+  return { deadlines, sources };
 };
 
 export default function DashboardPage() {
@@ -69,8 +68,8 @@ export default function DashboardPage() {
               <Link className="card stat" href="/deadlines">
                 <div>
                   <strong>
-                    할 일 {data.tasks.length}
-                    {data.tasks.length === 50 ? "+" : ""}개
+                    등록한 일정 {data.deadlines.length}
+                    {data.deadlines.length === 50 ? "+" : ""}개
                   </strong>
                   <span className="small muted">마감일·할 일 보기 ↗</span>
                 </div>
@@ -102,6 +101,7 @@ export default function DashboardPage() {
           </>
         )
       )}
+      <DashboardSchedules />
     </div>
   );
 }
