@@ -25,9 +25,11 @@ test("existing manual registration appears immediately as a white-title colour b
   await mockApi(page, [], { deadlines: [deadline] });
   await login(page);
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page.getByLabel("일정명", { exact: true }).fill("팀 프로젝트 회의");
   await page.getByLabel("시작 일시", { exact: true }).fill("2026-11-06T09:00");
   await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
@@ -40,10 +42,12 @@ test("existing manual registration appears immediately as a white-title colour b
   await expect(page).toHaveURL(/\/tasks\/task-1$/);
   await page.goto("/calendar?date=2026-11-06");
   await page.getByRole("button", { name: "월간", exact: true }).click();
-  const cell = page.getByRole("button", {
-    name: "2026년 11월 6일 금요일",
-    exact: true,
-  });
+  const cell = page
+    .getByRole("button", {
+      name: "2026년 11월 6일 금요일",
+      exact: true,
+    })
+    .locator("..");
   await expect(cell.locator(".calendar-event-bar")).toHaveCount(2);
   await expect(cell.getByText("팀 프로젝트 회의", { exact: true })).toHaveCSS(
     "color",
@@ -73,7 +77,7 @@ test("existing manual registration appears immediately as a white-title colour b
     page.getByRole("link", { name: deadline.title, exact: true }),
   ).toHaveAttribute("href", "/deadlines/source-deadline");
   await expect(
-    page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+    page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
   ).toHaveCount(0);
   await page.reload();
   await page.getByRole("button", { name: "월간", exact: true }).click();
@@ -100,15 +104,15 @@ test("missing registration API is reported and not disguised as an empty calenda
   await page.goto("/calendar?date=2026-11-06");
   await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "등록한 마감일·할 일을 불러오지 못했습니다",
+    "등록한 마감일·할 일을 불러오지 못했어요",
   );
   await expect(
-    page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+    page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
   ).toHaveCount(0);
   await page.unroute("**/calendar/registrations?**");
   await page.getByRole("button", { name: "다시 시도", exact: true }).click();
   await expect(
-    page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+    page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
   ).toBeVisible();
 });
 
@@ -126,7 +130,7 @@ test("registration errors keep separate local placements visible", async ({
     "[테스트] 캘린더 회의",
   );
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "등록한 마감일·할 일을 불러오지 못했습니다",
+    "등록한 마감일·할 일을 불러오지 못했어요",
   );
 });
 
@@ -143,10 +147,12 @@ test("busy days cap bars, retain totals and preserve all registered entries in t
   await login(page);
   await page.goto("/calendar?date=2026-11-06");
   await page.getByRole("button", { name: "월간", exact: true }).click();
-  const cell = page.getByRole("button", {
-    name: "2026년 11월 6일 금요일",
-    exact: true,
-  });
+  const cell = page
+    .getByRole("button", {
+      name: "2026년 11월 6일 금요일",
+      exact: true,
+    })
+    .locator("..");
   await expect(cell).toContainText("22");
   await expect(cell.locator(".calendar-event-bar")).toHaveCount(3);
   await expect(cell.getByText("+19개 더 보기", { exact: true })).toBeVisible();

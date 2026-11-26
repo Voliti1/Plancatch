@@ -47,13 +47,13 @@ export function SourceFileInput({
       const pdf = PDF_NAME.test(file.name);
       if (!pdf && !IMAGE_NAME.test(file.name)) {
         setError(
-          "PDF·PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원합니다. HEIC·SVG는 지원하지 않습니다.",
+          "PDF·PNG·JPG·WebP·BMP·GIF·TIFF·AVIF를 지원해요. HEIC·SVG는 지원하지 않아요.",
         );
         return;
       }
       if (!file.size || file.size > 5 * 1024 * 1024) {
         setError(
-          pdf ? "PDF는 5MB 이하여야 합니다." : "이미지는 5MB 이하여야 합니다.",
+          pdf ? "PDF는 5MB 이하여야 해요." : "이미지는 5MB 이하여야 해요.",
         );
         return;
       }
@@ -164,15 +164,15 @@ export function SourceFileInput({
         }}
       />
       <p id="source-file-help" className="small muted source-file-help">
-        PDF와 PNG·JPG·WebP·BMP·GIF·TIFF·AVIF 이미지를 지원합니다. PDF의 텍스트를
-        먼저 읽고, 스캔 PDF와 이미지는 동의 후 Google Gemini로 읽습니다.
+        PDF와 PNG·JPG·WebP·BMP·GIF·TIFF·AVIF 이미지를 지원해요. PDF의 텍스트를
+        먼저 읽고, 스캔 PDF와 이미지는 동의 후 AI(구글 Gemini)로 읽어요.
       </p>
       <p role="status" className="small muted">
         {files.length
           ? PDF_NAME.test(files[0].name)
             ? "PDF 1개 선택됨"
             : "이미지 1장 선택됨"
-          : "선택한 파일이 없습니다."}
+          : "선택한 파일이 없어요."}
       </p>
       {error && (
         <p className="source-file-error" role="alert">

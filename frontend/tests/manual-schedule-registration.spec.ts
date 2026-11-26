@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 
@@ -34,7 +35,7 @@ test("a late manual save cannot navigate away from a fresh registration", async 
   try {
     page.once("dialog", (dialog) => dialog.accept());
     await page
-      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
       .click();
     await page.getByLabel("일정 제목 (선택)").fill("[테스트] 유지할 새 입력");
     const fresh = page.url();
@@ -71,18 +72,22 @@ test("manual registration replaces the sidebar task entry and saves through the 
       .getByRole("link", { name: "작업", exact: true }),
   ).toHaveCount(0);
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(page.getByLabel("일정명", { exact: true })).toBeEnabled();
   await page
     .getByRole("link", { name: "등록한 일정 보기 →", exact: true })
     .click();
   await expect(page).toHaveURL(/\/deadlines$/);
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 직접 등록한 발표 준비");
@@ -136,51 +141,55 @@ test("registration modes preserve both drafts and new registration clears them",
   await page
     .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
     .click();
+  await (await sourceInput(page, "text")).fill("[테스트] 자료 입력 초안");
+  await (
+    await sourceInput(page, "file")
+  ).setInputFiles({
+    name: "[테스트] 자료.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(
+      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+      "base64",
+    ),
+  });
   await page
-    .getByLabel("원본 텍스트", { exact: true })
-    .fill("[테스트] 자료 입력 초안");
-  await page
-    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
-    .setInputFiles({
-      name: "[테스트] 자료.png",
-      mimeType: "image/png",
-      buffer: Buffer.from(
-        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
-        "base64",
-      ),
-    });
-  await page
-    .getByRole("tab", { name: "자료로 등록", exact: true })
+    .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
     .press("End");
   await expect(
-    page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
+    page.getByRole("tab", { name: "직접 일정 만들기", exact: true }),
   ).toBeFocused();
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 수동 입력 초안");
   await page
-    .getByRole("tab", { name: "수동 일정 등록", exact: true })
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
     .press("Home");
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "text")).toHaveValue(
     "[테스트] 자료 입력 초안",
   );
+  await sourceInput(page, "file");
   await expect(
     page.getByRole("list", { name: "선택한 파일" }).getByRole("listitem"),
   ).toHaveCount(1);
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue(
     "[테스트] 수동 입력 초안",
   );
   page.once("dialog", (dialog) => dialog.accept());
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   await expect(
-    page.getByRole("tab", { name: "자료로 등록", exact: true }),
+    page.getByRole("tab", { name: "자료에서 자동 찾기", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue("");
+  await expect(await sourceInput(page, "text")).toHaveValue("");
+  await sourceInput(page, "file");
   await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(0);
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("");
 });
 
@@ -209,10 +218,10 @@ test("manual save errors keep the draft and lock mode changes until the request 
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   try {
     await expect(
-      page.getByRole("tab", { name: "자료로 등록", exact: true }),
+      page.getByRole("tab", { name: "자료에서 자동 찾기", exact: true }),
     ).toBeDisabled();
     await expect(
-      page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
+      page.getByRole("tab", { name: "직접 일정 만들기", exact: true }),
     ).toBeDisabled();
     await expect(page.getByRole("button", { name: "저장 중…" })).toBeDisabled();
     expect(attempts).toBe(1);
@@ -226,7 +235,7 @@ test("manual save errors keep the draft and lock mode changes until the request 
     "[테스트] 재시도 일정",
   );
   await expect(
-    page.getByRole("tab", { name: "자료로 등록", exact: true }),
+    page.getByRole("tab", { name: "자료에서 자동 찾기", exact: true }),
   ).toBeEnabled();
   await page.unroute("**/test-api/api/tasks");
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
@@ -301,9 +310,9 @@ test("collapsed settings and memo keep their values across mode changes and save
   await expect(page.getByLabel("연결할 마감일", { exact: true })).toHaveValue(
     "deadline-1",
   );
-  await expect(page.getByLabel("작업 유형", { exact: true })).toHaveValue(
-    "fixed",
-  );
+  await expect(
+    page.getByRole("button", { name: "직접 시간 지정", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page.getByLabel("예상 소요시간 (분, 선택)").fill("0");
   await page.getByText("상세 설정", { exact: true }).click();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
@@ -313,17 +322,31 @@ test("collapsed settings and memo keep their values across mode changes and save
   await page.getByText("상세 설정", { exact: true }).click();
   await page.getByLabel("예상 소요시간 (분, 선택)").fill("90");
   await page.getByLabel("우선순위", { exact: true }).selectOption("2");
-  await page.getByLabel("작업 유형", { exact: true }).selectOption("flexible");
+  await page
+    .getByRole("button", { name: "시간 미정으로 등록", exact: true })
+    .click();
+  await page
+    .getByLabel("가능 시작 일시 (선택)", { exact: true })
+    .fill("2026-12-31T23:30");
+  await page
+    .getByLabel("가능 종료 일시 (선택)", { exact: true })
+    .fill("2027-01-01T01:00");
   await page.getByLabel("완료한 작업으로 표시").check();
   await page.getByText("상세 설정", { exact: true }).click();
-  await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
+    .click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(page.getByLabel("메모 (선택)", { exact: true })).toHaveValue(
     "  [테스트] 회의실 A  ",
   );
-  await expect(page.getByLabel("시작 일시", { exact: true })).toHaveValue(
-    "2026-12-31T23:30",
-  );
+  await expect(page.getByLabel("시작 일시", { exact: true })).toBeHidden();
+  await page.getByText("상세 설정", { exact: true }).click();
+  await expect(
+    page.getByLabel("가능 시작 일시 (선택)", { exact: true }),
+  ).toHaveValue("2026-12-31T23:30");
   const sent = page.waitForRequest(
     (request) =>
       request.method() === "POST" && request.url().endsWith("/api/tasks"),

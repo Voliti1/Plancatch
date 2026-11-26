@@ -9,6 +9,7 @@ import { useResource } from "@/lib/api/use-resource";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { DashboardSchedules } from "@/features/tasks/dashboard-schedules";
+
 const load = async () => {
   const [deadlines, sources] = await Promise.all([
     deadlinesApi.list(),
@@ -16,33 +17,49 @@ const load = async () => {
   ]);
   return { deadlines, sources };
 };
+
 export default function DashboardPage() {
   const { user } = useAuth();
   const { data, loading, error, reload } = useResource(load);
   return (
     <>
       <PageHeading
-        eyebrow="YOUR PLANNING SPACE"
+        eyebrow="나의 일정"
         title={`${user?.display_name || "사용자"}님, 오늘도 차근차근.`}
-        description="흩어진 자료는 모으고, 중요한 마감은 놓치지 마세요."
+        description="공고나 안내문을 올리면 마감일을 찾아 주고, 캘린더에 실행 시간까지 정리해 드려요."
       />
       <section className="hero">
         <div>
-          <span className="eyebrow">MAKE ROOM FOR WHAT MATTERS</span>
+          <span className="eyebrow">3단계로 시작하기</span>
           <h2>
             머릿속 할 일 대신,
             <br />
             눈앞의 계획으로.
           </h2>
-          <p>링크 하나, 메모 한 줄부터 시작해 보세요.</p>
-          <NewRegistrationLink className="button">
-            새 일정 등록하기 ↗
-          </NewRegistrationLink>
+          <ol className="dashboard-flow" aria-label="플랜캐치 이용 순서">
+            <li>
+              <span>1</span>공고·안내문 올리기
+            </li>
+            <li>
+              <span>2</span>마감일 확인 후 등록
+            </li>
+            <li>
+              <span>3</span>캘린더에 시간 잡기
+            </li>
+          </ol>
+          <div className="hero-actions">
+            <NewRegistrationLink className="button">
+              새 일정 등록하기 ↗
+            </NewRegistrationLink>
+            <Link className="button secondary" href="/calendar">
+              캘린더 보기
+            </Link>
+          </div>
         </div>
         <div className="hero-art" aria-hidden>
           <div className="paper paper-back" />
           <div className="paper">
-            <span className="paper-label">MY PLAN</span>
+            <span className="paper-label">내 계획</span>
             <div className="paper-check">
               ✓ <span />
             </div>
@@ -66,13 +83,13 @@ export default function DashboardPage() {
           <>
             <div className="stats dashboard-stats">
               <Link className="card stat" href="/sources">
-                <span>모아 둔 자료</span>
+                <span>보관한 자료</span>
                 <strong>
                   {data.sources.length}
                   {data.sources.length === 50 ? "+" : ""}
                   <small>개</small>
                 </strong>
-                <span className="small muted">원본 자료 확인 ↗</span>
+                <span className="small muted">자료함 보기 ↗</span>
               </Link>
               <Link className="card stat" href="/deadlines">
                 <span>등록한 마감일</span>
@@ -81,26 +98,33 @@ export default function DashboardPage() {
                   {data.deadlines.length === 50 ? "+" : ""}
                   <small>개</small>
                 </strong>
-                <span className="small muted">마감일 관리 ↗</span>
+                <span className="small muted">마감일·할 일 보기 ↗</span>
               </Link>
             </div>
             <section className="card">
               <div className="section-header">
-                <h2>마감일 한눈에 보기</h2>
+                <div>
+                  <h2>다가오는 마감일</h2>
+                  <p className="small muted dashboard-caption">
+                    최근 등록한 50건 기준 요약입니다.
+                  </p>
+                </div>
                 <Link href="/deadlines">전체 보기 →</Link>
               </div>
               {data.deadlines.length ? (
                 <DeadlineRows deadlines={data.deadlines.slice(0, 5)} />
               ) : (
-                <Empty title="첫 마감일을 기다리고 있어요">
-                  마감일 메뉴에서 중요한 일정을 직접 등록해 보세요.
+                <Empty title="아직 등록된 마감일이 없어요">
+                  <p>
+                    공고 링크나 파일을 올리거나 직접 날짜를 입력해 첫 마감일을
+                    등록해 보세요.
+                  </p>
+                  <NewRegistrationLink className="button secondary">
+                    첫 일정 등록하기
+                  </NewRegistrationLink>
                 </Empty>
               )}
             </section>
-            <p className="small muted">
-              요약은 각 목록의 첫 50건 기준입니다. 전체 자료는 목록에서
-              확인하세요.
-            </p>
           </>
         )
       )}

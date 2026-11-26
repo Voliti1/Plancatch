@@ -1,7 +1,7 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import { useSyncExternalStore } from "react";
 import type { SourcePeriod } from "@/types/analysis";
-import { formatSeoul } from "@/lib/date/seoul";
 
 let current: number | null = null;
 let interval: ReturnType<typeof setInterval> | undefined;
@@ -59,7 +59,7 @@ export function RemainingPeriod({
     <p className="remaining-period">
       {editing ? "수정 중인 마감일까지 남은 기간" : "마감일까지 남은 기간"}
       <strong>{remainingPeriod(dueAt, now)}</strong>
-      {editing && <span className="small muted">저장 전 입력 기준입니다.</span>}
+      {editing && <span className="small muted">저장 전 입력 기준이에요.</span>}
     </p>
   );
 }
@@ -71,6 +71,7 @@ export function SourcePeriodSummary({
   period: SourcePeriod;
   now: number | null;
 }) {
+  const { formatLocal, zoneLabel } = useScheduleTime();
   const siteNames: Record<NonNullable<SourcePeriod["site"]>, string> = {
     saramin: "사람인",
     jobkorea: "잡코리아",
@@ -86,9 +87,9 @@ export function SourcePeriodSummary({
     <section className="notice source-period" aria-label={title}>
       <h2>{title}</h2>
       <dl>
-        <dt>시작일 (원문)</dt>
+        <dt>시작일 (자료 내용)</dt>
         <dd>{period.start_text || "표시 없음"}</dd>
-        <dt>마감일 (원문)</dt>
+        <dt>마감일 (자료 내용)</dt>
         <dd>{period.end_text || "확인 필요"}</dd>
         {(period.time_defaulted ||
           period.site === "jasoseol" ||
@@ -96,8 +97,8 @@ export function SourcePeriodSummary({
           period.site === "work24") &&
           period.deadline_at && (
             <>
-              <dt>마감일 (한국 시간)</dt>
-              <dd>{formatSeoul(period.deadline_at)}</dd>
+              <dt>마감일 ({zoneLabel})</dt>
+              <dd>{formatLocal(period.deadline_at)}</dd>
             </>
           )}
         <dt>현재 남은 기간</dt>
@@ -105,24 +106,24 @@ export function SourcePeriodSummary({
       </dl>
       {period.time_defaulted && (
         <p className="small muted">
-          마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면 변경해
-          주세요.
+          마감 시간이 없어 오후 11시 59분으로 제안했어요(한국 시간 기준).
+          필요하면 변경해 주세요.
         </p>
       )}
       {period.site === "work24" &&
         period.deadline_at &&
         /\b24:00\b/.test(period.end_text ?? "") && (
           <p className="small muted">
-            원문의 24:00은 다음 날 00:00입니다. 등록 시각은 한국 시간으로
-            표시합니다.
+            자료 내용의 24:00은 다음 날 00:00이에요. 등록 시각은 선택한 시간대로
+            표시해요.
           </p>
         )}
       <p className="small muted">
-        현재 남은 기간은 원문 마감일과 이 기기의 현재 시각으로 계산합니다. 기업
-        사정에 따라 마감일이 변경될 수 있습니다.
+        현재 남은 기간은 자료 내용 마감일과 이 기기의 현재 시각으로 계산해요.
+        기업 사정에 따라 마감일이 변경될 수 있어요.
       </p>
       {period.has_conflict && (
-        <p>접수기간에 충돌이 있습니다. 원문 마감일을 직접 확인해 주세요.</p>
+        <p>접수기간에 충돌이 있어요. 자료 내용 마감일을 직접 확인해 주세요.</p>
       )}
     </section>
   );

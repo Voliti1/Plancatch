@@ -25,17 +25,20 @@ export function ManagedExports() {
   const data = useResource(loader);
   return (
     <>
-      <section className="card form-card" aria-label="Google에 보낸 일정 관리">
-        <h2>Google에 보낸 일정</h2>
+      <section
+        className="card form-card"
+        aria-label="구글 캘린더에 보낸 일정 관리"
+      >
+        <h2>구글 캘린더에 보낸 일정</h2>
         <p className="small muted">
-          플랜캐치에서 보낸 일정만 관리합니다. 로컬 자료를 이미 지웠더라도 전송
-          기록을 선택해 Google 삭제 상태를 확인할 수 있습니다.
+          플랜캐치에서 보낸 일정만 관리해요. 로컬 자료를 이미 지웠더라도 전송
+          기록을 선택해 Google 삭제 상태를 확인할 수 있어요.
         </p>
         {data.loading && <Loading />}
         {data.error && <ErrorNotice message={data.error} retry={data.reload} />}
         {data.data && (
           <>
-            {data.data.entries.length === 0 && <p>보낸 일정이 없습니다.</p>}
+            {data.data.entries.length === 0 && <p>보낸 일정이 없어요.</p>}
             <div className="managed-google-exports">
               {data.data.entries.map((entry) => (
                 <button

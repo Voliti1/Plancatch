@@ -3,6 +3,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./provider";
+import { TimeZoneControl } from "@/features/settings/time-zone";
+import { ThemeToggle } from "@/features/settings/theme";
+import { GoogleLoginButton } from "./google-login";
 import { authApi } from "./api";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
@@ -19,7 +22,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
   const [confirmation, setConfirmation] = useState("");
   const [name, setName] = useState("");
   useEffect(() => {
-    if (user) router.replace("/dashboard");
+    if (user && !user.password_change_required) router.replace("/dashboard");
   }, [user, router]);
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -28,7 +31,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
     try {
       if (signup) {
         if (password !== confirmation)
-          throw new Error("비밀번호가 일치하지 않습니다.");
+          throw new Error("비밀번호가 일치하지 않아요.");
         await authApi.signup({
           email: email.trim(),
           password,
@@ -37,7 +40,6 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
         setRegistered(true);
       } else {
         await login(email.trim(), password);
-        router.replace("/dashboard");
       }
     } catch (err) {
       setError(errorMessage(err));
@@ -49,7 +51,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
     <main className="auth-page">
       <section className="auth-story">
         <Link className="brand" href="/login">
-          <span className="logo">P</span>PlanCatch.
+          <span className="logo">P</span>플랜캐치.
         </Link>
         <div>
           <span className="eyebrow">LESS CHAOS, MORE CLARITY</span>
@@ -77,17 +79,21 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
         <small>계획을 모으고, 마감을 지키다.</small>
       </section>
       <section className="auth-panel">
+        <div className="auth-time-zone">
+          <TimeZoneControl />
+          <ThemeToggle />
+        </div>
         <div className="auth-card">
           <span className="eyebrow">LET’S GET STARTED</span>
           <h1>{signup ? "회원가입" : "다시 만나 반가워요"}</h1>
           <p className="muted">
             {signup
-              ? "PlanCatch와 함께 계획을 시작하세요."
+              ? "플랜캐치와 함께 계획을 시작하세요."
               : "로그인하고 오늘의 계획을 이어가세요."}
           </p>
           {registered ? (
             <div className="notice" role="status">
-              <h2>가입이 완료되었습니다.</h2>
+              <h2>가입이 완료됐어요.</h2>
               <p>등록한 이메일로 로그인해 주세요.</p>
               <Link className="button" href="/login">
                 로그인으로 이동
@@ -160,6 +166,12 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
                 </button>
               </fieldset>
             </form>
+          )}
+          {!registered && <GoogleLoginButton blocked={busy || !hydrated} />}
+          {!signup && (
+            <p className="auth-switch">
+              <Link href="/password-recovery">비밀번호 찾기</Link>
+            </p>
           )}
           <p className="auth-switch">
             {signup ? "이미 계정이 있으신가요?" : "아직 계정이 없으신가요?"}{" "}

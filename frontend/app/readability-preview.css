@@ -116,6 +116,11 @@ html.readability-preview
     :where(
       .calendar-day,
       .time-day-heading,
+      .time-event,
+      .time-all-day-event,
+      .calendar-icon,
+      .calendar-color-option,
+      .calendar-color-default,
       .account-icon,
       .source-dialog-close,
       .natural-examples button

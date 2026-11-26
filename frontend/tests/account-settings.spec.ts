@@ -167,14 +167,14 @@ test("password validation, translated failure, retry, session renewal and pendin
     .getByLabel("새 비밀번호 확인", { exact: true })
     .fill("different-password");
   await submit.click();
-  await expect(dialog.getByRole("alert")).toContainText("일치하지 않습니다");
+  await expect(dialog.getByRole("alert")).toContainText("일치하지 않아요");
   expect(requests).toBe(0);
   await dialog
     .getByLabel("새 비밀번호 확인", { exact: true })
     .fill("new-password-456");
   await submit.click();
   await expect(dialog.getByRole("alert")).toContainText(
-    "현재 비밀번호가 맞지 않습니다",
+    "현재 비밀번호가 맞지 않아요",
   );
   await submit.click();
   await expect(dialog.getByRole("button", { name: "변경 중…" })).toBeDisabled();
@@ -186,9 +186,7 @@ test("password validation, translated failure, retry, session renewal and pendin
   await expect(dialog).toBeVisible();
   await expect.poll(() => !!release).toBe(true);
   release!();
-  await expect(dialog.getByRole("status")).toHaveText(
-    "비밀번호를 변경했습니다.",
-  );
+  await expect(dialog.getByRole("status")).toHaveText("비밀번호를 변경했어요.");
   await expect(dialog.getByLabel("새 비밀번호", { exact: true })).toHaveValue(
     "",
   );

@@ -16,7 +16,7 @@ test("direct repeat registration, series editing and removal of recurrence", asy
   await page.getByLabel("반복 종료", { exact: true }).selectOption("count");
   await page.getByLabel("반복 횟수 (첫 일정 포함)", { exact: true }).fill("5");
   await expect(
-    page.getByText("이번 일정만 수정·삭제할 수 있습니다.", {
+    page.getByText("이번 일정만 수정·삭제할 수 있어요.", {
       exact: false,
     }),
   ).toBeVisible();
@@ -34,7 +34,7 @@ test("direct repeat registration, series editing and removal of recurrence", asy
   ).toBeVisible();
   await expect(
     page.getByText(
-      "이 반복 일정 전체와 Google에 연결된 반복 일정이 삭제됩니다.",
+      "이 반복 일정 전체와 구글 캘린더에 연결된 반복 일정이 삭제돼요.",
       { exact: false },
     ),
   ).toBeVisible();
@@ -155,7 +155,7 @@ test("weekly timetable shows each occurrence of the same series", async ({
   await expect(
     page
       .getByRole("region", { name: "주간 시간표" })
-      .getByRole("link", { name: /매일 회의/ }),
+      .getByRole("button", { name: /매일 회의/ }),
   ).toHaveCount(3);
   expect(errors.filter((error) => /same key|unique.*key/i.test(error))).toEqual(
     [],

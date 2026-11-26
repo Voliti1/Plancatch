@@ -42,8 +42,8 @@ export function PdfScanConsentPanel({ analysis }: { analysis: Analysis }) {
     <section className="card form-card" aria-label="스캔 PDF 전송 동의">
       <h2>스캔 PDF 읽기</h2>
       <p>
-        이 PDF에서 필요한 글자를 직접 읽기 어려웠습니다. 동의하면 원본 PDF를
-        Google Gemini에 보내 글자를 읽습니다.
+        이 PDF에서 글자를 직접 읽지 못했어요. 동의하면 원본 PDF를 AI(구글
+        Gemini)에 보내 글자를 읽어요.
       </p>
       <label className="checkbox">
         <input
@@ -55,8 +55,7 @@ export function PdfScanConsentPanel({ analysis }: { analysis: Analysis }) {
         앞으로 스캔 PDF에도 적용
       </label>
       <p className="small muted">
-        선택하면 이 브라우저에서 현재 계정에만 적용됩니다. 설정에서 끌 수
-        있습니다.
+        선택하면 이 브라우저에서 현재 계정에만 적용돼요. 설정에서 끌 수 있어요.
       </p>
       <button
         type="button"

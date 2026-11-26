@@ -54,13 +54,14 @@ def test_preview_preserves_outside_period_original_then_atomic_replacement_and_r
     assert approve(auth, plan).status_code == 200
     saved = events(auth)
     assert len(saved) == 4 and old["id"] not in {e["id"] for e in saved}
-    assert (
-        client.get("/api/tasks/" + item["id"], headers=auth).json()["estimated_minutes"]
-        == 120
-    )
+    task_url = "/api/tasks/" + item["id"]
+    detail = client.get(task_url, headers=auth).json()
+    assert detail["estimated_minutes"] == 120
+    assert {block["id"] for block in detail["placement_blocks"]} == {event["id"] for event in saved}
     assert approve(auth, plan).status_code == 200 and events(auth) == saved
     client.delete("/api/scheduled-events/" + saved[0]["id"], headers=auth)
     assert approve(auth, plan).status_code == 200 and len(events(auth)) == 3
+    assert client.get(task_url, headers=auth).json()["placement"]["block_count"] == 3
 
 
 def test_original_approval_receipt_never_restores_superseded_blocks():

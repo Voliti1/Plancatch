@@ -5,15 +5,15 @@ export const isExtractedPdf = (model: string | undefined) =>
   model === "pdf:local-v1" || model?.startsWith("pdf:ocr:");
 export function warningLabel(value: string): string {
   if (/\bdue_at\b|\bnull\b/i.test(value))
-    return "마감 날짜와 시간을 확인해 주세요. 시간이 없으면 오후 11시 59분으로 설정됩니다.";
+    return "마감 날짜와 시간을 확인해 주세요. 시간이 없으면 오후 11시 59분으로 설정돼요.";
   return value;
 }
 export function analysisStatusLabel(
   status: AnalysisStatus,
   model?: string,
 ): string {
-  if (isHtmlAnalysis(model) && status === "processing") return "HTML 확인 중";
-  if (isHtmlAnalysis(model) && status === "failed") return "HTML 확인 실패";
+  if (isHtmlAnalysis(model) && status === "processing") return "페이지 확인 중";
+  if (isHtmlAnalysis(model) && status === "failed") return "페이지 확인 실패";
   return (
     {
       processing: "AI 분석 중",

@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi, user } from "./fixtures";
 import type { Source, Deadline } from "../types/api";
@@ -136,12 +137,17 @@ async function automaticApi(
 async function openAutomaticRegistration(page: Page, fromSidebar = false) {
   await page
     .getByRole("link", {
-      name: fromSidebar ? "새 일정 등록하기" : "새 일정 등록하기 ↗",
+      name: fromSidebar ? "+ 새 일정 등록하기" : "새 일정 등록하기 ↗",
       exact: true,
     })
     .click();
+  await sourceInput(page, "url");
+  page.once("dialog", (dialog) => dialog.accept());
   await page
-    .getByRole("link", { name: "URL 자동 등록 화면 열기 →", exact: true })
+    .getByRole("link", {
+      name: "링크에서 바로 마감일 찾기 화면 열기 →",
+      exact: true,
+    })
     .click();
 }
 
@@ -154,9 +160,7 @@ async function fill(page: Page) {
   await page
     .getByLabel("일정 제목", { exact: true })
     .fill("[테스트] 사용자 지정 일정");
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/notice");
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
 }
 
 const storageKey = `plancatch.auto-deadline.${user.id}`;
@@ -178,13 +182,11 @@ test("new registration starts editable even with a saved interrupted registratio
   );
   await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+  await expect(await sourceInput(page, "url")).toHaveValue("");
   await page
     .getByLabel("일정 제목", { exact: true })
     .fill("[테스트] 새로운 일정");
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/new");
+  await (await sourceInput(page, "url")).fill("https://example.com/new");
   expect(
     await page.evaluate(
       (key) => JSON.parse(sessionStorage.getItem(key)!),
@@ -197,11 +199,9 @@ test("new registration starts editable even with a saved interrupted registratio
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue(
     previous.title,
   );
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
-    previous.url,
-  );
+  await expect(await sourceInput(page, "url")).toHaveValue(previous.url);
   await expect(page.getByLabel("일정 제목", { exact: true })).toBeEditable();
-  await expect(page.getByLabel("원본 URL", { exact: true })).toBeEditable();
+  await expect(await sourceInput(page, "url")).toBeEditable();
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page
     .getByRole("button", { name: "다른 일정 입력", exact: true })
@@ -226,7 +226,7 @@ test("reopening new registration resets preserved route fields and review state"
   await openAutomaticRegistration(page);
   await expect(page).not.toHaveURL(firstUrl);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+  await expect(await sourceInput(page, "url")).toHaveValue("");
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await expect(
     page.getByRole("link", { name: "마감일 검토하기 →" }),
@@ -234,9 +234,7 @@ test("reopening new registration resets preserved route fields and review state"
   await page
     .getByLabel("일정 제목", { exact: true })
     .fill("[테스트] 두 번째 일정");
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/second");
+  await (await sourceInput(page, "url")).fill("https://example.com/second");
   expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
 });
 
@@ -250,12 +248,12 @@ test("new registration does not retain unsubmitted inputs after dashboard naviga
   await page.getByRole("link", { name: "← 대시보드" }).click();
   await openAutomaticRegistration(page);
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue("");
+  await expect(await sourceInput(page, "url")).toHaveValue("");
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   await page.getByLabel("일정 제목", { exact: true }).fill("[테스트] 새 입력");
 });
 
-for (const field of ["일정 제목", "원본 URL"]) {
+for (const field of ["일정 제목", "웹페이지 링크"]) {
   test(`resumed ${field} stays focused without reopening the resume prompt on first edit`, async ({
     page,
   }) => {
@@ -303,7 +301,7 @@ for (const field of ["일정 제목", "원본 URL"]) {
       page.getByRole("region", { name: "이전 등록 재개" }),
     ).toHaveCount(0);
     await expect(
-      page.getByLabel(field === "일정 제목" ? "원본 URL" : "일정 제목", {
+      page.getByLabel(field === "일정 제목" ? "웹페이지 링크" : "일정 제목", {
         exact: true,
       }),
     ).toHaveValue(field === "일정 제목" ? previous.url : previous.title);
@@ -320,9 +318,7 @@ for (const field of ["일정 제목", "원본 URL"]) {
     await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue(
       previous.title,
     );
-    await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
-      previous.url,
-    );
+    await expect(await sourceInput(page, "url")).toHaveValue(previous.url);
   });
 }
 
@@ -350,10 +346,10 @@ for (const changed of ["title", "url"] as const) {
       .getByRole("button", { name: "이전 등록 이어서", exact: true })
       .click();
     await expect(page.getByLabel("일정 제목", { exact: true })).toBeEditable();
-    await expect(page.getByLabel("원본 URL", { exact: true })).toBeEditable();
+    await expect(await sourceInput(page, "url")).toBeEditable();
     await page.getByRole("checkbox").check();
     await page
-      .getByLabel(changed === "title" ? "일정 제목" : "원본 URL", {
+      .getByLabel(changed === "title" ? "일정 제목" : "웹페이지 링크", {
         exact: true,
       })
       .fill(
@@ -366,7 +362,7 @@ for (const changed of ["title", "url"] as const) {
       page.getByRole("button", { name: "일정 등록", exact: true }),
     ).toBeDisabled();
     await expect(
-      page.getByRole("link", { name: "저장된 원본 자료 확인 →" }),
+      page.getByRole("link", { name: "저장된 자료 확인 →" }),
     ).toHaveCount(0);
     expect(
       await page.evaluate(
@@ -394,9 +390,7 @@ test("editing after a review result clears the old result and requires fresh con
   await expect(
     page.getByRole("link", { name: "마감일 검토하기 →" }),
   ).toBeVisible();
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/revised");
+  await (await sourceInput(page, "url")).fill("https://example.com/revised");
   await expect(
     page.getByRole("link", { name: "마감일 검토하기 →" }),
   ).toHaveCount(0);
@@ -406,7 +400,7 @@ test("editing after a review result clears the old result and requires fresh con
   ).toBeDisabled();
   await expect(
     page.getByText(
-      "입력을 변경하여 새 등록으로 진행합니다. 이전 자료와 분석은 그대로 유지됩니다.",
+      "입력을 변경하여 새 등록으로 진행해요. 이전 자료와 분석은 그대로 유지돼요.",
     ),
   ).toBeVisible();
   await expect(
@@ -416,7 +410,7 @@ test("editing after a review result clears the old result and requires fresh con
   await page
     .getByRole("button", { name: "이전 등록 이어서", exact: true })
     .click();
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "url")).toHaveValue(
     "https://example.com/notice",
   );
   expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
@@ -428,14 +422,14 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
   await mockApi(page);
   await login(page);
   const button = page.getByRole("link", {
-    name: "새 일정 등록하기",
+    name: "+ 새 일정 등록하기",
     exact: true,
   });
   await expect(button).toBeVisible();
   const styles = await page.locator(".sidebar").evaluate((sidebar) => {
     const button = sidebar.querySelector(".sidebar-new-registration")!;
     const menu = sidebar.querySelector("nav a")!;
-    const caption = sidebar.querySelector(".nav-caption")!;
+    const caption = sidebar.querySelector(".nav-group-label")!;
     const buttonStyle = getComputedStyle(button),
       menuStyle = getComputedStyle(menu);
     const typography = (style: CSSStyleDeclaration) => [
@@ -465,7 +459,7 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
   expect(styles.white).toBe("rgb(255, 255, 255)");
   expect(styles.above).toBe(true);
   expect(styles.overflow).toBe(false);
-  for (const menu of ["원본 자료", "일정"]) {
+  for (const menu of ["자료함", "마감일·할 일"]) {
     await page.getByRole("link", { name: menu, exact: true }).click();
     await button.click();
     await expect(
@@ -473,16 +467,16 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
     ).toBeVisible();
     await expect(page.getByLabel("일정 제목 (선택)")).toHaveValue("");
     await page.getByLabel("일정 제목 (선택)").fill("[테스트] 이전 화면 입력");
-    await page
-      .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
-      .setInputFiles({
-        name: "[테스트] 이전화면.png",
-        mimeType: "image/png",
-        buffer: Buffer.from(
-          "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
-          "base64",
-        ),
-      });
+    await (
+      await sourceInput(page, "file")
+    ).setInputFiles({
+      name: "[테스트] 이전화면.png",
+      mimeType: "image/png",
+      buffer: Buffer.from(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+j3ioAAAAASUVORK5CYII=",
+        "base64",
+      ),
+    });
     const before = page.url();
     page.once("dialog", (dialog) => dialog.accept());
     await button.click();
@@ -491,7 +485,7 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
     await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(
       0,
     );
-    await expect(page.getByLabel("원본 URL", { exact: true })).toBeEditable();
+    await expect(await sourceInput(page, "url")).toBeEditable();
   }
 });
 
@@ -521,9 +515,7 @@ test("malformed resume storage and another user's draft cannot lock a new form",
   await page
     .getByLabel("일정 제목", { exact: true })
     .fill("[테스트] 직접 접속");
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/direct");
+  await (await sourceInput(page, "url")).fill("https://example.com/direct");
   await page.reload();
   await expect(page.getByLabel("일정 제목", { exact: true })).toHaveValue("");
 });
@@ -549,9 +541,7 @@ test("new input creates its own source rather than resuming a saved source", asy
   await page
     .getByLabel("일정 제목", { exact: true })
     .fill("[테스트] 사용자 지정 일정");
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/new");
+  await (await sourceInput(page, "url")).fill("https://example.com/new");
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await expect(
@@ -564,9 +554,7 @@ test("new input creates its own source rather than resuming a saved source", asy
   await expect(
     page.getByRole("button", { name: "이전 등록 이어서", exact: true }),
   ).toHaveCount(1);
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/next");
+  await (await sourceInput(page, "url")).fill("https://example.com/next");
 });
 
 test("URL pipeline always stops for explicit review even with one complete date", async ({
@@ -585,16 +573,16 @@ test("URL pipeline always stops for explicit review even with one complete date"
   ).toBeVisible();
   expect(counts.register).toBe(0);
   await page.getByRole("link", { name: "마감일 검토하기 →" }).click();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "[테스트] 사용자 지정 일정",
-  );
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("[테스트] 사용자 지정 일정");
+  await expect(
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-10-15T18:00");
   await page.reload();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "[테스트] 사용자 지정 일정",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("[테스트] 사용자 지정 일정");
   expect(counts).toEqual({ create: 1, extract: 1, analyze: 1, register: 0 });
 });
 
@@ -638,7 +626,7 @@ test("lost success response and refresh resume do not duplicate source, AI or de
   await page.getByRole("checkbox").check();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "서버에 연결하지 못했습니다" }),
+    page.getByRole("alert").filter({ hasText: "연결하지 못했어요" }),
   ).toBeVisible();
   expect(counts.register).toBe(0);
   await page.reload();
@@ -663,16 +651,16 @@ test("source library uses the shared sidebar registration entry for URL and text
 }) => {
   await mockApi(page);
   await login(page);
-  await page.getByRole("link", { name: "원본 자료", exact: true }).click();
+  await page.getByRole("link", { name: "자료함", exact: true }).click();
   await expect(page.getByRole("link", { name: "＋ 자료 등록" })).toHaveCount(0);
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "자료 저장", exact: true }),
+    page.getByRole("button", { name: "저장하고 마감일 확인하기", exact: true }),
   ).toBeVisible();
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toBeVisible();
+  await expect(await sourceInput(page, "text")).toBeVisible();
 });

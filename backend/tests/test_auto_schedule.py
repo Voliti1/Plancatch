@@ -112,6 +112,22 @@ def test_preview_respects_safety_and_busy_times_then_approves_once_and_never_rec
     assert result.status_code == 200, result.text
     saved = result.json()
     assert saved["approved_at"] and len(saved["approved_event_ids"]) == 2
+    task_url = "/api/tasks/" + item["id"]
+    detail = client.get(task_url, headers=auth).json()
+    assert detail["earliest_start"] is None and detail["latest_end"] is None
+    assert detail["placement"]["block_count"] == 2
+    assert [block["id"] for block in detail["placement_blocks"]] == saved["approved_event_ids"]
+    assert detail["placement"]["start_at"] == detail["placement_blocks"][0]["start_at"]
+    assert detail["placement"]["end_at"] == detail["placement_blocks"][-1]["end_at"]
+    # The placed task sorts on its real time, ahead of its linked deadline.
+    overview = client.get("/api/schedules?offset=1&limit=1", headers=auth).json()
+    assert overview["entries"][0]["item"]["id"] == item["id"]
+    assert overview["entries"][0]["item"]["placement"] == detail["placement"]
+    dashboard = client.get("/api/tasks", headers=auth).json()
+    assert next(row for row in dashboard if row["id"] == item["id"])["placement"] == detail["placement"]
+    other = owner()
+    assert client.get(task_url, headers=other).status_code == 404
+    assert not client.get("/api/schedules", headers=other).json()["entries"]
     assert all(
         e["status"] == "approved" and e["is_user_approved"] for e in events(auth)
     )
@@ -127,6 +143,7 @@ def test_preview_respects_safety_and_busy_times_then_approves_once_and_never_rec
             == 204
         )
     assert approve(auth, plan).status_code == 200 and events(auth) == []
+    assert client.get(task_url, headers=auth).json()["placement"] is None
 
 
 def test_stale_tasks_deadlines_and_local_calendar_are_rechecked_before_any_write():
@@ -213,6 +230,27 @@ def test_owner_scope_candidates_and_expiry(monkeypatch):
     assert approve(other, plan).status_code == 404
     monkeypatch.setattr(service, "now", lambda: datetime(2026, 11, 16, tzinfo=UTC))
     assert approve(auth, plan).status_code == 409 and not events(auth)
+
+
+def test_candidate_ids_keep_ownership_and_do_not_label_start_as_deadline():
+    auth, other = owner(), owner()
+    item = task(auth, earliest_start="2026-11-16T09:00:00+09:00")
+    another = task(auth, latest_end="2026-11-16T17:00:00+09:00")
+    foreign = task(other)
+    response = client.get(
+        BASE + "/tasks",
+        params=[("ids", item["id"]), ("ids", foreign["id"])],
+        headers=auth,
+    )
+    assert response.status_code == 200
+    [entry] = response.json()["entries"]
+    assert entry["id"] == item["id"]
+    assert entry["sort_at"] and entry["completion_due_at"] is None
+    response = client.get(BASE + "/tasks", params={"ids": another["id"]}, headers=auth)
+    assert response.json()["entries"][0]["completion_due_at"] == "2026-11-16T08:00:00+00:00"
+    assert client.get(
+        BASE + "/tasks", params=[("ids", item["id"])] * 21, headers=auth
+    ).status_code == 422
 
 
 @pytest.mark.parametrize(

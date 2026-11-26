@@ -71,10 +71,12 @@ export async function mockApi(
       return route.fulfill({
         json: {
           state: "not_connected",
-          note: "Google 계정을 연결하면 이후 변경이 자동 반영됩니다.",
+          note: "구글 계정을 연결하면 이후 변경이 자동 반영돼요.",
           retryable: false,
         },
       });
+    if (path === "/api/auth/google/challenge")
+      return route.fulfill({ json: { client_id: null, nonce: null } });
     if (path === "/api/auth/signup") {
       const body = request.postDataJSON();
       expect(body.password.length).toBeGreaterThanOrEqual(8);
@@ -88,6 +90,8 @@ export async function mockApi(
           expires_in: 3600,
         },
       });
+    if (path === "/api/kakao/login/status")
+      return route.fulfill({ json: { configured: false } });
     expect(request.headers().authorization).toBe(
       "Bearer test-only-placeholder",
     );

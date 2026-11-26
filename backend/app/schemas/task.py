@@ -81,6 +81,18 @@ class TaskUpdate(TaskTimes):
         return self
 
 
+class TaskPlacementBlock(BaseModel):
+    id: uuid.UUID
+    start_at: datetime
+    end_at: datetime
+
+
+class TaskPlacement(BaseModel):
+    start_at: datetime
+    end_at: datetime
+    block_count: int
+
+
 class TaskResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -102,6 +114,11 @@ class TaskResponse(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime
+    placement: TaskPlacement | None = None
+
+
+class TaskDetailResponse(TaskResponse):
+    placement_blocks: list[TaskPlacementBlock] = Field(default_factory=list)
 
 
 class OccurrenceUpdate(TaskUpdate):

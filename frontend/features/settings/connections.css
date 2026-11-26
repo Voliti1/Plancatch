@@ -1,0 +1,8 @@
+.settings-calendar-connections {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.settings-calendar-connections > section[id] {
+  scroll-margin-top: 1rem;
+}

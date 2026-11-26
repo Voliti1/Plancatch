@@ -1,8 +1,8 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { api, ApiError, errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Recurrence } from "@/features/tasks/recurrence-settings";
 import "./overlap-warning.css";
 
@@ -121,6 +121,7 @@ export function OverlapWarning({
   check: ReturnType<typeof useOverlapCheck>;
   busy: boolean;
 }) {
+  const { formatLocal } = useScheduleTime();
   const heading = useRef<HTMLHeadingElement>(null);
   const id = useId();
   useEffect(() => {
@@ -133,31 +134,31 @@ export function OverlapWarning({
     <section className="overlap-warning" aria-labelledby={id}>
       <h3 id={id} ref={heading} tabIndex={-1}>
         {warning.error
-          ? "겹치는 일정을 확인하지 못했습니다"
+          ? "겹치는 일정을 확인하지 못했어요"
           : result?.conflicts.length
-            ? "시간이 겹치는 일정이 있습니다"
+            ? "시간이 겹치는 일정이 있어요"
             : googleIncomplete(result)
-              ? "구글 일정 확인이 필요합니다"
-              : "일부 일정만 확인했습니다"}
+              ? "구글 일정 확인이 필요해요"
+              : "일부 일정만 확인했어요"}
       </h3>
       {warning.error && (
         <p role="status">
-          {warning.error} 다시 저장을 누르면 재확인합니다. 확인 없이 저장할 수도
-          있습니다.
+          {warning.error} 다시 저장을 누르면 재확인해요. 확인 없이 저장할 수도
+          있어요.
         </p>
       )}
       {result && (
         <>
           <p className="small muted">
-            확인 범위: {formatSeoul(result.checked_from)} ~{" "}
-            {formatSeoul(result.checked_until)} ·{" "}
+            확인 범위: {formatLocal(result.checked_from)} ~{" "}
+            {formatLocal(result.checked_until)} ·{" "}
             {result.google_state === "checked" ||
             result.google_state === "partial"
               ? "플랜캐치·구글 기본 캘린더 기준"
               : "플랜캐치 일정 기준"}
           </p>
           {result.google_message && (
-            <p>{result.google_message} 다시 저장을 누르면 재확인합니다.</p>
+            <p>{result.google_message} 다시 저장을 누르면 재확인해요.</p>
           )}
           {result.google_state === "reconnect_required" && (
             <p>
@@ -173,26 +174,24 @@ export function OverlapWarning({
                   <strong>
                     {item.title}{" "}
                     <span className="small muted">
-                      Google Calendar{item.is_all_day ? " · 종일" : ""}
+                      구글 캘린더{item.is_all_day ? " · 종일" : ""}
                     </span>
                   </strong>
                 ) : (
                   <Link
                     href={`/tasks/${encodeURIComponent(item.task_id!)}${item.is_recurring ? `?${new URLSearchParams({ occurrence: item.start_at })}` : ""}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
                   >
-                    {item.title} ↗
+                    {item.title}
                   </Link>
                 )}
                 <span>
-                  {formatSeoul(item.start_at)} ~ {formatSeoul(item.end_at)}
+                  {formatLocal(item.start_at)} ~ {formatLocal(item.end_at)}
                   {item.is_recurring ? " · 반복 일정" : ""}
                 </span>
                 {result.is_recurring && (
                   <span className="small muted">
-                    입력한 반복 회차: {formatSeoul(item.proposed_start_at)} ~{" "}
-                    {formatSeoul(item.proposed_end_at)}
+                    입력한 반복 회차: {formatLocal(item.proposed_start_at)} ~{" "}
+                    {formatLocal(item.proposed_end_at)}
                   </span>
                 )}
               </li>
@@ -200,13 +199,13 @@ export function OverlapWarning({
           </ul>
           {result.truncated && (
             <p>
-              조회 한도에 도달해 일부 일정이나 겹침 내역이 생략됐습니다. 다른
-              겹침이 있을 수 있습니다.
+              조회 한도에 도달해 일부 일정이나 겹침 내역이 생략됐어요. 다른
+              겹침이 있을 수 있어요.
             </p>
           )}
           {result.coverage_limited && (
             <p className="small muted">
-              반복 또는 긴 일정의 나머지 기간에는 다른 겹침이 있을 수 있습니다.
+              반복 또는 긴 일정의 나머지 기간에는 다른 겹침이 있을 수 있어요.
             </p>
           )}
         </>
@@ -243,10 +242,9 @@ export function OverlapWarning({
 export function OverlapScope() {
   return (
     <p className="small muted">
-      저장 전에 플랜캐치의 고정·반복 일정과 확정된 배치 시간의 겹침을
-      확인합니다. Google 계정이 연결되어 있으면 기본 캘린더의 바쁨 일정도
-      포함합니다. 한 번에 최대 90일을 확인하며 반복은 첫 일정 또는 오늘부터
-      확인합니다.
+      저장 전에 플랜캐치의 고정·반복 일정과 확정된 등록한 시간의 겹침을
+      확인해요. 구글 계정이 연결되어 있으면 기본 캘린더의 바쁨 일정도 포함해요.
+      한 번에 최대 90일을 확인하며 반복은 첫 일정 또는 오늘부터 확인해요.
     </p>
   );
 }

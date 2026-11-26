@@ -62,6 +62,18 @@ def test_concurrent_edits_reject_stale_revision_without_overwriting():
     assert read(auth)['exceptions'] == [] and read(auth)['revision'] == 1
 
 
+def test_weekly_rest_days_are_distinct_from_unspecified_without_changing_windows():
+    auth = owner()
+    assert put(auth, weekly=[{'weekday': 0, 'intervals': [], 'rest_day': True}]).status_code == 200
+    result = read(auth)
+    assert result['weekly'][0] == {'weekday': 0, 'intervals': [], 'rest_day': True}
+    assert result['weekly'][1] == {'weekday': 1, 'intervals': []}
+    assert put(auth, weekly=[
+        {'weekday': 0, 'intervals': [hours(540, 600)], 'rest_day': True}
+    ]).status_code == 422
+    assert read(auth) == result
+
+
 @pytest.mark.parametrize('change', [
     {'weekly': [{'weekday': True, 'intervals': []}]},
     {'weekly': [{'weekday': 0, 'intervals': []}]*2},

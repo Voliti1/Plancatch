@@ -377,6 +377,43 @@ def test_file_upload_reuses_only_same_owner_filename_and_complete_metadata(monke
     assert client.get(f"/api/sources/{custom['id']}", headers=headers).json()["title"] == "내가 정한 제목"
 
 
+@pytest.mark.parametrize("unavailable", ["missing", "corrupt"])
+def test_reupload_keeps_working_pdf_when_matched_original_is_unavailable(monkeypatch, unavailable):
+    headers = auth()
+    pdf = picture("PDF")
+    monkeypatch.setattr(pdf_analysis, "read_pdf_pages", lambda data: [
+        "2026년 신입사원 채용 공고\n회사명: 테스트기술\n접수기간 2026.11.09 ~ 11.12 16:00",
+    ])
+
+    def upload_and_review():
+        uploaded = client.post("/api/sources/pdfs", headers=headers,
+                               files={"file": ("채용공고.pdf", pdf, "application/pdf")})
+        assert uploaded.status_code == 201
+        source = uploaded.json()
+        started = client.post(f"/api/sources/{source['id']}/ai-analyses", headers=headers,
+                              json={"input_hash": source["pdf_sha256"]})
+        assert started.status_code == 202
+        review = client.get(f"/api/ai-analyses/{started.json()['id']}", headers=headers).json()
+        assert review["status"] == "ready"
+        return source, review
+
+    original, _ = upload_and_review()
+    old_path = source_images.file_path(original["storage_key"])
+    if unavailable == "missing":
+        old_path.unlink()
+    else:
+        old_path.write_bytes(b"changed")
+
+    replacement, review = upload_and_review()
+    assert replacement["id"] != original["id"]
+    assert review["source_id"] == replacement["id"]
+    assert source_images.read_file(replacement["storage_key"], "pdf") == pdf
+    assert client.get(f"/api/sources/{replacement['id']}", headers=headers).json()["processing_status"] == "extracted"
+    reused = client.post("/api/sources/pdfs", headers=headers,
+                         files={"file": ("채용공고.pdf", pdf, "application/pdf")})
+    assert reused.status_code == 201 and reused.json()["id"] == replacement["id"]
+
+
 def test_limits_and_integrity_are_enforced(monkeypatch):
     with pytest.raises(ValueError): source_images.normalize_image(b"x"*(source_images.MAX_BYTES+1))
     monkeypatch.setattr(source_images,"MAX_PIXELS",10)
@@ -545,7 +582,9 @@ def test_old_false_default_is_only_suggested_for_an_untouched_image_review(monke
         approved = client.post(path + "/approve", headers=headers, json={"revision": 2})
         assert approved.status_code == 200
         deadline = client.get("/api/deadlines/" + approved.json()["approved_deadline_ids"][0], headers=headers).json()
-        assert deadline["due_at"].startswith("2026-11-09T18:00:00")
+        # Compare the instant: approval persists UTC, while the evidence is KST.
+        from datetime import datetime
+        assert datetime.fromisoformat(deadline["due_at"]) == datetime.fromisoformat(candidate["suggested_due_at"])
     else:
         assert candidate["suggested_due_at"] is None
         assert any("저장된 시간이 다릅니다" in item for item in data["warnings"])

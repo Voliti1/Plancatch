@@ -5,22 +5,39 @@ import { useEffect } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
+import { TimeZoneControl, useTimeZone } from "@/features/settings/time-zone";
 import { AccountControls } from "@/features/settings/account-controls";
 import { useUnsavedNavigation } from "@/lib/unsaved-changes";
-const nav = [
-  ["/dashboard", "◈", "대시보드"],
-  ["/sources", "▤", "원본 자료"],
-  ["/deadlines", "◷", "일정"],
-  ["/calendar", "▦", "캘린더"],
-  ["/planning", "▥", "할 일 시간 추천"],
-  ["/settings/google-calendar", "↗", "구글 캘린더 연결"],
+
+const navGroups = [
+  {
+    label: "홈",
+    items: [["/dashboard", "◈", "대시보드"]] as const,
+  },
+  {
+    label: "일정 관리",
+    items: [
+      ["/calendar", "▦", "캘린더"],
+      ["/deadlines", "◷", "마감일·할 일"],
+      ["/planning", "▥", "자동 시간 추천"],
+    ] as const,
+  },
+  {
+    label: "자료 및 연동",
+    items: [
+      ["/sources", "▤", "자료함"],
+      ["/settings/connections", "↗", "구글 캘린더"],
+    ] as const,
+  },
 ];
+
 export default function WorkspaceLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
   const { user, loading, error, logout, refresh } = useAuth();
+  const zone = useTimeZone();
   const router = useRouter();
   const path = usePathname();
   const { confirmLeave } = useUnsavedNavigation();
@@ -44,30 +61,34 @@ export default function WorkspaceLayout({
       </a>
       <aside className="sidebar">
         <Link className="brand" href="/dashboard">
-          <span className="logo">P</span>PlanCatch
+          <span className="logo">P</span>플랜캐치
           <span className="brand-dot">.</span>
         </Link>
         <NewRegistrationLink className="sidebar-new-registration">
-          새 일정 등록하기
+          + 새 일정 등록하기
         </NewRegistrationLink>
-        <p className="nav-caption">MY WORKSPACE</p>
         <nav aria-label="주 메뉴">
-          {nav.map(([href, icon, label]) => (
-            <Link
-              key={href}
-              href={href}
-              aria-current={
-                !isNewRegistration &&
-                (path.startsWith(href) ||
-                  (href === "/sources" && path.startsWith("/analyses/")) ||
-                  (href === "/deadlines" && path.startsWith("/tasks")))
-                  ? "page"
-                  : undefined
-              }
-            >
-              <span aria-hidden>{icon}</span>
-              {label}
-            </Link>
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.label}>
+              <p className="nav-group-label">{group.label}</p>
+              {group.items.map(([href, icon, label]) => (
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={
+                    !isNewRegistration &&
+                    (path.startsWith(href) ||
+                      (href === "/sources" && path.startsWith("/analyses/")) ||
+                      (href === "/deadlines" && path.startsWith("/tasks")))
+                      ? "page"
+                      : undefined
+                  }
+                >
+                  <span aria-hidden>{icon}</span>
+                  {label}
+                </Link>
+              ))}
+            </div>
           ))}
         </nav>
         <div className="account">
@@ -91,10 +112,12 @@ export default function WorkspaceLayout({
       <div className="main-wrap">
         <header className="topbar">
           <span>차근차근, 오늘의 계획부터.</span>
-          <span className="timezone">Asia/Seoul · 한국 시간</span>
+          <TimeZoneControl />
         </header>
-        <main id="content">{children}</main>
-        <footer>PlanCatch · 계획을 모으고, 마감을 지키다.</footer>
+        <main id="content" key={zone}>
+          {children}
+        </main>
+        <footer>플랜캐치 · 계획을 모으고, 마감을 지키다.</footer>
       </div>
     </div>
   );

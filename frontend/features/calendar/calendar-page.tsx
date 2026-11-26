@@ -1,11 +1,13 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
 import { useHydrated } from "@/lib/use-hydrated";
-import { formatSeoul } from "@/lib/date/seoul";
+import { errorMessage } from "@/lib/api/client";
+import { useAuth } from "@/features/auth/provider";
 import type { ScheduledEvent } from "@/types/scheduled-event";
 import { tasksApi } from "@/features/tasks/api";
 import {
@@ -26,14 +28,28 @@ import {
   addDays,
   calendarDays,
   dayLabel,
+  lockedEvent,
   onDay,
   shiftMonth,
   statusLabel,
-  todaySeoul,
+  todayInZone,
   utcMidnight,
 } from "./dates";
 import { TimeGrid } from "./time-grid";
 import { timetableDays, type TimetableEvent } from "./time-layout";
+import {
+  calendarEventKey,
+  canChangeTime,
+  deleteCalendarEvent,
+  duplicateCalendarEvent,
+  moveCalendarEvent,
+  registrationTarget,
+} from "./calendar-actions";
+import {
+  CalendarEventPopup,
+  type CalendarPopupSelection,
+} from "./calendar-event-popup";
+import { useCalendarColors } from "./calendar-colors";
 import "./calendar.css";
 
 const emptyRegistrations: CalendarRegistration[] = [];
@@ -46,7 +62,7 @@ function TaskTitle({ id }: { id: string }) {
   if (error)
     return (
       <ErrorNotice
-        message={`연결된 일정 제목을 불러오지 못했습니다. ${error}`}
+        message={`연결된 일정 제목을 불러오지 못했어요. ${error}`}
         retry={reload}
       />
     );
@@ -54,12 +70,13 @@ function TaskTitle({ id }: { id: string }) {
 }
 
 function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
+  const { formatLocal, zone } = useScheduleTime();
   const [page, setPage] = useState(0);
-  const rows = events.filter((event) => onDay(event, day));
+  const rows = events.filter((event) => onDay(event, day, zone));
   if (!rows.length)
     return (
-      <Empty title="선택한 날짜에 배치된 일정이 없습니다">
-        일정 상세에서 원하는 시간을 캘린더에 배치해 보세요.
+      <Empty title="선택한 날짜에 등록된 일정이 없어요">
+        일정 상세에서 원하는 시간을 시간표에 등록해 보세요.
       </Empty>
     );
   return (
@@ -74,10 +91,10 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
             )}
             <p>
               <time dateTime={event.start_at}>
-                {formatSeoul(event.start_at)}
+                {formatLocal(event.start_at)}
               </time>
               {" → "}
-              <time dateTime={event.end_at}>{formatSeoul(event.end_at)}</time>
+              <time dateTime={event.end_at}>{formatLocal(event.end_at)}</time>
             </p>
             <div className="calendar-agenda-actions">
               <span className="tag schedule-kind-task">할 일</span>
@@ -88,7 +105,7 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
             </div>
             {event.sync_error && (
               <p className="small event-sync-error">
-                서버가 기록한 동기화 오류: {event.sync_error}
+                구글 캘린더 동기화 오류: {event.sync_error}
               </p>
             )}
           </li>
@@ -118,6 +135,7 @@ function DayEvents({ events, day }: { events: ScheduledEvent[]; day: string }) {
 }
 
 function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
+  const { formatLocal } = useScheduleTime();
   const [page, setPage] = useState(0);
   if (!entries.length) return null;
   return (
@@ -132,12 +150,12 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
               {item.title}
             </Link>
             <p>
-              <time dateTime={item.start_at}>{formatSeoul(item.start_at)}</time>
+              <time dateTime={item.start_at}>{formatLocal(item.start_at)}</time>
               {item.end_at && (
                 <>
                   {" "}
                   →{" "}
-                  <time dateTime={item.end_at}>{formatSeoul(item.end_at)}</time>
+                  <time dateTime={item.end_at}>{formatLocal(item.end_at)}</time>
                 </>
               )}
             </p>
@@ -184,11 +202,27 @@ function RegisteredDay({ entries }: { entries: CalendarRegistration[] }) {
   );
 }
 
-function CalendarBody({ initialDate }: { initialDate?: string }) {
-  const [selected, setSelected] = useState(initialDate ?? todaySeoul);
+function CalendarBody({
+  initialDate,
+  userId,
+}: {
+  initialDate?: string;
+  userId?: string;
+}) {
+  const { toLocalInput, formatLocal, zone } = useScheduleTime();
+  const [selected, setSelected] = useState(
+    () => initialDate ?? todayInZone(zone),
+  );
   const [view, setView] = useState<"month" | "week" | "day">("day");
   const [showCancelled, setShowCancelled] = useState(false);
   const [showGoogle, setShowGoogle] = useState(false);
+  const [popup, setPopup] = useState<CalendarPopupSelection | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const [status, setStatus] = useState("");
+  const pending = useRef(false);
+  const { colors, changeColor, changeDefaultColor, defaultColor, swatch } =
+    useCalendarColors(userId);
   const anchor = `${selected.slice(0, 7)}-01`;
   const days = useMemo(
     () =>
@@ -197,8 +231,8 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         : timetableDays(selected, view),
     [anchor, selected, view],
   );
-  const first = utcMidnight(days[0]);
-  const last = utcMidnight(addDays(days[days.length - 1], 1));
+  const first = utcMidnight(days[0], zone);
+  const last = utcMidnight(addDays(days[days.length - 1], 1), zone);
   // Selecting another day in the visible range only changes the agenda, not its data.
   const loadGoogle = useCallback(
     (signal: AbortSignal) =>
@@ -228,9 +262,48 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
     [first, last],
   );
   const registrations = useResource(loadRegistered);
+  function openPopup(selection: CalendarPopupSelection) {
+    if (pending.current) return;
+    setActionError("");
+    setStatus("");
+    setPopup(selection);
+  }
+
+  async function applyChange(action: () => Promise<unknown>, message: string) {
+    if (pending.current) return;
+    pending.current = true;
+    setBusy(true);
+    setActionError("");
+    setStatus("");
+    try {
+      await action();
+      setPopup(null);
+      setStatus(message);
+      reload();
+      registrations.reload();
+      if (showGoogle) google.reload();
+    } catch (failure) {
+      setActionError(errorMessage(failure));
+    } finally {
+      pending.current = false;
+      setBusy(false);
+    }
+  }
+
+  function move(event: TimetableEvent, start: string, end: string | null) {
+    if (!event.target || !canChangeTime(event)) return;
+    const target = event.target;
+    void applyChange(
+      async () => {
+        await moveCalendarEvent(target, start, end);
+        setSelected(toLocalInput(start).slice(0, 10));
+      },
+      `${formatLocal(start)}으로 일정을 옮겼어요.`,
+    );
+  }
   const registered = registrations.data?.entries ?? emptyRegistrations;
   const registeredDay = registered.filter((item) =>
-    registrationOnDay(item, selected),
+    registrationOnDay(item, selected, zone),
   );
   const events = useMemo(
     () =>
@@ -249,9 +322,13 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
   const dayBars = useMemo(
     () =>
       days.map((day) => {
-        const saved = registered.filter((item) => registrationOnDay(item, day));
-        const local = events.filter((event) => onDay(event, day));
-        const remote = googleRows.filter((event) => googleOnDay(event, day));
+        const saved = registered.filter((item) =>
+          registrationOnDay(item, day, zone),
+        );
+        const local = events.filter((event) => onDay(event, day, zone));
+        const remote = googleRows.filter((event) =>
+          googleOnDay(event, day, zone),
+        );
         return {
           day,
           bars: [
@@ -273,7 +350,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           ],
         };
       }),
-    [days, registered, events, googleRows],
+    [days, registered, events, googleRows, zone],
   );
   const timelineEntries = useMemo<TimetableEvent[]>(
     () => [
@@ -285,6 +362,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         start: item.start_at,
         end: item.end_at,
         href: registrationHref(item),
+        target: registrationTarget(item),
       })),
       ...events.map((item) => ({
         id: `placement:${item.id}`,
@@ -294,6 +372,12 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         end: item.end_at,
         href: `/tasks/${encodeURIComponent(item.task_id)}`,
         cancelled: item.status === "cancelled",
+        target: {
+          kind: "placement" as const,
+          id: item.id,
+          taskId: item.task_id,
+          locked: lockedEvent(item),
+        },
       })),
       ...googleRows.map((item) => ({
         id: `google:${item.id}`,
@@ -310,8 +394,8 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
     ],
     [registered, events, googleRows],
   );
-  const hasLocalSelected = events.some((event) => onDay(event, selected));
-  const today = todaySeoul();
+  const hasLocalSelected = events.some((event) => onDay(event, selected, zone));
+  const today = todayInZone(zone);
   return (
     <>
       <PageHeading
@@ -320,6 +404,16 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         description="등록한 마감일과 할 일을 월간·하루·주간 시간표로 확인하세요."
       />
       <section className="card calendar-card" aria-label="일정 캘린더">
+        {status && (
+          <p className="notice success" role="status">
+            {status}
+          </p>
+        )}
+        {!popup && actionError && (
+          <p className="error" role="alert">
+            {actionError}
+          </p>
+        )}
         <div className="calendar-toolbar">
           <div className="calendar-period">
             <button
@@ -365,7 +459,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
               className={view === "day" ? "selected" : "secondary"}
               aria-pressed={view === "day"}
               onClick={() => {
-                setSelected(todaySeoul());
+                setSelected(todayInZone(zone));
                 setView("day");
               }}
             >
@@ -408,7 +502,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
               checked={showCancelled}
               onChange={(e) => setShowCancelled(e.target.checked)}
             />
-            취소한 배치 포함
+            취소한 시간 등록 포함
           </label>
           <label className="checkbox">
             <input
@@ -435,7 +529,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         {error && <ErrorNotice message={error} retry={reload} />}
         {registrations.error && (
           <ErrorNotice
-            message={`등록한 마감일·할 일을 불러오지 못했습니다. ${registrations.error}`}
+            message={`등록한 마감일·할 일을 불러오지 못했어요. ${registrations.error}`}
             retry={registrations.reload}
           />
         )}
@@ -446,22 +540,22 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
         )}
         {registrations.data?.has_more && (
           <p role="status">
-            등록한 마감일·할 일은 종류별 첫 1,000건을 표시합니다. 주간 보기로
+            등록한 마감일·할 일은 종류별 첫 1,000건을 표시해요. 주간 보기로
             기간을 줄여 주세요.
           </p>
         )}
         {loading && <Loading />}
         {data?.hasMore && (
           <p role="status">
-            범위 내 첫 2,000건만 표시했습니다. 주간 보기로 조회 범위를 줄여
+            범위 내 첫 2,000건만 표시했어요. 주간 보기로 조회 범위를 줄여
             주세요.
           </p>
         )}
         {showGoogle && (
           <div className="google-calendar-status">
             <p className="small muted">
-              연결한 구글 기본 캘린더에서 이 기간의 일정만 조회합니다. 개인
-              일정은 이 화면에서 변경하지 않습니다.
+              연결한 구글 기본 캘린더에서 이 기간의 일정만 조회해요. 개인 일정은
+              이 화면에서 변경하지 않아요.
             </p>
             <Link href="/settings/google-calendar">구글 계정 연결 설정 →</Link>
             {google.loading && <Loading />}
@@ -470,14 +564,14 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             )}
             {google.data?.has_more && (
               <p role="status">
-                구글 일정을 일부만 불러왔습니다. 다시 조회하거나 주간 보기로
+                구글 일정을 일부만 불러왔어요. 다시 조회하거나 주간 보기로
                 기간을 줄여 주세요.
               </p>
             )}
             {Boolean(google.data?.skipped_count) && (
               <p role="status">
                 확인할 수 없거나 중복된 구글 일정 {google.data?.skipped_count}
-                건은 표시하지 않았습니다.
+                건은 표시하지 않았어요.
               </p>
             )}
           </div>
@@ -493,15 +587,20 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
               {dayBars.map(({ day, bars }) => {
                 const count = bars.length;
                 return (
-                  <button
+                  <div
                     key={day}
-                    type="button"
                     className={`calendar-day ${day.slice(0, 7) !== selected.slice(0, 7) ? "outside-month" : ""}`}
-                    aria-label={dayLabel(day)}
-                    aria-pressed={day === selected}
-                    aria-current={day === today ? "date" : undefined}
-                    onClick={() => setSelected(day)}
+                    data-selected={day === selected}
+                    data-today={day === today}
                   >
+                    <button
+                      type="button"
+                      className="calendar-date-hit"
+                      aria-label={dayLabel(day)}
+                      aria-pressed={day === selected}
+                      aria-current={day === today ? "date" : undefined}
+                      onClick={() => setSelected(day)}
+                    />
                     <span>{Number(day.slice(8))}</span>
                     {count > 0 && (
                       <>
@@ -510,15 +609,51 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
                           <span className="calendar-count-unit">개 일정</span>
                         </small>
                         <span className="calendar-day-bars">
-                          {bars.slice(0, 3).map((bar) => (
-                            <span
-                              key={bar.key}
-                              title={bar.title}
-                              className={`calendar-event-bar bar-${bar.kind}`}
-                            >
-                              {bar.title}
-                            </span>
-                          ))}
+                          {bars.slice(0, 3).map((bar) => {
+                            const event = timelineEntries.find(
+                              (entry) => entry.id === bar.key,
+                            );
+                            if (!event) return null;
+                            return (
+                              <button
+                                type="button"
+                                key={bar.key}
+                                title={bar.title}
+                                className={`calendar-event-bar bar-${bar.kind}`}
+                                style={{
+                                  backgroundColor: event.target
+                                    ? swatch(
+                                        calendarEventKey(event),
+                                        event.kind,
+                                      )
+                                    : undefined,
+                                }}
+                                disabled={busy}
+                                onClick={(click) => {
+                                  const bounds =
+                                    click.currentTarget.getBoundingClientRect();
+                                  openPopup({
+                                    event,
+                                    mode: "detail",
+                                    x: bounds.left,
+                                    y: bounds.bottom + 8,
+                                  });
+                                }}
+                                onContextMenu={(click) => {
+                                  if (!event.target) return;
+                                  click.preventDefault();
+                                  openPopup({
+                                    event,
+                                    mode: "menu",
+                                    x: click.clientX,
+                                    y: click.clientY,
+                                  });
+                                }}
+                              >
+                                {bar.title}
+                              </button>
+                            );
+                          })}
                           {count > 3 && (
                             <span className="calendar-more">
                               +{count - 3}개 더 보기
@@ -527,7 +662,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
                         </span>
                       </>
                     )}
-                  </button>
+                  </div>
                 );
               })}
             </div>
@@ -538,9 +673,55 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
             events={timelineEntries}
             selected={selected}
             onSelect={setSelected}
+            onOpen={openPopup}
+            onMove={move}
+            colorFor={swatch}
+            busy={busy}
           />
         )}
       </section>
+      {popup && (
+        <CalendarEventPopup
+          key={`${popup.event.id}:${popup.mode}`}
+          selection={popup}
+          color={colors[calendarEventKey(popup.event)]}
+          defaultColor={defaultColor(popup.event.kind)}
+          busy={busy}
+          error={actionError}
+          onClose={() => {
+            setPopup(null);
+            setActionError("");
+          }}
+          onColor={(color) => changeColor(calendarEventKey(popup.event), color)}
+          onDefaultColor={(color) =>
+            changeDefaultColor(popup.event.kind, color)
+          }
+          onMove={(start, end) => move(popup.event, start, end)}
+          onDelete={() => {
+            const { event } = popup;
+            const target = event.target;
+            if (!target) return;
+            void applyChange(async () => {
+              await deleteCalendarEvent(target);
+              changeColor(calendarEventKey(event), null);
+            }, "일정을 삭제했어요.");
+          }}
+          onDuplicate={() => {
+            const { event } = popup;
+            const target = event.target;
+            if (!target) return;
+            void applyChange(async () => {
+              const copy = await duplicateCalendarEvent(target, event);
+              const color = colors[calendarEventKey(event)];
+              if (color)
+                changeColor(
+                  calendarEventKey({ ...event, target: copy }),
+                  color,
+                );
+            }, "일정을 복제했어요.");
+          }}
+        />
+      )}
       <section
         className="card calendar-selected"
         aria-labelledby="selected-day-title"
@@ -557,7 +738,7 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
           <Loading />
         ) : error ? (
           <p className="muted">
-            위의 오류를 해결한 뒤 배치 내역을 확인해 주세요.
+            위의 오류를 해결한 뒤 시간 등록 내역을 확인해 주세요.
           </p>
         ) : registeredDay.length &&
           !hasLocalSelected ? null : !hasLocalSelected &&
@@ -581,5 +762,10 @@ function CalendarBody({ initialDate }: { initialDate?: string }) {
 }
 export function CalendarPage({ initialDate }: { initialDate?: string }) {
   const hydrated = useHydrated();
-  return hydrated ? <CalendarBody initialDate={initialDate} /> : <Loading />;
+  const userId = useAuth().user?.id;
+  return hydrated ? (
+    <CalendarBody key={userId} initialDate={initialDate} userId={userId} />
+  ) : (
+    <Loading />
+  );
 }

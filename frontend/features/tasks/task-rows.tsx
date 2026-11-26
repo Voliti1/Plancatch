@@ -1,9 +1,9 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRef, useState } from "react";
 import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Task } from "@/types/task";
 import { tasksApi } from "./api";
 export function TaskRows({
@@ -22,6 +22,7 @@ export function TaskRows({
   );
 }
 function TaskRow({ task, onUpdated }: { task: Task; onUpdated: () => void }) {
+  const { formatLocal } = useScheduleTime();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const pending = useRef(false);
@@ -57,11 +58,13 @@ function TaskRow({ task, onUpdated }: { task: Task; onUpdated: () => void }) {
               ? "소요시간 미정"
               : `${task.estimated_minutes}분`}{" "}
             · 우선순위 {task.priority} ·{" "}
-            {task.schedule_type === "fixed" ? "고정 일정" : "유동 작업"}
+            {task.schedule_type === "fixed"
+              ? "시간이 정해진 일정"
+              : "시간 미정 할 일"}
           </p>
           {task.latest_end && (
             <p className="muted small">
-              최종 완료 {formatSeoul(task.latest_end)}
+              최종 완료 {formatLocal(task.latest_end)}
             </p>
           )}
         </div>

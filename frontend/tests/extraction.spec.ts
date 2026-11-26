@@ -3,10 +3,10 @@ import { login, mockApi } from "./fixtures";
 import type { Source } from "../types/api";
 const source: Source = {
   id: "extraction-source",
-  title: "[테스트] 원문 추출",
+  title: "[테스트] 내용 불러오기",
   source_type: "text",
   original_url: null,
-  original_text: "2026년 10월 1일 오전 9시(한국 시간)까지 제출합니다.",
+  original_text: "2026년 10월 1일 오전 9시(한국 시간)까지 제출해요.",
   extracted_text: null,
   storage_key: null,
   processing_status: "pending",
@@ -48,9 +48,11 @@ test("text extraction sends no body, locks edits and stops polling after success
   await login(page);
   await page.goto("/sources/extraction-source");
   await page.clock.install();
-  await page.getByRole("button", { name: "원문 추출", exact: true }).click();
+  await page
+    .getByRole("button", { name: "내용 불러오기", exact: true })
+    .click();
   await expect(
-    page.getByRole("button", { name: "추출 중…", exact: true }),
+    page.getByRole("button", { name: "내용 불러오는 중…", exact: true }),
   ).toBeDisabled();
   await expect(
     page.getByRole("button", { name: "자료 수정", exact: true }),
@@ -59,7 +61,9 @@ test("text extraction sends no body, locks edits and stops polling after success
     page.getByRole("button", { name: "자료 삭제", exact: true }),
   ).toBeDisabled();
   await page.clock.fastForward(2001);
-  await expect(page.getByText("원문 추출 완료", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("내용 불러오기 완료", { exact: true }),
+  ).toBeVisible();
   const finishedReads = reads;
   await page.clock.fastForward(10000);
   expect(posts).toBe(1);
@@ -95,7 +99,9 @@ test("URL extraction failure explains login and collection restrictions", async 
   );
   await login(page);
   await page.goto("/sources/extraction-source");
-  await page.getByRole("button", { name: "원문 추출", exact: true }).click();
+  await page
+    .getByRole("button", { name: "내용 불러오기", exact: true })
+    .click();
   await expect(
     page.getByRole("alert").filter({ hasText: "로그인이 필요한 페이지" }),
   ).toBeVisible();
@@ -121,11 +127,11 @@ test("polling times out, can resume and stops on navigation", async ({
   await page.clock.install();
   await page.goto("/sources/extraction-source");
   await expect(
-    page.getByRole("button", { name: "추출 중…", exact: true }),
+    page.getByRole("button", { name: "내용 불러오는 중…", exact: true }),
   ).toBeDisabled();
   await page.clock.fastForward(91000);
   await expect(
-    page.getByRole("alert").filter({ hasText: "자동 조회를 중단했습니다" }),
+    page.getByRole("alert").filter({ hasText: "자동 조회를 중단했어요" }),
   ).toBeVisible();
   const stopped = reads;
   await page.clock.fastForward(10000);
@@ -133,15 +139,13 @@ test("polling times out, can resume and stops on navigation", async ({
   await page.getByRole("button", { name: "다시 시도", exact: true }).click();
   await page.clock.fastForward(2001);
   await expect.poll(() => reads).toBeGreaterThan(stopped);
-  await page.getByRole("link", { name: "← 원본 자료 목록" }).click();
+  await page.getByRole("link", { name: "← 자료 목록" }).click();
   await expect(page).toHaveURL(/\/sources$/);
   const exited = reads;
   await page.clock.fastForward(10000);
   expect(reads).toBe(exited);
 });
-test("capacity error preserves source and allows retry", async ({
-  page,
-}) => {
+test("capacity error preserves source and allows retry", async ({ page }) => {
   await mockApi(page, [source]);
   await page.route(
     "**/test-api/api/sources/extraction-source/analyze",
@@ -153,11 +157,13 @@ test("capacity error preserves source and allows retry", async ({
   );
   await login(page);
   await page.goto("/sources/extraction-source");
-  await page.getByRole("button", { name: "원문 추출", exact: true }).click();
+  await page
+    .getByRole("button", { name: "내용 불러오기", exact: true })
+    .click();
   await expect(
     page.getByRole("alert").filter({ hasText: "처리 용량" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "원문 추출", exact: true }),
+    page.getByRole("button", { name: "내용 불러오기", exact: true }),
   ).toBeEnabled();
 });

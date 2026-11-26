@@ -38,7 +38,7 @@ const report = {
   target_at: deadline.safe_due_at,
   uses_safety_deadline: true,
   status: "attention",
-  reasons: ["목표 시각 전 배치 시간이 부족합니다."],
+  reasons: ["목표 시각 전 등록한 시간이 부족해요."],
   task_count: 1,
   completed_count: 0,
   unknown_task_count: 0,
@@ -63,8 +63,8 @@ const capacity = {
   prerequisite_count: 2,
   incomplete: false,
   reasons: [
-    "남은 작업량이 실제 빈 시간보다 많습니다.",
-    "선행 작업도 필요한 시간에 포함했습니다.",
+    "남은 작업량이 실제 빈 시간보다 많아요.",
+    "먼저 끝내야 할 일도 필요한 시간에 포함했어요.",
   ],
 };
 
@@ -79,7 +79,7 @@ test("actual capacity and prerequisites replace wall-clock preparation labels", 
   await page.goto(`/deadlines/${deadline.id}`);
   const panel = page.getByRole("region", { name: "마감 준비 상태" });
   await expect(panel.getByText("시간 부족", { exact: true })).toBeVisible();
-  await expect(panel).toContainText("선행 작업 2개도 확인했습니다");
+  await expect(panel).toContainText("먼저 끝내야 할 일 2개도 확인했어요");
   await expect(panel.getByText("3시간", { exact: true })).toBeVisible();
   await expect(panel.getByText("20분", { exact: true })).toBeVisible();
   await expect(
@@ -87,7 +87,7 @@ test("actual capacity and prerequisites replace wall-clock preparation labels", 
   ).not.toBeChecked();
   await panel.getByText("계산 기준", { exact: true }).click();
   await expect(panel).toContainText(
-    "다른 마감일의 미배치 작업은 선행 작업인 경우에만 포함합니다",
+    "다른 마감일의 할 일은 먼저 끝내야 할 때만 포함해요",
   );
   await panel.screenshot({ path: test.info().outputPath("capacity-risk.png") });
   expect(
@@ -122,7 +122,7 @@ test("opt-in Google partial results hide misleading free time and never keep a g
               required_minutes: null,
               to_schedule_minutes: null,
               incomplete: true,
-              reasons: ["구글 바쁨 일정을 모두 확인하지 못했습니다."],
+              reasons: ["구글 바쁨 일정을 모두 확인하지 못했어요."],
             }
           : { ...capacity, level: "feasible" },
       },
@@ -131,12 +131,16 @@ test("opt-in Google partial results hide misleading free time and never keep a g
   await login(page);
   await page.goto(`/deadlines/${deadline.id}`);
   const panel = page.getByRole("region", { name: "마감 준비 상태" });
-  await expect(panel.getByText("배치 가능", { exact: true })).toBeVisible();
+  await expect(
+    panel.getByText("시간 확보 가능", { exact: true }),
+  ).toBeVisible();
   await panel
     .getByRole("checkbox", { name: "구글 바쁨 일정도 포함해 확인" })
     .check();
   await expect(panel.getByText("판단 보류", { exact: true })).toBeVisible();
-  await expect(panel.getByText("배치 가능", { exact: true })).toHaveCount(0);
+  await expect(panel.getByText("시간 확보 가능", { exact: true })).toHaveCount(
+    0,
+  );
   await expect(panel.getByText("20분", { exact: true })).toHaveCount(0);
   await expect(panel).toContainText("구글 일정 확인 필요");
   expect(reads).toEqual([false, true]);
@@ -164,7 +168,7 @@ test("read-only server assessment displays Korean status, safety date and work t
   await expect(panel.getByText("확인 필요", { exact: true })).toBeVisible();
   expect(reads).toBe(2);
   await expect(
-    panel.getByRole("link", { name: "할 일 시간 추천받기 →" }),
+    panel.getByRole("link", { name: "자동 시간 추천받기 →" }),
   ).toHaveAttribute("href", "/planning");
   await page.getByRole("button", { name: "다크 모드로 전환" }).click();
   await panel.screenshot({
@@ -195,7 +199,7 @@ test("completing linked work refreshes preparation without saving the deadline a
               completed_count: 1,
               planned_minutes: 0,
               unplanned_minutes: 0,
-              reasons: ["연결된 할 일이 모두 완료로 표시되어 있습니다."],
+              reasons: ["연결된 할 일이 모두 완료로 표시되어 있어요."],
             },
     });
   });
@@ -220,7 +224,7 @@ test("missing information and bounded partial checks do not display zero remaini
         required_minutes: null,
         unplanned_minutes: null,
         truncated: true,
-        reasons: ["할 일이 많아 일부만 확인했습니다."],
+        reasons: ["할 일이 많아 일부만 확인했어요."],
       },
     }),
   );
@@ -230,7 +234,7 @@ test("missing information and bounded partial checks do not display zero remaini
   await expect(panel.getByText("정보 부족", { exact: true })).toBeVisible();
   await expect(panel).toContainText("미정 (확인된 시간 2시간)");
   await expect(panel).toContainText("정보 확인 필요");
-  await expect(panel).toContainText("일부만 확인했습니다");
+  await expect(panel).toContainText("일부만 확인했어요");
 });
 
 test("saving a changed deadline refreshes its preparation assessment", async ({
@@ -247,7 +251,7 @@ test("saving a changed deadline refreshes its preparation assessment", async ({
           : {
               ...report,
               status: "planned",
-              reasons: ["변경한 목표 시각으로 확인했습니다."],
+              reasons: ["변경한 목표 시각으로 확인했어요."],
             },
     });
   });
@@ -273,13 +277,13 @@ test("failed assessment keeps the editable form and retries without showing old 
     if (reads === 2)
       return route.fulfill({
         status: 503,
-        json: { detail: "준비 상태를 확인하지 못했습니다." },
+        json: { detail: "준비 상태를 확인하지 못했어요." },
       });
     return route.fulfill({
       json: {
         ...report,
         status: "planned",
-        reasons: ["확인한 할 일의 배치가 있습니다."],
+        reasons: ["확인한 할 일의 시간 등록가 있어요."],
       },
     });
   });

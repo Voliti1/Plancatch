@@ -1,4 +1,4 @@
-import { formatSeoul } from "@/lib/date/seoul";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import type { Deadline } from "@/types/api";
 import { formatSafetyBuffer } from "./safety-buffer";
 
@@ -9,6 +9,7 @@ export function DeadlineTimes({
   deadline: Deadline;
   compact?: boolean;
 }) {
+  const { formatLocal } = useScheduleTime();
   return (
     <dl
       className={`deadline-times${compact ? " compact" : ""}`}
@@ -17,7 +18,7 @@ export function DeadlineTimes({
       <div>
         <dt>공식 마감</dt>
         <dd>
-          <time dateTime={deadline.due_at}>{formatSeoul(deadline.due_at)}</time>
+          <time dateTime={deadline.due_at}>{formatLocal(deadline.due_at)}</time>
         </dd>
       </div>
       <div>
@@ -26,7 +27,7 @@ export function DeadlineTimes({
           {deadline.safe_due_at ? (
             <>
               <time dateTime={deadline.safe_due_at}>
-                {formatSeoul(deadline.safe_due_at)}
+                {formatLocal(deadline.safe_due_at)}
               </time>
               {deadline.safety_buffer_minutes != null && (
                 <small className="safety-buffer-value">

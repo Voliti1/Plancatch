@@ -1,14 +1,9 @@
 "use client";
-import { useId, useRef, useState, useSyncExternalStore } from "react";
+import { useId, useRef, useState } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { ThemeToggle } from "./theme";
-import {
-  hasPdfScanConsent,
-  setPdfScanConsent,
-  subscribePdfScanConsent,
-} from "./pdf-scan-consent";
 
 export function AccountControls({
   name,
@@ -21,11 +16,6 @@ export function AccountControls({
   const pending = useRef(false);
   const heading = useId();
   const { changePassword, user } = useAuth();
-  const pdfConsent = useSyncExternalStore(
-    subscribePdfScanConsent,
-    () => hasPdfScanConsent(user?.id),
-    () => false,
-  );
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -53,7 +43,7 @@ export function AccountControls({
       return;
     }
     if (next !== confirmation) {
-      setError("새 비밀번호가 일치하지 않습니다.");
+      setError("새 비밀번호가 일치하지 않아요.");
       return;
     }
     if (next === current) {
@@ -72,7 +62,7 @@ export function AccountControls({
       const message = errorMessage(err);
       setError(
         message === "current_password_incorrect"
-          ? "현재 비밀번호가 맞지 않습니다. 다시 확인해 주세요."
+          ? "현재 비밀번호가 맞지 않아요. 다시 확인해 주세요."
           : message === "new_password_unchanged"
             ? "현재와 다른 새 비밀번호를 입력해 주세요."
             : message,
@@ -155,74 +145,63 @@ export function AccountControls({
               <dd>{email}</dd>
             </div>
           </dl>
-          <h3>비밀번호 변경</h3>
-          <p className="small muted">
-            현재 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.
-          </p>
-          <form onSubmit={submit} noValidate>
-            <fieldset disabled={busy}>
-              <label>
-                현재 비밀번호
-                <input
-                  type="password"
-                  autoComplete="current-password"
-                  value={current}
-                  maxLength={128}
-                  onChange={(event) => setCurrent(event.target.value)}
-                  required
-                />
-              </label>
-              <label>
-                새 비밀번호
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={next}
-                  minLength={8}
-                  maxLength={128}
-                  onChange={(event) => setNext(event.target.value)}
-                  placeholder="8자 이상"
-                  required
-                />
-              </label>
-              <label>
-                새 비밀번호 확인
-                <input
-                  type="password"
-                  autoComplete="new-password"
-                  value={confirmation}
-                  maxLength={128}
-                  onChange={(event) => setConfirmation(event.target.value)}
-                  required
-                />
-              </label>
-              {error && <ErrorNotice message={error} />}
-              {success && (
-                <p className="success" role="status">
-                  비밀번호를 변경했습니다.
-                </p>
-              )}
-              <div className="form-actions">
-                <button type="submit">
-                  {busy ? "변경 중…" : "비밀번호 변경"}
-                </button>
-              </div>
-            </fieldset>
-          </form>
-          <h3>스캔 PDF 전송 동의</h3>
-          <p className="small muted">
-            {pdfConsent
-              ? "이 브라우저에서 스캔 PDF를 읽을 때 저장된 동의를 사용합니다."
-              : "스캔 PDF를 Google Gemini에 보내기 전에 매번 동의를 받습니다."}
-          </p>
-          {pdfConsent && user && (
-            <button
-              type="button"
-              className="secondary"
-              onClick={() => setPdfScanConsent(user.id, false)}
-            >
-              저장된 스캔 PDF 동의 끄기
-            </button>
+          {user?.password_enabled !== false && (
+            <>
+              <h3>비밀번호 변경</h3>
+              <p className="small muted">
+                현재 비밀번호를 확인한 뒤 새 비밀번호로 변경해요.
+              </p>
+              <form onSubmit={submit} noValidate>
+                <fieldset disabled={busy}>
+                  <label>
+                    현재 비밀번호
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={current}
+                      maxLength={128}
+                      onChange={(event) => setCurrent(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <label>
+                    새 비밀번호
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={next}
+                      minLength={8}
+                      maxLength={128}
+                      onChange={(event) => setNext(event.target.value)}
+                      placeholder="8자 이상"
+                      required
+                    />
+                  </label>
+                  <label>
+                    새 비밀번호 확인
+                    <input
+                      type="password"
+                      autoComplete="new-password"
+                      value={confirmation}
+                      maxLength={128}
+                      onChange={(event) => setConfirmation(event.target.value)}
+                      required
+                    />
+                  </label>
+                  {error && <ErrorNotice message={error} />}
+                  {success && (
+                    <p className="success" role="status">
+                      비밀번호를 변경했어요.
+                    </p>
+                  )}
+                  <div className="form-actions">
+                    <button type="submit">
+                      {busy ? "변경 중…" : "비밀번호 변경"}
+                    </button>
+                  </div>
+                </fieldset>
+              </form>
+            </>
           )}
         </div>
       </dialog>

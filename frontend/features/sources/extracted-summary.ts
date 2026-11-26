@@ -151,18 +151,18 @@ export function extractedSummary(
     title,
     company:
       verifiedCompany !== undefined
-        ? verifiedCompany || "원문에서 회사명을 확인하지 못했습니다."
+        ? verifiedCompany || "자료 내용에서 회사명을 확인하지 못했어요."
         : uniqueCompanies.length === 1
           ? uniqueCompanies[0]
           : uniqueCompanies.length
-            ? "여러 회사명이 있어 원문 확인이 필요합니다."
-            : candidateCompany || "원문에서 회사명을 확인하지 못했습니다.",
+            ? "여러 회사명이 있어 자료 내용 확인이 필요해요."
+            : candidateCompany || "자료 내용에서 회사명을 확인하지 못했어요.",
     companyFromCandidate: Boolean(candidateCompany),
     deadline:
       uniqueDeadlines.length === 1
         ? uniqueDeadlines[0]
         : uniqueDeadlines.length
-          ? "여러 마감일이 있어 원문 확인이 필요합니다."
-          : "원문에서 마감일을 확인하지 못했습니다.",
+          ? "여러 마감일이 있어 자료 내용 확인이 필요해요."
+          : "자료 내용에서 마감일을 확인하지 못했어요.",
   };
 }

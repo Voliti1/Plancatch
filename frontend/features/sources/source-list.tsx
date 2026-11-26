@@ -1,9 +1,9 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { sourcesApi } from "./api";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { Pagination } from "@/components/pagination";
@@ -31,13 +31,13 @@ export function SourceList() {
   return (
     <>
       <PageHeading
-        eyebrow="SOURCE LIBRARY"
-        title="원본 자료"
+        eyebrow="자료함"
+        title="자료함"
         description="일정 등록에 사용한 자료를 확인하고 관리하세요."
         action={<ListDeleteActions deletion={deletion} />}
       />
       <TitleSearch
-        label="원본 자료 제목 검색"
+        label="자료 제목 검색"
         query={query}
         disabled={deletion.busy}
         onEdit={() => deletion.exit()}
@@ -50,7 +50,7 @@ export function SourceList() {
       />
       <ListDeleteNotice
         deletion={deletion}
-        consequence="마감일이 등록된 자료는 삭제할 수 없습니다. 삭제 가능한 자료의 분석 기록은 함께 삭제되며 Google 일정은 유지됩니다."
+        consequence="마감일이 등록된 자료는 삭제할 수 없어요. 삭제 가능한 자료의 분석 기록은 함께 삭제되며 구글 캘린더 일정은 유지돼요."
       />
       <SourcePage
         key={`${query}:${page}:${version}`}
@@ -87,9 +87,7 @@ function SourcePage({
   return (
     <>
       {!data?.length ? (
-        <Empty
-          title={query ? "검색 결과가 없습니다" : "등록된 자료가 없습니다"}
-        >
+        <Empty title={query ? "검색 결과가 없어요" : "등록된 자료가 없어요"}>
           {query
             ? "다른 제목으로 검색해 보세요."
             : "새 일정 등록하기에서 자료를 저장하면 이곳에서 다시 확인할 수 있어요."}
@@ -131,6 +129,7 @@ function SourceCard({
   query?: string;
   selecting?: boolean;
 }) {
+  const { formatLocal } = useScheduleTime();
   return (
     <article className={selecting ? "source-card" : "card source-card"}>
       <div className="card-top">
@@ -172,7 +171,7 @@ function SourceCard({
         <p className="error-text">{source.error_message}</p>
       )}
       <div className="source-card-footer">
-        <p className="small muted">{formatSeoul(source.created_at)}</p>
+        <p className="small muted">{formatLocal(source.created_at)}</p>
         {!selecting && (
           <Link
             className="source-detail-link"

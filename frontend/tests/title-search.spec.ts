@@ -115,7 +115,7 @@ for (const kind of ["sources", "deadlines"] as const) {
     await expect(page.locator("mark")).toHaveText(["PlanCatch"]);
     await input.fill("없는제목");
     await expect(
-      page.getByText("검색 결과가 없습니다", { exact: true }),
+      page.getByText("검색 결과가 없어요", { exact: true }),
     ).toBeVisible();
     await input.fill("");
     await expect(page.getByText("일반 공고 0", { exact: true })).toBeVisible();

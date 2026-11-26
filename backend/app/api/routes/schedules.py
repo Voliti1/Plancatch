@@ -3,12 +3,13 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Response
-from sqlalchemy import func, literal, select, union_all
+from sqlalchemy import DateTime, func, literal, select, union_all
 
 from app.api.dependencies import CurrentUser, DatabaseSession
 from app.models import Deadline, Task
 from app.schemas.deadline import DeadlineResponse
 from app.schemas.task import TaskResponse
+from app.services.task_placements import placement, placement_summary
 
 router = APIRouter(prefix="/api/schedules", tags=["schedules"])
 
@@ -27,12 +28,13 @@ def list_schedules(
     response.headers["Cache-Control"] = "no-store"
     query = q.strip()
     queries = []
+    summary = placement_summary(current_user.id) if include_tasks else None
     for model, kind, at, included in (
         (Deadline, "deadline", Deadline.due_at, include_deadlines),
         (
             Task,
             "task",
-            func.coalesce(Task.earliest_start, Task.latest_end),
+            func.coalesce(summary.c.start_at, Task.earliest_start, Task.latest_end) if summary is not None else None,
             include_tasks,
         ),
     ):
@@ -41,6 +43,16 @@ def list_schedules(
         statement = select(
             model.id.label("id"), literal(kind).label("kind"), at.label("at")
         ).where(model.user_id == current_user.id)
+        if kind == "task":
+            statement = statement.outerjoin(summary, summary.c.task_id == Task.id).add_columns(
+                summary.c.start_at, summary.c.end_at, summary.c.block_count,
+            )
+        else:
+            statement = statement.add_columns(
+                literal(None, DateTime(timezone=True)).label("start_at"),
+                literal(None, DateTime(timezone=True)).label("end_at"),
+                literal(None).label("block_count"),
+            )
         if query:
             statement = statement.where(model.title.icontains(query, autoescape=True))
         queries.append(statement)
@@ -78,5 +90,8 @@ def list_schedules(
             item is not None
         ):  # A concurrent deletion must not become a leaked/stale record.
             schema = DeadlineResponse if row.kind == "deadline" else TaskResponse
-            entries.append({"kind": row.kind, "item": schema.model_validate(item)})
+            result = schema.model_validate(item)
+            if row.kind == "task":
+                result.placement = placement(row.start_at, row.end_at, row.block_count)
+            entries.append({"kind": row.kind, "item": result})
     return {"entries": entries, "has_more": len(ordered) > limit}

@@ -4,7 +4,7 @@ import { calendarTask, calendarEvent } from "./calendar-fixtures";
 import {
   layoutDay,
   timetableDays,
-  hourRegistrationHref,
+  slotRegistrationHref,
 } from "../features/calendar/time-layout";
 
 test("time geometry clips midnight, separates overlap and ends at 24:00", () => {
@@ -56,7 +56,7 @@ test("time geometry clips midnight, separates overlap and ends at 24:00", () => 
   expect(rows[1].column).toBe(1);
   expect(rows[2].to).toBe(1440);
   const url = new URL(
-    hourRegistrationHref("2026-11-02", 23),
+    slotRegistrationHref("2026-11-02", 23 * 60),
     "http://localhost",
   );
   expect(url.searchParams.get("start")).toBe("2026-11-02T14:00:00.000Z");
@@ -102,7 +102,7 @@ test("today and week are 24h timetables, consistent colors and editable hour pre
           ...calendarEvent,
           id: "placed",
           task_id: "placed-task",
-          task_title: "배치 회의",
+          task_title: "시간 등록 회의",
           start_at: "2026-11-02T06:30:00Z",
           end_at: "2026-11-02T07:30:00Z",
         },

@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -8,12 +9,12 @@ import { DeadlineTimes } from "./deadline-times";
 import { DeadlineReadiness } from "./deadline-readiness";
 import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { DeadlineTasks } from "@/features/tasks/deadline-tasks";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 export function DeadlineDetail({ id }: { id: string }) {
+  const { formatLocal, zoneLabel } = useScheduleTime();
   const loader = useCallback(() => deadlinesApi.get(id), [id]);
   const { data, loading, error, reload } = useResource(loader);
   const router = useRouter();
@@ -33,14 +34,14 @@ export function DeadlineDetail({ id }: { id: string }) {
       <PageHeading
         eyebrow="DEADLINE DETAILS"
         title="일정 상세"
-        description={`등록 ${formatSeoul(data.created_at)} · 모든 시간은 한국 시간입니다.`}
+        description={`등록 ${formatLocal(data.created_at)} · 표시 시간대 ${zoneLabel}`}
       />
       <section className="card form-card">
         <h2>{data.title}</h2>
         <DeadlineTimes deadline={data} />
         {saved && (
           <p className="success" role="status">
-            변경 사항을 저장했습니다.
+            변경 사항을 저장했어요.
           </p>
         )}
         <DeadlineForm
@@ -88,9 +89,9 @@ export function DeadlineDetail({ id }: { id: string }) {
         <div>
           <h2>마감일 삭제</h2>
           <p className="muted">
-            다른 마감일이 연결되어 있지 않으면 원본 자료와 검토 기록도 함께
-            삭제됩니다. 연결된 할 일은 유지되며 관리 중인 Google 사본은 자동
-            삭제됩니다. 삭제한 내용은 복구할 수 없습니다.
+            다른 마감일이 연결되어 있지 않으면 자료와 검토 기록도 함께 삭제돼요.
+            연결된 할 일은 유지되며 관리 중인 구글 캘린더에 복사한 일정은 자동
+            삭제돼요. 삭제한 내용은 복구할 수 없어요.
           </p>
         </div>
         {!confirm ? (
@@ -99,7 +100,7 @@ export function DeadlineDetail({ id }: { id: string }) {
           </button>
         ) : (
           <div role="group" aria-label="삭제 확인">
-            <p>이 마감일을 삭제하시겠습니까?</p>
+            <p>이 마감일을 삭제할까요?</p>
             <div className="form-actions">
               <button
                 className="secondary"

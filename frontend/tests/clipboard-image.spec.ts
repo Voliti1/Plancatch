@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { aiSource, mockAnalyses } from "./analysis-fixtures";
@@ -106,10 +107,12 @@ test("붙여넣은 캡처는 저장 전 전송하지 않고 저장 후 AI 동의
     path: test.info().outputPath("clipboard-selected.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/sources\/clipboard-source\/review$/);
   await expect(
-    page.getByRole("button", { name: "동의하고 AI 검토 시작" }),
+    page.getByRole("button", { name: "동의하고 찾은 날짜 확인 시작" }),
   ).toBeDisabled();
   expect(uploads).toBe(1);
   expect(state.starts).toBe(0);
@@ -119,10 +122,9 @@ test("본문과 입력칸에서 이미지 붙여넣기·교체·제거가 동작
   page,
 }) => {
   await open(page);
-  await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/job");
-  await page.getByLabel("원본 텍스트", { exact: true }).fill("작성 중인 안내");
+  await (await sourceInput(page, "url")).fill("https://example.com/job");
+  await (await sourceInput(page, "text")).fill("작성 중인 안내");
+  await sourceInput(page, "file");
   expect(await paste(page, [{ name: "첫 캡처.png", type: "image/png" }])).toBe(
     false,
   );
@@ -137,15 +139,14 @@ test("본문과 입력칸에서 이미지 붙여넣기·교체·제거가 동작
   ).toBe(false);
   await expect(list).toContainText("두번째 캡처.png");
   await expect(list).not.toContainText("첫 캡처.png");
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "url")).toHaveValue(
     "https://example.com/job",
   );
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
-    "작성 중인 안내",
-  );
+  await expect(await sourceInput(page, "text")).toHaveValue("작성 중인 안내");
   expect(
     await paste(page, [], 'input[name="url"]', "https://example.com/another"),
   ).toBe(true);
+  await sourceInput(page, "file");
   await expect(list.getByRole("listitem")).toHaveCount(1);
   await page
     .getByRole("button", { name: "두번째 캡처.png 제거", exact: true })
@@ -165,7 +166,7 @@ for (const invalid of [
     name: "notice.svg",
     type: "image/svg+xml",
     size: 10,
-    error: "HEIC·SVG는 지원하지 않습니다",
+    error: "HEIC·SVG는 지원하지 않아요",
   },
 ])
   test(`잘못된 클립보드 이미지 ${invalid.name}는 기존 선택을 덮지 않는다`, async ({
@@ -194,11 +195,15 @@ test("여러 사진은 거부하며 수동 등록·다른 페이지에서는 붙
     "한 개씩",
   );
   await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(0);
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   expect(await paste(page, [{ name: "hidden.png", type: "image/png" }])).toBe(
     true,
   );
-  await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
+    .click();
   await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(0);
   await paste(page, [{ name: "visible.png", type: "image/png" }]);
   await expect(
@@ -226,7 +231,9 @@ test("저장 중에는 다른 캡처를 가로채지 않고 실패 후에는 다
     return route.fulfill({ status: 503, json: { detail: "검사용 저장 실패" } });
   });
   await paste(page, [{ name: "저장할 이미지.png", type: "image/png" }]);
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   try {
     await expect(
       page.getByRole("button", { name: "저장 중…", exact: true }),
@@ -241,7 +248,7 @@ test("저장 중에는 다른 캡처를 가로채지 않고 실패 후에는 다
     release();
   }
   await expect(
-    page.getByRole("button", { name: "자료 저장", exact: true }),
+    page.getByRole("button", { name: "저장하고 마감일 확인하기", exact: true }),
   ).toBeEnabled();
   expect(
     await paste(page, [{ name: "다시 시도.png", type: "image/png" }]),

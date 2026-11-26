@@ -18,7 +18,7 @@ import {
   type ListDeletion,
 } from "@/components/list-deletion";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
+import { TaskTimes } from "@/features/tasks/task-times";
 import { DeadlineTimes } from "@/features/deadlines/deadline-times";
 import {
   listSchedules,
@@ -57,25 +57,13 @@ function ScheduleRows({
               ) : (
                 <>
                   <span>
-                    {entry.item.earliest_start ? (
-                      <time dateTime={entry.item.earliest_start}>
-                        {formatSeoul(entry.item.earliest_start)}
-                      </time>
-                    ) : (
-                      "시작 미정"
-                    )}
-                    {" → "}
-                    {entry.item.latest_end ? (
-                      <time dateTime={entry.item.latest_end}>
-                        {formatSeoul(entry.item.latest_end)}
-                      </time>
-                    ) : (
-                      "종료 미정"
-                    )}
+                    <TaskTimes task={entry.item} />
                   </span>
                   {entry.item.schedule_type === "flexible" && (
                     <span className="small muted">
-                      가능 기간 · 실제 배치 시간은 상세에서 확인하세요.
+                      {entry.item.placement
+                        ? `캘린더에 등록한 시간 · ${entry.item.placement.block_count}개 구간`
+                        : "가능 기간 · 캘린더 시간 등록 전"}
                     </span>
                   )}
                   {entry.item.recurrence && (
@@ -168,7 +156,7 @@ export function ScheduleList() {
       />
       <ListDeleteNotice
         deletion={deletion}
-        consequence="마지막 연결 마감일을 삭제하면 원본 자료와 검토 기록도 함께 삭제됩니다. 연결된 Google 사본도 자동 삭제하며 다른 할 일은 유지합니다."
+        consequence="마지막 연결 마감일을 삭제하면 자료와 검토 기록도 함께 삭제돼요. 연결된 구글 캘린더에 복사한 일정도 자동 삭제하며 다른 할 일은 유지해요."
       />
       <section className="card" aria-label="일정 목록">
         <div className="section-header schedule-list-header">
@@ -243,16 +231,16 @@ function ScheduleResults({
         <Empty
           title={
             query
-              ? "검색 결과가 없습니다"
+              ? "검색 결과가 없어요"
               : !kinds.deadline && !kinds.task
                 ? "표시할 일정 종류를 선택해 주세요"
-                : "아직 일정이 없습니다"
+                : "아직 일정이 없어요"
           }
         >
           {query
             ? "다른 제목으로 검색해 보세요."
             : !kinds.deadline && !kinds.task
-              ? "마감일 또는 할 일을 체크하면 목록에 표시됩니다."
+              ? "마감일 또는 할 일을 체크하면 목록에 표시돼요."
               : "첫 일정을 등록해 보세요."}
         </Empty>
       )}

@@ -5,6 +5,7 @@ const row = (id: string, title: string, sort_at: string | null) => ({
   id,
   title,
   sort_at,
+  completion_due_at: sort_at,
   deadline_id: null,
   description: null,
   estimated_minutes: 60,
@@ -28,9 +29,8 @@ test("retrying a failed title search never submits a selected planning task", as
   page,
 }) => {
   await setup(page);
-  const search = page.getByRole("combobox", { name: "할 일 제목 검색" });
-  await search.click();
-  const panel = page.getByRole("dialog", { name: "시간을 정할 할 일 선택" });
+  const search = page.getByRole("searchbox", { name: "할 일 제목 검색" });
+  const panel = page.getByRole("region", { name: "시간을 정할 할 일 목록" });
   await panel.getByRole("checkbox", { name: /가 준비/ }).check();
   let failed = false;
   let writes = 0;
@@ -65,58 +65,47 @@ async function setup(page: Page) {
   });
   await page.goto("/planning");
 }
-test("searchable dropdown groups Seoul dates and orders time then Korean titles, retaining selection", async ({
+test("searchable task list groups Seoul dates and orders time then Korean titles, retaining selection", async ({
   page,
 }) => {
   await setup(page);
-  const search = page.getByRole("combobox", { name: "할 일 제목 검색" });
-  await expect(
-    page.getByRole("dialog", { name: "시간을 정할 할 일 선택" }),
-  ).toHaveCount(0);
-  await page.getByRole("button", { name: "할 일 목록 열기" }).click();
-  const panel = page.getByRole("dialog", { name: "시간을 정할 할 일 선택" });
+  const search = page.getByRole("searchbox", { name: "할 일 제목 검색" });
+  const panel = page.getByRole("region", { name: "시간을 정할 할 일 목록" });
   await expect(panel.locator("h3")).toHaveText([
-    "2026년 11월 11일",
-    "2026년 11월 12일",
+    /2026년 11월 11일/,
+    /2026년 11월 12일/,
     "날짜 미정",
   ]);
   await expect(panel.locator(".checkbox-row > span")).toHaveText([
-    /오전 준비09:00/,
-    /가 준비14:00/,
-    /나 준비14:00/,
-    /다음 날짜09:00/,
-    /날짜 없는 일시간 미정/,
+    /오전 준비.*60분.*오전 9:00/,
+    /가 준비.*60분.*오후 2:00/,
+    /나 준비.*60분.*오후 2:00/,
+    /다음 날짜.*60분.*오전 9:00/,
+    /날짜 없는 일.*마감일 없음/,
   ]);
   await panel.getByRole("checkbox", { name: /가 준비/ }).check();
   await search.fill("오전");
   await expect(panel.getByRole("checkbox")).toHaveCount(1);
   await panel.getByRole("checkbox", { name: /오전 준비/ }).check();
-  await expect(page.locator(".planning-picker > p")).toContainText("2개 선택");
+  await expect(
+    page.getByRole("heading", { name: "선택한 할 일 2개" }),
+  ).toBeVisible();
   await search.fill("");
   await expect(panel.getByRole("checkbox", { name: /가 준비/ })).toBeChecked();
   await expect(
     panel.getByRole("checkbox", { name: /오전 준비/ }),
   ).toBeChecked();
-  await panel.getByRole("checkbox", { name: /나 준비/ }).focus();
-  await page.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
-  await expect(search).toBeFocused();
-  await expect(search).toHaveAttribute("aria-expanded", "false");
-  await search.click();
-  await expect(panel).toBeVisible();
-  await page
-    .getByRole("heading", { name: "할 일 시간 추천", exact: true })
-    .click();
-  await expect(panel).toHaveCount(0);
-  await page.getByRole("button", { name: "선택 해제", exact: true }).click();
-  await expect(page.locator(".planning-picker > p")).toContainText("0개 선택");
+  await page.getByRole("button", { name: "모두 해제", exact: true }).click();
+  await expect(page.getByRole("heading", { name: /선택한 할 일/ })).toHaveCount(
+    0,
+  );
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
 });
-test("dropdown can browse later pages, search with no matches, and retry failures", async ({
+test("task list can browse later pages, search with no matches, and retry failures", async ({
   page,
 }) => {
   await setup(page);
@@ -140,10 +129,10 @@ test("dropdown can browse later pages, search with no matches, and retry failure
     });
   });
   await page.reload();
-  const search = page.getByRole("combobox", { name: "할 일 제목 검색" });
+  const search = page.getByRole("searchbox", { name: "할 일 제목 검색" });
   await search.fill("없음");
-  const panel = page.getByRole("dialog", { name: "시간을 정할 할 일 선택" });
-  await expect(panel).toContainText("검색 결과가 없습니다");
+  const panel = page.getByRole("region", { name: "시간을 정할 할 일 목록" });
+  await expect(panel).toContainText("검색 결과가 없어요");
   await search.fill("");
   await panel.getByRole("button", { name: "할 일 더 보기" }).click();
   await expect(panel.getByRole("alert")).toBeVisible();
@@ -154,7 +143,7 @@ test("dropdown can browse later pages, search with no matches, and retry failure
   ).toHaveCount(0);
   await page.evaluate(() => (document.documentElement.dataset.theme = "dark"));
   await panel.screenshot({
-    path: test.info().outputPath("task-dropdown-dark.png"),
+    path: test.info().outputPath("task-task list-dark.png"),
   });
   expect(
     await panel.evaluate((el) => el.scrollHeight > 0 && el.clientHeight <= 400),

@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
@@ -6,18 +7,26 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 import "./schedule-overview.css";
 import { reminderSummary } from "@/features/google-calendar/reminder-settings";
 import { recurrenceSummary } from "./recurrence-settings";
-export function TaskDetail({ id }: { id: string }) {
+export function TaskDetail({
+  id,
+  startEditing = false,
+}: {
+  id: string;
+  startEditing?: boolean;
+}) {
+  const { formatLocal } = useScheduleTime();
   const loader = useCallback(() => tasksApi.get(id), [id]);
   const { data, error, loading, reload } = useResource(loader);
+  const startsAt = data?.placement?.start_at ?? data?.earliest_start;
+  const endsAt = data?.placement?.end_at ?? data?.latest_end;
   const router = useRouter();
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [saved, setSaved] = useState("");
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState("");
@@ -47,7 +56,7 @@ export function TaskDetail({ id }: { id: string }) {
         <Link href="/deadlines">전체 일정 보기 →</Link>
       </div>
       <PageHeading
-        eyebrow="SCHEDULE DETAILS"
+        eyebrow="일정 상세"
         title="일정 상세"
         description="일정과 메모를 확인하고 필요한 내용을 수정하세요."
       />
@@ -69,39 +78,51 @@ export function TaskDetail({ id }: { id: string }) {
                   {data.is_completed ? "완료" : "미완료"}
                 </span>
                 <span className="tag">
-                  {data.schedule_type === "fixed" ? "고정 일정" : "유동 작업"}
+                  {data.schedule_type === "fixed"
+                    ? "시간이 정해진 일정"
+                    : "시간 미정 할 일"}
                 </span>
               </div>
               <h2>{data.title}</h2>
               {data.series_id && (
                 <p className="notice">
-                  반복 일정에서 개별 변경한 일정입니다.{" "}
+                  반복 일정에서 개별 변경한 일정이에요.{" "}
                   <Link href={`/tasks/${encodeURIComponent(data.series_id)}`}>
                     전체 반복 설정 보기 →
                   </Link>
                 </p>
               )}
               {editing ? (
-                <TaskForm
-                  initial={data}
-                  variant="calendar"
-                  onCancel={() => setEditing(false)}
-                  onSave={async (payload) => {
-                    await tasksApi.update(id, payload);
-                    setEditing(false);
-                    setSaved("변경 사항을 저장했습니다.");
-                    reload();
-                  }}
-                />
+                <>
+                  {data.placement && (
+                    <p className="small muted">
+                      아래 시작·종료 일시는 작업이 가능한 기간이에요. 캘린더에
+                      등록한 시간을 바꾸려면 등록한 시간을 다시 추천받으세요.
+                    </p>
+                  )}
+                  <TaskForm
+                    initial={data}
+                    variant="calendar"
+                    onCancel={() => setEditing(false)}
+                    onSave={async (payload) => {
+                      await tasksApi.update(id, payload);
+                      setEditing(false);
+                      setSaved("변경 사항을 저장했어요.");
+                      reload();
+                    }}
+                  />
+                </>
               ) : (
                 <>
                   <dl className="task-details-grid">
                     <div>
-                      <dt>시작 일시</dt>
+                      <dt>
+                        {data.placement ? "시간 등록 시작 일시" : "시작 일시"}
+                      </dt>
                       <dd>
-                        {data.earliest_start ? (
-                          <time dateTime={data.earliest_start}>
-                            {formatSeoul(data.earliest_start)}
+                        {startsAt ? (
+                          <time dateTime={startsAt}>
+                            {formatLocal(startsAt)}
                           </time>
                         ) : (
                           "설정 안 함"
@@ -109,22 +130,41 @@ export function TaskDetail({ id }: { id: string }) {
                       </dd>
                     </div>
                     <div>
-                      <dt>종료 일시</dt>
+                      <dt>
+                        {data.placement ? "시간 등록 종료 일시" : "종료 일시"}
+                      </dt>
                       <dd>
-                        {data.latest_end ? (
-                          <time dateTime={data.latest_end}>
-                            {formatSeoul(data.latest_end)}
-                          </time>
+                        {endsAt ? (
+                          <time dateTime={endsAt}>{formatLocal(endsAt)}</time>
                         ) : (
                           "설정 안 함"
                         )}
                       </dd>
                     </div>
                   </dl>
+                  {data.placement_blocks &&
+                    data.placement_blocks.length > 1 && (
+                      <div className="task-description">
+                        <h3>캘린더에 등록한 시간</h3>
+                        <ul>
+                          {data.placement_blocks.map((block) => (
+                            <li key={block.id}>
+                              <time dateTime={block.start_at}>
+                                {formatLocal(block.start_at)}
+                              </time>
+                              {" → "}
+                              <time dateTime={block.end_at}>
+                                {formatLocal(block.end_at)}
+                              </time>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   <div className="task-description">
                     <h3>메모</h3>
                     <p className="source-text">
-                      {data.description || "메모가 없습니다."}
+                      {data.description || "메모가 없어요."}
                     </p>
                   </div>
                   <details className="schedule-extra-details">
@@ -144,16 +184,16 @@ export function TaskDetail({ id }: { id: string }) {
                       </div>
                       <div>
                         <dt>등록 일시</dt>
-                        <dd>{formatSeoul(data.created_at)}</dd>
+                        <dd>{formatLocal(data.created_at)}</dd>
                       </div>
                       <div>
                         <dt>수정 일시</dt>
-                        <dd>{formatSeoul(data.updated_at)}</dd>
+                        <dd>{formatLocal(data.updated_at)}</dd>
                       </div>
                       {data.completed_at && (
                         <div>
                           <dt>완료 일시</dt>
-                          <dd>{formatSeoul(data.completed_at)}</dd>
+                          <dd>{formatLocal(data.completed_at)}</dd>
                         </div>
                       )}
                     </dl>
@@ -167,7 +207,7 @@ export function TaskDetail({ id }: { id: string }) {
                         </Link>
                       ) : (
                         <span className="muted small">
-                          연결된 마감일이 없습니다.
+                          연결된 마감일이 없어요.
                         </span>
                       )}
                     </p>
@@ -178,22 +218,30 @@ export function TaskDetail({ id }: { id: string }) {
                   {data.recurrence && (
                     <p className="small muted">
                       개별 변경·삭제 {data.exception_count ?? 0}회. 종료일을
-                      앞당기면 그 이후의 개별 변경도 함께 제외됩니다.
+                      앞당기면 그 이후의 개별 변경도 함께 제외돼요.
                     </p>
                   )}
                   <p className="small">
                     구글 캘린더 알림: {reminderSummary(data.google_reminders)}
                   </p>
                   <p className="muted small schedule-window-note">
-                    {data.schedule_type === "fixed"
-                      ? "입력한 시작·종료 시간으로 캘린더에 표시됩니다."
-                      : "유동 작업의 가능 기간입니다. 고정 일정으로 바꾸면 입력한 시간에 캘린더에 표시됩니다."}
+                    {data.placement
+                      ? "캘린더에 저장된 등록한 시간이에요."
+                      : data.schedule_type === "fixed"
+                        ? "입력한 시작·종료 시간으로 캘린더에 표시돼요."
+                        : "시간 미정 할 일의 가능 기간이에요. 시간이 정해진 일정으로 바꾸면 입력한 시간에 캘린더에 표시돼요."}
                   </p>
                   <div className="form-actions">
                     {data.schedule_type === "flexible" &&
-                      !data.is_completed && (
-                        <Link className="button secondary" href="/planning">
-                          할 일 시간 추천받기
+                      !data.is_completed &&
+                      Boolean(data.estimated_minutes) && (
+                        <Link
+                          className="button"
+                          href={`/planning?task=${encodeURIComponent(data.id)}${data.placement ? "&mode=replan" : ""}`}
+                        >
+                          {data.placement
+                            ? "등록한 시간 다시 추천받기"
+                            : "자동 시간 추천받기"}
                         </Link>
                       )}
                     <button
@@ -225,9 +273,8 @@ export function TaskDetail({ id }: { id: string }) {
                   <h2>일정 삭제</h2>
                   <p className="muted">
                     {data.recurrence &&
-                      "이 반복 일정 전체와 Google에 연결된 반복 일정이 삭제됩니다. "}
-                    삭제한 일정은 복구할 수 없습니다. 연결된 마감일은
-                    유지됩니다.
+                      "이 반복 일정 전체와 구글 캘린더에 연결된 반복 일정이 삭제돼요. "}
+                    삭제한 일정은 복구할 수 없어요. 연결된 마감일은 유지돼요.
                   </p>
                 </div>
                 {!confirmDelete ? (
@@ -243,7 +290,7 @@ export function TaskDetail({ id }: { id: string }) {
                   </button>
                 ) : (
                   <div role="group" aria-label="일정 삭제 확인">
-                    <p>이 일정을 삭제하시겠습니까?</p>
+                    <p>이 일정을 삭제할까요?</p>
                     <div className="form-actions">
                       <button
                         className="secondary"

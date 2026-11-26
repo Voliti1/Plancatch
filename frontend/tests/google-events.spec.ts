@@ -54,9 +54,15 @@ test("Google calendars are fetched only after opt-in and appear in the calendar 
   await expect(google.getByText(timed.title, { exact: true })).toBeVisible();
   await expect(google.getByText("하루 종일", { exact: true })).toBeVisible();
   await expect(google).toContainText("오전 10:00");
-  await expect(
-    page.getByRole("button", { name: "2026년 11월 1일 일요일", exact: true }),
-  ).toContainText("3개 일정");
+  const novemberFirst = page.getByRole("button", {
+    name: "2026년 11월 1일 일요일",
+    exact: true,
+  });
+  const count = page
+    .locator(".calendar-day")
+    .filter({ has: novemberFirst })
+    .locator(".calendar-event-count");
+  await expect(count).toContainText("3개 일정");
   await expect(google.getByRole("button")).toHaveCount(0);
   expect(calls).toEqual(["GET"]);
   await page.screenshot({
@@ -65,13 +71,11 @@ test("Google calendars are fetched only after opt-in and appear in the calendar 
   });
   await page
     .getByRole("button", { name: "2026년 11월 2일 월요일", exact: true })
-    .click();
+    .press("Enter");
   await expect(google.getByText(allDay.title, { exact: true })).toBeVisible();
   await expect(google.getByText(timed.title, { exact: true })).toHaveCount(0);
   expect(calls).toEqual(["GET"]);
-  await page
-    .getByRole("button", { name: "2026년 11월 1일 일요일", exact: true })
-    .click();
+  await novemberFirst.press("Enter");
   await expect(google.getByText(timed.title, { exact: true })).toBeVisible();
   expect(calls).toEqual(["GET"]);
   expect(
@@ -81,9 +85,7 @@ test("Google calendars are fetched only after opt-in and appear in the calendar 
   ).toBeTruthy();
   await page.getByLabel("구글 일정 함께 보기").uncheck();
   await expect(google).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "2026년 11월 1일 일요일", exact: true }),
-  ).toContainText("1개 일정");
+  await expect(count).toContainText("1개 일정");
 });
 
 test("Google failures are not an empty calendar and do not hide local events", async ({
@@ -109,9 +111,9 @@ test("Google failures are not an empty calendar and do not hide local events", a
   await expect(
     page.getByRole("link", { name: "구글 계정 연결 설정 →" }),
   ).toHaveAttribute("href", "/settings/google-calendar");
-  await expect(
-    page.getByText("선택한 날짜의 구글 일정이 없습니다."),
-  ).toHaveCount(0);
+  await expect(page.getByText("선택한 날짜의 구글 일정이 없어요.")).toHaveCount(
+    0,
+  );
 });
 
 test("late responses stay hidden after opt-out; partial results are labelled", async ({
@@ -148,7 +150,7 @@ test("late responses stay hidden after opt-out; partial results are labelled", a
     }),
   );
   await page.getByLabel("구글 일정 함께 보기").check();
-  await expect(page.getByText(/구글 일정을 일부만 불러왔습니다/)).toBeVisible();
+  await expect(page.getByText(/구글 일정을 일부만 불러왔어요/)).toBeVisible();
   await expect(
     page.getByText(/확인할 수 없거나 중복된 구글 일정 2건/),
   ).toBeVisible();

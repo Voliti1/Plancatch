@@ -69,9 +69,7 @@ async function selectTask(page: Page) {
     route.fulfill({ json: { entries: [task], has_more: false } }),
   );
   await page.goto("/planning");
-  await page.getByRole("combobox", { name: "할 일 제목 검색" }).focus();
   await page.getByRole("checkbox", { name: /보고서 준비/ }).check();
-  await page.getByRole("button", { name: "할 일 선택 완료" }).click();
 }
 
 async function open(page: Page) {
@@ -86,7 +84,7 @@ test("suggests a preview with saved availability without opening settings", asyn
 }) => {
   await selectTask(page);
   await expect(
-    page.getByRole("link", { name: "할 일 시간 추천", exact: true }),
+    page.getByRole("link", { name: "자동 시간 추천", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   const startDate = page.getByLabel("추천 기간 시작일", { exact: true });
   await expect(startDate).toBeHidden();
@@ -109,7 +107,7 @@ test("suggests a preview with saved availability without opening settings", asyn
     .click();
 
   const result = page.getByRole("region", { name: "추천 시간 미리보기" });
-  await expect(result).toContainText("아직 캘린더에는 저장되지 않았습니다.");
+  await expect(result).toContainText("아직 캘린더에는 저장되지 않았어요.");
   await expect(
     result.getByRole("heading", { name: "추천 시간 확인" }),
   ).toBeFocused();
@@ -139,10 +137,70 @@ test("reveals a missing date before asking for input", async ({ page }) => {
   ).toHaveCount(0);
 });
 
+test("saved availability stays selected with editable hours and weekdays", async ({
+  page,
+}) => {
+  await open(page);
+  await expect(
+    page.getByText(/저장한 가능 시간과 날짜별 예외 적용 중/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("checkbox", { name: /저장한 가능 시간/ }),
+  ).toHaveCount(0);
+  await expect(page.getByLabel("하루 작업 시작")).toBeEnabled();
+  await expect(page.getByLabel("하루 작업 종료")).toBeEnabled();
+  await expect(
+    page.getByRole("checkbox", { name: "월", exact: true }),
+  ).toBeEnabled();
+  await page.route("**/test-api/api/scheduling/preview", (route) =>
+    route.fulfill({ json: plan() }),
+  );
+  const sent = page.waitForRequest("**/test-api/api/scheduling/preview");
+  await page
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
+    .click();
+  const payload = (await sent).postDataJSON();
+  expect(payload.use_saved_availability).toBe(true);
+  expect(payload).not.toHaveProperty("day_start_minutes");
+  expect(payload).not.toHaveProperty("day_end_minutes");
+  expect(payload).not.toHaveProperty("weekdays");
+  await expect(
+    page.getByRole("heading", { name: "추천 시간 확인" }),
+  ).toBeVisible();
+});
+
+test("editing a weekday applies the custom conditions for this preview", async ({
+  page,
+}) => {
+  await open(page);
+  await page.getByRole("checkbox", { name: "월", exact: true }).uncheck();
+  await expect(
+    page.getByText("이번 추천에 직접 입력한 시간과 요일을 적용해요."),
+  ).toBeVisible();
+  await page.route("**/test-api/api/scheduling/preview", (route) =>
+    route.fulfill({ json: plan() }),
+  );
+  const sent = page.waitForRequest("**/test-api/api/scheduling/preview");
+  await page
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
+    .click();
+  const payload = (await sent).postDataJSON();
+  expect(payload).toMatchObject({
+    day_start_minutes: 540,
+    day_end_minutes: 1080,
+    weekdays: [1, 2, 3, 4],
+  });
+  expect(payload).not.toHaveProperty("use_saved_availability");
+  await expect(
+    page.getByRole("heading", { name: "추천 시간 확인" }),
+  ).toBeVisible();
+});
+
 test("preview does not write calendar blocks and edited times are explicitly approved", async ({
   page,
 }) => {
   await open(page);
+  await page.getByLabel("하루 작업 시작").selectOption("570");
   let current = plan(),
     previews = 0,
     approvals = 0,
@@ -157,6 +215,7 @@ test("preview does not write calendar blocks and edited times are explicitly app
       task_ids: [task.id],
       start_at: "2026-11-15T15:00:00.000Z",
       end_at: "2026-11-16T15:00:00.000Z",
+      day_start_minutes: 570,
       weekdays: [0, 1, 2, 3, 4],
       include_google: true,
     });
@@ -187,8 +246,9 @@ test("preview does not write calendar blocks and edited times are explicitly app
     name: "추천 시간 미리보기",
     exact: true,
   });
-  await expect(result).toContainText("아직 캘린더에는 저장되지 않았습니다.");
+  await expect(result).toContainText("아직 캘린더에는 저장되지 않았어요.");
   expect(approvals).toBe(0);
+  await result.getByText("시간 수정", { exact: true }).first().click();
   await result
     .getByLabel("보고서 준비 1 시작", { exact: true })
     .fill("2026-11-16T14:00");
@@ -206,7 +266,7 @@ test("preview does not write calendar blocks and edited times are explicitly app
       button.click();
       button.click();
     });
-  await expect(result).toContainText("캘린더에 시간 2개를 저장했습니다.");
+  await expect(result).toContainText("캘린더에 시간 2개를 저장했어요.");
   expect(previews).toBe(1);
   expect(approvals).toBe(1);
   expect(legacyWrites).toBe(0);
@@ -227,7 +287,7 @@ test("approval retry preserves edits and uses the same preview identity", async 
       return approvals === 1
         ? route.fulfill({
             status: 503,
-            json: { detail: "저장 결과를 확인하지 못했습니다." },
+            json: { detail: "저장 결과를 확인하지 못했어요." },
           })
         : route.fulfill({
             json: {
@@ -241,6 +301,7 @@ test("approval retry preserves edits and uses the same preview identity", async 
   await page
     .getByRole("button", { name: "추천 시간 보기", exact: true })
     .click();
+  await page.getByText("시간 수정", { exact: true }).first().click();
   await page
     .getByLabel("보고서 준비 1 시작", { exact: true })
     .fill("2026-11-16T14:00");
@@ -248,7 +309,7 @@ test("approval retry preserves edits and uses the same preview identity", async 
     .getByRole("button", { name: "캘린더에 저장", exact: true })
     .click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "중복 저장하지 않습니다",
+    "중복 저장하지 않아요",
   );
   await expect(
     page.getByLabel("보고서 준비 1 시작", { exact: true }),
@@ -275,7 +336,7 @@ test("partial Google checks block approval and changed settings discard stale pr
           ...plan().details,
           blocked: true,
           warnings: [
-            "구글 일정을 일부만 확인했습니다. 기간을 줄여 다시 만들어 주세요.",
+            "구글 일정을 일부만 확인했어요. 기간을 줄여 다시 만들어 주세요.",
           ],
         },
       },
@@ -329,7 +390,7 @@ test("expired or changed data errors do not save any partial result and excluded
       route.fulfill({
         status: 409,
         json: {
-          detail: "기존 일정이 변경됐습니다. 새 미리보기를 만들어 주세요.",
+          detail: "기존 일정이 변경됐어요. 새 미리보기를 만들어 주세요.",
         },
       }),
   );
@@ -352,7 +413,7 @@ test("expired or changed data errors do not save any partial result and excluded
     .getByRole("button", { name: "캘린더에 저장", exact: true })
     .click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "기존 일정이 변경됐습니다",
+    "기존 일정이 변경됐어요",
   );
   await expect(
     page.getByRole("heading", { name: "캘린더 저장 완료", exact: true }),
@@ -390,18 +451,72 @@ test("a saved receipt can be reopened without approving again", async ({
   expect(approvals).toBe(0);
 });
 
-test("manual flexible tasks do not require fixed start and end times", async ({
+test("a new task without times is selected and can save two recommended hours", async ({
   page,
 }) => {
   await mockApi(page);
   await login(page);
-  await page.goto("/sources/new?mode=manual");
+  let created = false;
+  page.on("response", (response) => {
+    if (
+      response.status() === 201 &&
+      response.request().method() === "POST" &&
+      response.url().endsWith("/api/tasks")
+    )
+      created = true;
+  });
+  await page.route("**/test-api/api/scheduling/tasks?*", (route) => {
+    const ids = new URL(route.request().url()).searchParams.getAll("ids");
+    return route.fulfill({
+      json: {
+        entries:
+          !created || (ids.length > 0 && !ids.includes("task-1"))
+            ? []
+            : [{ ...task, id: "task-1", title: "발표 자료 준비" }],
+        has_more: false,
+      },
+    });
+  });
+  const preview = plan();
+  preview.blocks = preview.blocks.map((block) => ({
+    ...block,
+    task_id: "task-1",
+    title: "발표 자료 준비",
+  }));
+  preview.details.tasks = [
+    { ...preview.details.tasks[0], id: "task-1", title: "발표 자료 준비" },
+  ];
+  preview.details.google_state = "not_connected";
+  await page.route("**/test-api/api/scheduling/preview", (route) => {
+    expect(route.request().postDataJSON()).toMatchObject({
+      task_ids: ["task-1"],
+      chunk_minutes: 60,
+    });
+    return route.fulfill({ status: 201, json: preview });
+  });
+  let saves = 0;
+  await page.route(
+    "**/test-api/api/scheduling/plans/preview-1/approve",
+    (route) => {
+      saves++;
+      expect(route.request().postDataJSON().blocks).toHaveLength(2);
+      return route.fulfill({
+        json: { ...preview, approved_at: "2026-11-16T00:00:00Z" },
+      });
+    },
+  );
+  await page.goto("/planning");
+  await page
+    .getByRole("link", { name: "새 할 일 만들기", exact: true })
+    .click();
+  await expect(
+    page.getByRole("button", { name: "시간 미정으로 등록", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true");
   await page
     .getByRole("textbox", { name: "일정명", exact: true })
-    .fill("자동 배치할 일");
-  await page.getByText("상세 설정", { exact: true }).click();
-  await page.getByLabel("작업 유형", { exact: true }).selectOption("flexible");
-  await page.getByLabel(/소요시간/).fill("90");
+    .fill("발표 자료 준비");
+  await expect(page.getByLabel("시작 일시", { exact: true })).toBeHidden();
+  await page.getByLabel(/소요시간/).fill("120");
   const sent = page.waitForRequest(
     (r) => r.method() === "POST" && r.url().endsWith("/api/tasks"),
   );
@@ -410,6 +525,71 @@ test("manual flexible tasks do not require fixed start and end times", async ({
     schedule_type: "flexible",
     earliest_start: null,
     latest_end: null,
-    estimated_minutes: 90,
+    estimated_minutes: 120,
   });
+  await page
+    .getByRole("link", { name: "자동 시간 추천받기", exact: true })
+    .click();
+  await expect(
+    page.getByRole("checkbox", { name: /발표 자료 준비/ }),
+  ).toBeChecked();
+  await page
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
+    .click();
+  const result = page.getByRole("region", { name: "추천 시간 미리보기" });
+  await expect(result).toContainText("2회로 나누어 진행");
+  await expect(result.locator(".planning-time-card")).toHaveCount(2);
+  await expect(result).toContainText("Google 미연결");
+  expect(saves).toBe(0);
+  await result
+    .getByRole("button", { name: "캘린더에 저장", exact: true })
+    .click();
+  await expect(result).toContainText("캘린더 저장 완료");
+  expect(saves).toBe(1);
+});
+
+test("an empty recommendation lets the user change conditions and retry", async ({
+  page,
+}) => {
+  await selectTask(page);
+  let attempts = 0;
+  await page.route("**/test-api/api/scheduling/preview", (route) => {
+    const result = plan();
+    attempts++;
+    if (attempts === 1) result.blocks = [];
+    else expect(route.request().postDataJSON().chunk_minutes).toBe(30);
+    return route.fulfill({ status: 201, json: result });
+  });
+  await page
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
+    .click();
+  await expect(page.getByText(/현재 조건에 맞는 시간이 없어요/)).toBeVisible();
+  await page.getByRole("button", { name: "추천 조건 수정" }).click();
+  await page.getByLabel("한 번에 작업할 시간").selectOption("30");
+  await page
+    .getByRole("button", { name: "추천 시간 보기", exact: true })
+    .click();
+  await expect(page.locator(".planning-time-card")).toHaveCount(2);
+});
+
+test("task picker detail keeps the authenticated tab", async ({
+  page,
+  context,
+}) => {
+  await selectTask(page);
+  await page.route("**/test-api/api/scheduling/tasks?*", (route) =>
+    route.fulfill({
+      json: {
+        entries: [{ ...task, estimated_minutes: null }],
+        has_more: false,
+      },
+    }),
+  );
+  await page.reload();
+  const link = page.getByRole("link", { name: "소요시간 설정", exact: true });
+  await expect(link).not.toHaveAttribute("target");
+  await expect(link).not.toHaveAttribute("rel");
+  await link.click();
+  await expect(page).toHaveURL(/\/tasks\/auto-task$/);
+  expect(context.pages()).toHaveLength(1);
 });

@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { Empty, ErrorNotice, Loading } from "@/components/feedback";
 import { useResource } from "@/lib/api/use-resource";
-import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
+import { TaskTimes } from "./task-times";
 import "./schedule-overview.css";
 
 const loadSchedules = () => tasksApi.list();
@@ -27,7 +27,7 @@ export function DashboardSchedules() {
         <Loading />
       ) : error ? (
         <ErrorNotice
-          message={`일정을 불러오지 못했습니다. ${error}`}
+          message={`일정을 불러오지 못했어요. ${error}`}
           retry={reload}
         />
       ) : data?.length ? (
@@ -41,21 +41,10 @@ export function DashboardSchedules() {
                 <div className="dashboard-schedule-summary">
                   <strong>{task.title}</strong>
                   <span className="small muted">
-                    {task.earliest_start ? (
-                      <time dateTime={task.earliest_start}>
-                        {formatSeoul(task.earliest_start)}
-                      </time>
-                    ) : (
-                      "시작 미정"
-                    )}
-                    {" → "}
-                    {task.latest_end ? (
-                      <time dateTime={task.latest_end}>
-                        {formatSeoul(task.latest_end)}
-                      </time>
-                    ) : (
-                      "종료 미정"
-                    )}
+                    <TaskTimes task={task} />
+                    {task.placement && task.placement.block_count > 1
+                      ? ` · ${task.placement.block_count}개 구간`
+                      : null}
                   </span>
                 </div>
                 <span className={`tag ${task.is_completed ? "confirmed" : ""}`}>
@@ -66,7 +55,7 @@ export function DashboardSchedules() {
           ))}
         </ul>
       ) : (
-        <Empty title="등록한 일정이 없습니다">
+        <Empty title="등록한 일정이 없어요">
           새 일정 등록하기에서 수동 일정을 입력해 보세요.
         </Empty>
       )}

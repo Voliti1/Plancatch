@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
+import type { KeyboardEvent } from "react";
 import { sourcesApi } from "./api";
 import { SourceFileInput } from "./source-file-input";
 import { errorMessage } from "@/lib/api/client";
@@ -11,6 +12,19 @@ import { useHydrated } from "@/lib/use-hydrated";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import "./source-registration.css";
+
+type SourceInputKind = "file" | "url" | "text";
+
+const INPUT_TABS: readonly {
+  value: SourceInputKind;
+  label: string;
+  hint: string;
+}[] = [
+  { value: "file", label: "파일 올리기", hint: "PDF · 이미지 캡처" },
+  { value: "url", label: "웹페이지 링크", hint: "공고 · 안내 페이지 주소" },
+  { value: "text", label: "글 내용 붙여넣기", hint: "공지 · 과제 안내 · 메모" },
+];
+
 export function SourceForm({
   embedded = false,
   onBusyChange,
@@ -19,6 +33,8 @@ export function SourceForm({
   onBusyChange?: (busy: boolean) => void;
 }) {
   const hydrated = useHydrated();
+  const tabId = useId();
+  const [inputKind, setInputKind] = useState<SourceInputKind>("file");
   const [title, setTitle] = useState("");
   const [url, setUrl] = useState("");
   const [text, setText] = useState("");
@@ -36,63 +52,93 @@ export function SourceForm({
   const router = useRouter();
   const { markSaved } = useUnsavedChanges(
     JSON.stringify([
+      inputKind,
       title,
-      url,
-      text,
-      files.map((file) => [file.name, file.size, file.lastModified]),
+      inputKind === "url" ? url : "",
+      inputKind === "text" ? text : "",
+      inputKind === "file"
+        ? files.map((file) => [file.name, file.size, file.lastModified])
+        : [],
     ]),
   );
+
+  function selectKind(next: SourceInputKind) {
+    if (busy || !hydrated) return;
+    setError("");
+    setInputKind(next);
+  }
+
+  function handleTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (busy || !hydrated) return;
+    const index = INPUT_TABS.findIndex(({ value }) => value === inputKind);
+    const target = {
+      Home: 0,
+      End: INPUT_TABS.length - 1,
+      ArrowLeft: (index + INPUT_TABS.length - 1) % INPUT_TABS.length,
+      ArrowRight: (index + 1) % INPUT_TABS.length,
+    }[event.key];
+    if (target === undefined) return;
+    event.preventDefault();
+    selectKind(INPUT_TABS[target].value);
+    event.currentTarget.querySelectorAll("button")[target]?.focus();
+  }
+
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (pending.current || !hydrated) return;
     setError("");
     const originalUrl = url.trim();
     const hasText = Boolean(text.trim());
-    if (files.length > 1 || (files.length && (originalUrl || hasText))) {
-      setError("한 번에 파일 한 개, URL, 텍스트 중 하나만 등록해 주세요.");
-      return;
-    }
-    if (!originalUrl && !hasText && !files.length) {
-      setError("파일, URL 또는 텍스트를 입력해 주세요.");
-      return;
-    }
-    if (originalUrl && hasText) {
-      setError(
-        "한 번에 하나의 자료를 저장할 수 있어요. URL 또는 텍스트 중 하나만 입력해 주세요.",
-      );
-      return;
-    }
-    if (originalUrl) {
+
+    if (inputKind === "file") {
+      if (!files.length) {
+        setError("PDF 또는 이미지 파일을 선택해 주세요.");
+        return;
+      }
+      if (files.length > 1) {
+        setError("파일은 한 번에 1개만 올릴 수 있어요.");
+        return;
+      }
+    } else if (inputKind === "url") {
+      if (!originalUrl) {
+        setError("웹페이지 링크(URL)를 입력해 주세요.");
+        return;
+      }
       try {
         const parsed = new URL(originalUrl);
         if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
       } catch {
         setError(
-          "http:// 또는 https://로 시작하는 올바른 URL을 입력해 주세요.",
+          "http:// 또는 https://로 시작하는 올바른 웹페이지 주소를 입력해 주세요.",
         );
         return;
       }
+    } else if (!hasText) {
+      setError("공지나 안내문 글 내용을 입력해 주세요.");
+      return;
     }
+
     pending.current = true;
     setBusy(true);
     onBusyChange?.(true);
     try {
       const sourceTitle = title.trim() || undefined;
-      const source = files.length
-        ? await sourcesApi.uploadFile(files[0], sourceTitle)
-        : await sourcesApi.create(
-            originalUrl
-              ? {
-                  source_type: "url",
-                  title: sourceTitle,
-                  original_url: originalUrl,
-                }
-              : {
-                  source_type: "text",
-                  title: sourceTitle,
-                  original_text: text,
-                },
-          );
+      const source =
+        inputKind === "file"
+          ? await sourcesApi.uploadFile(files[0], sourceTitle)
+          : await sourcesApi.create(
+              inputKind === "url"
+                ? {
+                    source_type: "url",
+                    title: sourceTitle,
+                    original_url: originalUrl,
+                  }
+                : {
+                    source_type: "text",
+                    title: sourceTitle,
+                    original_text: text,
+                  },
+            );
       // A new keyed registration can replace this form while a save is in flight.
       // Keep the saved source, but never redirect or update its replacement.
       if (active.current) {
@@ -107,6 +153,7 @@ export function SourceForm({
       onBusyChange?.(false);
     }
   }
+
   return (
     <>
       {!embedded && (
@@ -115,32 +162,54 @@ export function SourceForm({
             ← 대시보드
           </Link>
           <PageHeading
-            eyebrow="NEW SCHEDULE"
+            eyebrow="새 일정"
             title="새 일정 등록"
-            description="자료를 저장하면 바로 원문 추출과 마감일 검토를 이어갑니다."
+            description="자료를 올리면 마감일을 자동으로 찾아 드려요. 확인 후 바로 일정으로 등록할 수 있습니다."
           />
         </>
       )}
       <form className="card source-registration" onSubmit={submit} noValidate>
         <div className="source-registration-heading">
-          <h2>일정 입력</h2>
+          <h2>자료 올리기</h2>
           <ol className="source-registration-steps" aria-label="일정 등록 단계">
             <li aria-current="step">
-              <span>1</span>일정 입력
+              <span>1</span>자료 올리기
             </li>
             <li>
-              <span>2</span>AI 검토
+              <span>2</span>마감일 확인
             </li>
             <li>
-              <span>3</span>마감일 승인
+              <span>3</span>일정 등록
             </li>
           </ol>
         </div>
-        {embedded && (
-          <p className="small muted source-registration-guide">
-            파일, URL, 텍스트 중 하나를 추가해 주세요.
-          </p>
-        )}
+        <p className="small muted source-registration-guide">
+          원하는 방식을 하나 고른 뒤 내용을 입력해 주세요.
+        </p>
+        <div
+          className="source-kind-tabs"
+          role="tablist"
+          aria-label="자료 입력 방식"
+          onKeyDown={handleTabKeyDown}
+        >
+          {INPUT_TABS.map((tab) => (
+            <button
+              key={tab.value}
+              id={`${tabId}-${tab.value}-tab`}
+              type="button"
+              role="tab"
+              aria-selected={inputKind === tab.value}
+              aria-controls={`${tabId}-${tab.value}-panel`}
+              tabIndex={inputKind === tab.value ? 0 : -1}
+              disabled={busy || !hydrated}
+              className="secondary"
+              onClick={() => selectKind(tab.value)}
+            >
+              <span>{tab.label}</span>
+              <small>{tab.hint}</small>
+            </button>
+          ))}
+        </div>
         <fieldset disabled={busy || !hydrated}>
           <label>
             일정 제목 (선택)
@@ -149,19 +218,36 @@ export function SourceForm({
               maxLength={255}
               value={title}
               onChange={(event) => setTitle(event.target.value)}
-              placeholder="예: 프로젝트 최종 보고서 제출"
+              placeholder="예: 프로젝트 최종 보고서 제출 (비워 두면 자동으로 채워져요)"
             />
           </label>
-          <div className="source-registration-grid">
+          <div
+            id={`${tabId}-file-panel`}
+            role="tabpanel"
+            aria-labelledby={`${tabId}-file-tab`}
+            hidden={inputKind !== "file"}
+            className="source-kind-panel"
+          >
             <SourceFileInput
               files={files}
               onChange={setFiles}
               disabled={busy || !hydrated}
             />
-            <div className="source-registration-fields">
-              <section aria-labelledby="source-url-heading">
-                <h3 id="source-url-heading">URL로 추가</h3>
-                <label htmlFor="source-new-url">원본 URL</label>
+          </div>
+          <div
+            id={`${tabId}-url-panel`}
+            role="tabpanel"
+            aria-labelledby={`${tabId}-url-tab`}
+            hidden={inputKind !== "url"}
+            className="source-kind-panel"
+          >
+            <section
+              className="source-registration-fields"
+              aria-labelledby="source-url-heading"
+            >
+              <div>
+                <h3 id="source-url-heading">웹페이지 링크로 추가</h3>
+                <label htmlFor="source-new-url">웹페이지 주소 (URL)</label>
                 <input
                   id="source-new-url"
                   name="url"
@@ -172,25 +258,40 @@ export function SourceForm({
                   aria-describedby="source-url-help"
                 />
                 <p id="source-url-help" className="small muted">
-                  일정이 안내된 공지나 게시글 주소를 붙여 넣으세요.
+                  로그인 없이 볼 수 있는 공고·안내 페이지 주소를 붙여 넣어
+                  주세요. 로그인이 필요하면 내용을 복사해 ‘글 내용 붙여넣기’를
+                  이용해 주세요.
                 </p>
                 <NewRegistrationLink
                   className="text-button"
                   href="/deadlines/auto"
                 >
-                  URL 자동 등록 화면 열기 →
+                  링크에서 바로 마감일 찾기 화면 열기 →
                 </NewRegistrationLink>
-              </section>
-              <section aria-labelledby="source-text-heading">
-                <h3 id="source-text-heading">텍스트로 추가</h3>
-                <label htmlFor="source-new-text">원본 텍스트</label>
+              </div>
+            </section>
+          </div>
+          <div
+            id={`${tabId}-text-panel`}
+            role="tabpanel"
+            aria-labelledby={`${tabId}-text-tab`}
+            hidden={inputKind !== "text"}
+            className="source-kind-panel"
+          >
+            <section
+              className="source-registration-fields"
+              aria-labelledby="source-text-heading"
+            >
+              <div>
+                <h3 id="source-text-heading">글 내용으로 추가</h3>
+                <label htmlFor="source-new-text">안내문·메모 내용</label>
                 <textarea
                   id="source-new-text"
                   name="text"
-                  rows={6}
+                  rows={7}
                   value={text}
                   onChange={(event) => setText(event.target.value)}
-                  placeholder="공지, 과제 안내, 메모 등을 붙여 넣어 주세요."
+                  placeholder="공지, 과제 안내, 이메일 내용 등을 그대로 붙여 넣어 주세요."
                   aria-describedby="source-text-count"
                 />
                 <p
@@ -199,8 +300,8 @@ export function SourceForm({
                 >
                   {text.length.toLocaleString("ko-KR")}자 입력
                 </p>
-              </section>
-            </div>
+              </div>
+            </section>
           </div>
           {error && <ErrorNotice message={error} />}
           <div className="form-actions source-registration-actions">
@@ -215,7 +316,7 @@ export function SourceForm({
               취소
             </Link>
             <button type="submit" disabled={busy || !hydrated}>
-              {busy ? "저장 중…" : "자료 저장"}
+              {busy ? "저장 중…" : "저장하고 마감일 확인하기"}
             </button>
           </div>
         </fieldset>

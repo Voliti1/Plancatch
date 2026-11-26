@@ -1,0 +1,130 @@
+.calendar-popup {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+  box-sizing: border-box;
+  width: min(360px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 12px 36px rgb(18 30 56 / 22%);
+}
+.calendar-popup.is-menu {
+  width: min(258px, calc(100vw - 24px));
+}
+.calendar-popup::backdrop {
+  background: transparent;
+}
+.calendar-popup-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.calendar-popup-header h3 {
+  margin: 3px 0 8px;
+  font-size: 17px;
+  overflow-wrap: anywhere;
+}
+.calendar-popup p {
+  margin: 0 0 8px;
+}
+.calendar-popup .calendar-popup-note {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.calendar-popup-actions,
+.calendar-popup-colors {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+.calendar-popup-actions {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+}
+.calendar-popup .calendar-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 6px;
+  gap: 6px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--ink);
+  background: transparent;
+}
+.calendar-popup .calendar-icon:hover,
+.calendar-popup .calendar-icon:focus-visible {
+  background: var(--blue-soft);
+}
+.calendar-popup .calendar-color-option {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  min-height: 0;
+  color: white;
+  border-radius: 50%;
+  padding: 0;
+  border: 1px solid transparent;
+}
+.calendar-color-option[aria-pressed="true"],
+.calendar-color-option:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.calendar-popup .calendar-color-default {
+  padding: 5px 8px;
+  min-height: 34px;
+  font-size: 13px;
+}
+.calendar-default-color-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.calendar-default-color-current {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+}
+.calendar-default-color-current > span {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+}
+.calendar-popup .calendar-default-color-row .calendar-icon {
+  min-width: 34px;
+  min-height: 34px;
+  margin-left: auto;
+}
+.calendar-default-palette {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding-top: 6px;
+}
+.calendar-default-palette .calendar-color-default {
+  flex-basis: 100%;
+}
+.calendar-popup-confirm {
+  margin-top: 12px;
+}
+.calendar-popup-confirm label {
+  display: block;
+  margin-bottom: 10px;
+}

@@ -55,15 +55,18 @@ test("direct entry opens first and preserves its draft across keyboard and regis
     (await tabs.boundingBox())!.width * 0.9,
   );
   await expect(
-    page.getByRole("heading", { name: "수동 일정 등록", exact: true }),
+    page.getByRole("heading", { name: "직접 일정 만들기", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "일정 미리보기", exact: true }),
   ).toHaveCount(0);
   await page.getByLabel("일정명", { exact: true }).fill("직접 쓴 일정");
-  const direct = page.getByRole("tab", { name: "직접 입력", exact: true });
+  const direct = page.getByRole("tab", {
+    name: "날짜·시간 직접 입력",
+    exact: true,
+  });
   const sentence = page.getByRole("tab", {
-    name: "문장으로 등록",
+    name: "한 문장으로 입력",
     exact: true,
   });
   await expect(direct).toHaveAttribute("aria-selected", "true");
@@ -77,8 +80,12 @@ test("direct entry opens first and preserves its draft across keyboard and regis
   ).toBeVisible();
   await sentence.press("ArrowLeft");
   await expect(direct).toBeFocused();
-  await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
+    .click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue(
     "직접 쓴 일정",
   );
@@ -124,17 +131,20 @@ test("a pending sentence and an edited preview stay separate from the direct dra
   await mockApi(page);
   await login(page);
   await page.goto("/sources/new?mode=manual");
-  const direct = page.getByRole("tab", { name: "직접 입력", exact: true });
+  const direct = page.getByRole("tab", {
+    name: "날짜·시간 직접 입력",
+    exact: true,
+  });
   const sentence = page.getByRole("tab", {
-    name: "문장으로 등록",
+    name: "한 문장으로 입력",
     exact: true,
   });
   const directPanel = page.getByRole("tabpanel", {
-    name: "직접 입력",
+    name: "날짜·시간 직접 입력",
     exact: true,
   });
   const sentencePanel = page.getByRole("tabpanel", {
-    name: "문장으로 등록",
+    name: "한 문장으로 입력",
     exact: true,
   });
   const title = directPanel.getByLabel("일정명", { exact: true });
@@ -162,8 +172,12 @@ test("a pending sentence and an edited preview stay separate from the direct dra
   await previewTitle.fill("검토 중인 회의");
   await direct.click();
   await expect(title).toHaveValue("직접 쓴 일정");
-  await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
+    .click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(title).toHaveValue("직접 쓴 일정");
   await sentence.click();
   await expect(previewTitle).toHaveValue("검토 중인 회의");

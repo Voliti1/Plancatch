@@ -77,14 +77,14 @@ export function ImageTextCorrection({ analysis }: { analysis: Analysis }) {
   return (
     <details className="image-text-correction">
       <summary>이미지에서 읽은 글 교정</summary>
-      <form onSubmit={submit} aria-label="이미지 원문 교정">
+      <form onSubmit={submit} aria-label="이미지 자료 내용 교정">
         <p id={helpId} className="small muted">
-          이미지와 읽어 온 글을 비교해 오타를 고쳐 주세요. 교정한 글로 새 마감일
-          후보를 만들고, 마감일은 새 검토에서 승인하면 등록됩니다.
+          이미지와 읽어 온 글을 비교해 오타를 고쳐 주세요. 교정한 글로 새 찾은
+          마감일을 만들고, 마감일은 새 검토에서 승인하면 등록돼요.
         </p>
         <fieldset disabled={working || saved}>
           <label>
-            교정할 원문
+            교정할 자료 내용
             <textarea
               rows={8}
               aria-describedby={helpId}
@@ -93,7 +93,7 @@ export function ImageTextCorrection({ analysis }: { analysis: Analysis }) {
             />
           </label>
           {length > MAX_CORRECTED_LENGTH && (
-            <ErrorNotice message="교정 원문을 40,000자 이하로 입력해 주세요." />
+            <ErrorNotice message="교정 자료 내용을 40,000자 이하로 입력해 주세요." />
           )}
           <label className="checkbox">
             <input
@@ -101,13 +101,13 @@ export function ImageTextCorrection({ analysis }: { analysis: Analysis }) {
               checked={consent}
               onChange={(event) => setConsent(event.target.checked)}
             />
-            교정한 글만 Google Gemini에 보내 분석하는 데 동의합니다.
+            교정한 글만 AI(구글 Gemini)에 보내 분석하는 데 동의해요.
           </label>
           <button type="submit" disabled={!canSubmit}>
             교정한 글로 다시 분석
           </button>
         </fieldset>
-        {working && <p role="status">교정한 글을 분석하고 있습니다.</p>}
+        {working && <p role="status">교정한 글을 분석하고 있어요.</p>}
         {error && <ErrorNotice message={error} />}
         {result?.status === "failed" && (
           <ErrorNotice
@@ -120,14 +120,14 @@ export function ImageTextCorrection({ analysis }: { analysis: Analysis }) {
           <ErrorNotice
             message={
               poll.error ||
-              "90초 동안 결과를 확인하지 못했습니다. 진행 상태를 다시 확인해 주세요."
+              "90초 동안 결과를 확인하지 못했어요. 진행 상태를 다시 확인해 주세요."
             }
             retry={poll.resume}
           />
         )}
         {saved && resultId && (
           <p role="status">
-            새 검토가 준비됐습니다.{" "}
+            새 검토가 준비됐어요.{" "}
             <Link href={`/analyses/${encodeURIComponent(resultId)}`}>
               교정한 글의 검토 결과 보기 →
             </Link>

@@ -1,8 +1,43 @@
+.time-grid-host {
+  --time-rail-width: 52px;
+  min-width: 0;
+}
 .time-grid-scroll {
   max-height: 780px;
   overflow: auto;
   border: 1px solid var(--line);
   border-radius: 10px;
+}
+.time-grid-scroll.is-day.is-dragging [data-day-drop-edge] {
+  background: var(--blue-soft);
+  color: var(--blue);
+  outline: 1px dashed var(--blue);
+  outline-offset: -1px;
+}
+.time-grid-scroll.is-day.is-dragging [data-day-drop-edge][data-active="true"] {
+  background: var(--blue);
+  color: #fff;
+}
+.time-grid-scroll.is-day.is-dragging .time-axis > span {
+  visibility: hidden;
+}
+.time-day-edge-label {
+  position: sticky;
+  top: 50%;
+  padding: 6px 2px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+  word-break: keep-all;
+}
+.time-next-day-header {
+  left: auto;
+}
+.time-next-day-header,
+.time-next-day-rail {
+  border-left: 1px solid var(--line);
+  background: var(--white);
 }
 .time-grid {
   display: grid;
@@ -91,8 +126,11 @@
   position: absolute;
   width: 100%;
   left: 0;
-  border-top: 1px solid var(--line);
+  border-top: 1px solid color-mix(in srgb, var(--line) 52%, transparent);
   display: block;
+}
+.time-slot.is-hour {
+  border-top-color: var(--line);
 }
 .time-slot:hover {
   background: var(--blue-soft);
@@ -113,6 +151,35 @@
   display: block;
   font-size: 12px;
   line-height: 1.35;
+  text-align: left;
+  min-height: 18px;
+  height: var(--calendar-block-height);
+}
+.time-event.is-movable {
+  cursor: grab;
+  touch-action: none;
+}
+.time-event.is-moving {
+  opacity: 0.32;
+  cursor: grabbing;
+}
+.time-event.time-drop-preview {
+  left: 2px;
+  width: calc(100% - 4px);
+  pointer-events: none;
+  z-index: 4;
+  border: 2px dashed var(--blue);
+  color: var(--ink);
+  background: var(--blue-soft);
+  min-height: 0;
+}
+.time-drop-preview small {
+  color: var(--ink);
+}
+.time-all-day-event {
+  width: 100%;
+  min-height: 0;
+  text-align: left;
 }
 .time-event strong,
 .time-event small {
@@ -124,6 +191,39 @@
 .time-event small {
   font-size: 10px;
   color: #fff;
+}
+.time-grid-scroll.is-week .time-event:not(.time-drop-preview) {
+  container-type: inline-size;
+  padding: 2px 4px;
+  line-height: 1.2;
+}
+.time-grid-scroll.is-week .time-event .time-event-title {
+  font-size: clamp(11px, 16cqi, 13px);
+  white-space: normal;
+  overflow-wrap: anywhere;
+  text-overflow: clip;
+}
+.time-grid-scroll.is-week .time-event .time-event-clock {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 4px;
+  margin-top: 1px;
+  overflow: visible;
+  text-overflow: clip;
+  font-size: clamp(10px, 13cqi, 12px);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+@container (max-width: 42px) {
+  .time-event-clock-end > span {
+    display: none;
+  }
+}
+.time-grid-scroll.is-week
+  .time-event:not(.is-moving, .time-drop-preview):is(:hover, :focus-visible) {
+  min-height: max(18px, var(--calendar-block-height));
+  height: auto;
+  z-index: 4;
 }
 .time-event.schedule-kind-task,
 .time-all-day-event.schedule-kind-task {

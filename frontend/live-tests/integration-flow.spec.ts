@@ -1,3 +1,4 @@
+import { sourceInput } from "../tests/source-input";
 import { randomBytes } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
 import type { Analysis } from "../types/analysis";
@@ -34,8 +35,8 @@ async function ownRequest(
 function testPdf(day: string) {
   // A real one-page PDF with synthetic text, never a user's document.
   const stream = [
-    "BT /F1 18 Tf 50 750 Td (2026 PlanCatch Integration Test) Tj",
-    "0 -35 Td /F1 12 Tf (Company: PlanCatch Test Company) Tj",
+    "BT /F1 18 Tf 50 750 Td (2026 플랜캐치 Integration Test) Tj",
+    "0 -35 Td /F1 12 Tf (Company: 플랜캐치 Test Company) Tj",
     `0 -30 Td (Application deadline: ${day} 18:00 Korea time.) Tj`,
     "0 -30 Td (This is synthetic test data, not a real recruitment.) Tj ET",
   ].join("\n");
@@ -125,7 +126,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
     .getByRole("button", { name: "계정 만들기 →", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "가입이 완료되었습니다.", exact: true }),
+    page.getByRole("heading", { name: "가입이 완료됐어요.", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: "로그인으로 이동", exact: true })
@@ -138,11 +139,11 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
 
   async function newSource() {
     await page
-      .getByRole("link", { name: "새 일정 등록하기", exact: true })
+      .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
       .click();
     await expect(page).toHaveURL(/\/sources\/new\?new=/);
     await expect(
-      page.getByRole("link", { name: "원본 자료", exact: true }),
+      page.getByRole("link", { name: "자료함", exact: true }),
     ).not.toHaveAttribute("aria-current", "page");
   }
   async function saveSource() {
@@ -151,7 +152,9 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
         response.request().method() === "POST" &&
         /\/api\/sources(?:\/pdfs)?$/.test(new URL(response.url()).pathname),
     );
-    await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    await page
+      .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+      .click();
     const response = await created;
     expect(response.status()).toBe(201);
     const { id } = await response.json();
@@ -162,15 +165,17 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
   }
   async function consent(before: number) {
     const start = page.getByRole("button", {
-      name: "동의하고 AI 검토 시작",
+      name: "동의하고 찾은 날짜 확인 시작",
       exact: true,
     });
     await expect(start).toBeDisabled();
     expect(analysisPosts).toBe(before);
-    await page.getByRole("checkbox", { name: /Google Gemini/ }).check();
+    await page.getByRole("checkbox", { name: /AI\(구글 Gemini\)/ }).check();
     await start.click();
     await expect(page).toHaveURL(/\/analyses\//);
-    await expect(page.getByLabel("후보 1 제목", { exact: true })).toBeVisible({
+    await expect(
+      page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+    ).toBeVisible({
       timeout: 95000,
     });
     expect(analysisPosts).toBe(before + 1);
@@ -179,11 +184,11 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
   try {
     await newSource();
     await page.getByLabel("일정 제목 (선택)").fill(`${marker} 텍스트`);
-    await page
-      .getByLabel("원본 텍스트", { exact: true })
-      .fill(
-        `회사명: 플랜캐치 테스트회사\n[테스트] 보고서 제출\n제출 마감일: ${day} 오후 6시 (한국 시간)\n실제 채용이나 과제가 아닌 합성 검증 자료입니다.`,
-      );
+    await (
+      await sourceInput(page, "text")
+    ).fill(
+      `회사명: 플랜캐치 테스트회사\n[테스트] 보고서 제출\n제출 마감일: ${day} 오후 6시 (한국 시간)\n실제 채용이나 과제가 아닌 합성 검증 자료예요.`,
+    );
     await saveSource();
     const analysisId = await consent(0);
     const current = await ownRequest(page, `/api/ai-analyses/${analysisId}`);
@@ -193,13 +198,13 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
     expect(ready.candidates.length).toBeGreaterThan(0);
     for (let index = 0; index < ready.candidates.length; index++)
       await page
-        .getByLabel(`후보 ${index + 1} 포함`, { exact: true })
+        .getByLabel(`찾은 마감일 ${index + 1} 포함`, { exact: true })
         .setChecked(index === 0);
     await page
-      .getByLabel("후보 1 제목", { exact: true })
+      .getByLabel("찾은 마감일 1 제목", { exact: true })
       .fill(`${marker} 승인 마감`);
     await page
-      .getByLabel("후보 1 마감일 (한국 시간)", { exact: true })
+      .getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true })
       .fill(`${day}T18:00`);
     await page
       .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
@@ -233,7 +238,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
       .getByRole("button", { name: "변경 사항 저장", exact: true })
       .click();
     await expect(
-      page.getByText("변경 사항을 저장했습니다.", { exact: true }),
+      page.getByText("변경 사항을 저장했어요.", { exact: true }),
     ).toBeVisible();
     await page.reload();
     await expect(page.getByLabel("마감 제목", { exact: true })).toHaveValue(
@@ -256,13 +261,13 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
 
     await newSource();
     await page.getByLabel("일정 제목 (선택)").fill(`${marker} PDF`);
-    await page
-      .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
-      .setInputFiles({
-        name: "[테스트] 통합 확인.pdf",
-        mimeType: "application/pdf",
-        buffer: testPdf(day),
-      });
+    await (
+      await sourceInput(page, "file")
+    ).setInputFiles({
+      name: "[테스트] 통합 확인.pdf",
+      mimeType: "application/pdf",
+      buffer: testPdf(day),
+    });
     await saveSource();
     const pdfAnalysisId = await consent(1);
     const pdfResult = await ownRequest(
@@ -277,7 +282,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
       .click();
     await expect(
       page.getByText(
-        "분석 결과를 전체 거부했습니다. 이 분석으로 생성된 마감일은 없습니다.",
+        "분석 결과를 전체 거부했어요. 이 분석으로 생성된 마감일은 없어요.",
         { exact: true },
       ),
     ).toBeVisible();
@@ -286,10 +291,10 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
     );
 
     await newSource();
-    await page.getByLabel("일정 제목 (선택)").fill(`${marker} 공개 URL`);
     await page
-      .getByLabel("원본 URL", { exact: true })
-      .fill("https://example.com");
+      .getByLabel("일정 제목 (선택)")
+      .fill(`${marker} 로그인 없이 볼 수 있는 링크`);
+    await (await sourceInput(page, "url")).fill("https://example.com");
     const urlSourceId = await saveSource();
     await expect
       .poll(
@@ -302,7 +307,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
       .toBe("extracted");
     await newSource();
     await page.getByLabel("일정 제목 (선택)").fill(`${marker} 접근 제한 URL`);
-    await page.getByLabel("원본 URL", { exact: true }).fill("http://127.0.0.1");
+    await (await sourceInput(page, "url")).fill("http://127.0.0.1");
     await saveSource();
     await expect(
       page
@@ -315,7 +320,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
 
     await newSource();
     await page
-      .getByRole("tab", { name: "수동 일정 등록", exact: true })
+      .getByRole("tab", { name: "직접 일정 만들기", exact: true })
       .click();
     await page
       .getByLabel("일정명", { exact: true })
@@ -343,7 +348,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
     ).toBe(true);
     await page.goto("/settings/google-calendar");
     await expect(
-      page.getByText("아직 연결하지 않았습니다", { exact: true }),
+      page.getByText("아직 연결하지 않았어요", { exact: true }),
     ).toBeVisible();
     console.info(
       "Live integration: manual schedule and approved deadline appear in calendar; Google stays unconnected",

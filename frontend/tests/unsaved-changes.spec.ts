@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { aiSource, mockAnalyses, readyAnalysis } from "./analysis-fixtures";
@@ -20,9 +21,9 @@ async function confirmMove(
 const sources = (page: Page) =>
   page
     .getByRole("navigation", { name: "주 메뉴" })
-    .getByRole("link", { name: "원본 자료", exact: true });
+    .getByRole("link", { name: "자료함", exact: true });
 const fresh = (page: Page) =>
-  page.getByRole("link", { name: "새 일정 등록하기", exact: true });
+  page.getByRole("link", { name: "+ 새 일정 등록하기", exact: true });
 
 test("source text survives cancelled navigation; fresh registration resets only after approval", async ({
   page,
@@ -32,19 +33,20 @@ test("source text survives cancelled navigation; fresh registration resets only 
   await fresh(page).click();
   await expect(page).toHaveURL(/\/sources\/new\?new=/);
   const originalUrl = page.url();
-  await page
-    .getByLabel("원본 텍스트", { exact: true })
-    .fill("[테스트] 아직 저장하지 않은 공지");
+  await (
+    await sourceInput(page, "text")
+  ).fill("[테스트] 아직 저장하지 않은 공지");
   await confirmMove(page, false, () => sources(page).click());
   await expect(page).toHaveURL(originalUrl);
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "text")).toHaveValue(
     "[테스트] 아직 저장하지 않은 공지",
   );
   await confirmMove(page, false, () => fresh(page).click());
   await expect(page).toHaveURL(originalUrl);
   await confirmMove(page, true, () => fresh(page).click());
   await expect(page).not.toHaveURL(originalUrl);
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue("");
+  await expect(await sourceInput(page, "text")).toHaveValue("");
+  await sourceInput(page, "file");
   await sources(page).click();
   await expect(page).toHaveURL(/\/sources$/);
 });
@@ -61,18 +63,24 @@ test("empty and reverted forms do not prompt; switching tabs keeps hidden input 
   };
   page.on("dialog", dismiss);
   await fresh(page).click();
-  const text = page.getByLabel("원본 텍스트", { exact: true });
+  const text = await sourceInput(page, "text");
   await text.fill("잠깐 입력");
   await text.fill("");
+  await sourceInput(page, "file");
   await sources(page).click();
   await expect(page).toHaveURL(/\/sources$/);
   await fresh(page).click();
+  await sourceInput(page, "text");
   await text.fill("[테스트] 탭 전환으로 지우지 않는 입력");
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   expect(unexpected).toBe(0);
   page.off("dialog", dismiss);
   await confirmMove(page, false, () => sources(page).click());
-  await page.getByRole("tab", { name: "자료로 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
+    .click();
   await expect(text).toHaveValue("[테스트] 탭 전환으로 지우지 않는 입력");
 });
 
@@ -167,8 +175,8 @@ test("AI review warns on edits, preserves them on error and clears after saving"
   await mockAnalyses(page);
   await login(page);
   await page.goto("/analyses/" + readyAnalysis.id);
-  const title = page.getByLabel("후보 1 제목", { exact: true });
-  await title.fill("[테스트] 수정한 후보");
+  const title = page.getByLabel("찾은 마감일 1 제목", { exact: true });
+  await title.fill("[테스트] 수정한 찾은 마감일");
   await page.route("**/test-api/api/ai-analyses/analysis-1", (route) =>
     route.request().method() === "PATCH"
       ? route.fulfill({
@@ -182,13 +190,13 @@ test("AI review warns on edits, preserves them on error and clears after saving"
     .click();
   await expect(page.getByRole("main").getByRole("alert")).toBeVisible();
   await confirmMove(page, false, () => sources(page).click());
-  await expect(title).toHaveValue("[테스트] 수정한 후보");
+  await expect(title).toHaveValue("[테스트] 수정한 찾은 마감일");
   await page.unroute("**/test-api/api/ai-analyses/analysis-1");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await expect(
-    page.getByText("검토 내용을 저장했습니다.", { exact: true }),
+    page.getByText("검토 내용을 저장했어요.", { exact: true }),
   ).toBeVisible();
   await sources(page).click();
   await expect(page).toHaveURL(/\/sources$/);
@@ -200,9 +208,7 @@ test("reload uses the browser warning and cancelling keeps the draft", async ({
   await mockApi(page);
   await login(page);
   await fresh(page).click();
-  await page
-    .getByLabel("원본 텍스트", { exact: true })
-    .fill("[테스트] 새로고침 보호");
+  await (await sourceInput(page, "text")).fill("[테스트] 새로고침 보호");
   await page
     .getByRole("heading", { name: "새 일정 등록", exact: true })
     .click();
@@ -212,7 +218,7 @@ test("reload uses the browser warning and cancelling keeps the draft", async ({
   expect(prompt.type()).toBe("beforeunload");
   await prompt.dismiss();
   await reload;
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "text")).toHaveValue(
     "[테스트] 새로고침 보호",
   );
 });
@@ -226,13 +232,11 @@ test("Back cancellation restores history without duplicate entries; accepted Bac
   await fresh(page).click();
   await expect(page).toHaveURL(/\/sources\/new\?new=/);
   const url = page.url();
-  await page
-    .getByLabel("원본 텍스트", { exact: true })
-    .fill("[테스트] 뒤로 가기 보호");
+  await (await sourceInput(page, "text")).fill("[테스트] 뒤로 가기 보호");
   const length = await page.evaluate(() => history.length);
   await confirmMove(page, false, () => page.evaluate(() => history.back()));
   await expect(page).toHaveURL(url);
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "text")).toHaveValue(
     "[테스트] 뒤로 가기 보호",
   );
   expect(await page.evaluate(() => history.length)).toBe(length);
@@ -272,17 +276,15 @@ test("deadline edits are protected, saving clears the warning, and logout asks b
     .getByRole("button", { name: "변경 사항 저장", exact: true })
     .click();
   await expect(
-    page.getByText("변경 사항을 저장했습니다.", { exact: true }),
+    page.getByText("변경 사항을 저장했어요.", { exact: true }),
   ).toBeVisible();
   await sources(page).click();
   await expect(page).toHaveURL(/\/sources$/);
   await fresh(page).click();
-  await page
-    .getByLabel("원본 텍스트", { exact: true })
-    .fill("[테스트] 로그아웃 전 입력");
+  await (await sourceInput(page, "text")).fill("[테스트] 로그아웃 전 입력");
   const logout = page.getByRole("button", { name: "로그아웃 ↗", exact: true });
   await confirmMove(page, false, () => logout.click());
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "text")).toHaveValue(
     "[테스트] 로그아웃 전 입력",
   );
   await confirmMove(page, true, () => logout.click());
@@ -301,11 +303,9 @@ test("browsers without Navigation API still protect menu changes", async ({
   await mockApi(page);
   await login(page);
   await fresh(page).click();
-  await page
-    .getByLabel("원본 텍스트", { exact: true })
-    .fill("[테스트] 기본 이동 보호");
+  await (await sourceInput(page, "text")).fill("[테스트] 기본 이동 보호");
   await confirmMove(page, false, () => sources(page).click());
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(await sourceInput(page, "text")).toHaveValue(
     "[테스트] 기본 이동 보호",
   );
   await confirmMove(page, true, () => sources(page).click());

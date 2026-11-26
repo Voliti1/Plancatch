@@ -264,7 +264,7 @@ def google_callback(request: Request, db: DatabaseSession):
 
 @router.delete("/connection", response_model=GoogleDisconnectResponse)
 def disconnect_google(
-    current_user: CurrentUser, db: DatabaseSession, response: Response
+    current_user: CurrentUser, db: DatabaseSession, response: Response, request: Request
 ):
     response.headers.update(SAFE_HEADERS)
     _lock_user(db, current_user.id)
@@ -280,11 +280,16 @@ def disconnect_google(
         delete(GoogleOAuthRequest).where(GoogleOAuthRequest.user_id == current_user.id)
     )
     connection = db.get(GoogleCalendarConnection, current_user.id)
+    try:
+        config = google.configuration()
+    except google.CalendarConfigurationError:
+        config = None
     revoked = None
     if connection is not None:
         revoked = False
         try:
-            config = google.configuration()
+            if config is None:
+                raise google.CalendarConfigurationError()
             token = google.decrypt(
                 config, current_user.id, "refresh", connection.refresh_token_ciphertext
             )
@@ -294,7 +299,8 @@ def disconnect_google(
         db.delete(connection)
     db.commit()
     response.delete_cookie(
-        google.COOKIE, path=google.CALLBACK_PATH, httponly=True, samesite="lax"
+        google.COOKIE, path=google.CALLBACK_PATH, httponly=True, samesite="lax",
+        secure=config.secure_cookie if config is not None else request.url.scheme == "https",
     )
     return GoogleDisconnectResponse(
         google_revoked=revoked,

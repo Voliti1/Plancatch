@@ -31,6 +31,13 @@ class Windows(BaseModel):
 
 class WeeklyDay(Windows):
     weekday: int = Field(strict=True, ge=0, le=6)
+    rest_day: bool | None = Field(default=None, strict=True)
+
+    @model_validator(mode="after")
+    def rest_has_no_windows(self):
+        if self.rest_day and self.intervals:
+            raise ValueError("휴식일에는 작업 시간을 지정할 수 없습니다.")
+        return self
 
 
 class DateOverride(Windows):

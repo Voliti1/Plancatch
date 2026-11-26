@@ -1,3 +1,4 @@
+import { localInput, SEOUL, zonedInputToUtc } from "@/lib/date/time-zones";
 import { addDays, utcMidnight } from "./dates";
 export type TimetableEvent = {
   id: string;
@@ -9,15 +10,24 @@ export type TimetableEvent = {
   startDate?: string | null;
   endDate?: string | null;
   cancelled?: boolean;
+  target?: CalendarTarget;
 };
+export type CalendarTarget =
+  | { kind: "deadline"; id: string }
+  | { kind: "task"; id: string; occurrence?: string }
+  | { kind: "placement"; id: string; taskId: string; locked: boolean };
 export function timetableDays(day: string, view: "day" | "week") {
   if (view === "day") return [day];
   const offset = (new Date(`${day}T00:00:00Z`).getUTCDay() + 6) % 7;
   return Array.from({ length: 7 }, (_, i) => addDays(day, i - offset));
 }
-export function layoutDay(entries: TimetableEvent[], day: string) {
-  const first = Date.parse(utcMidnight(day)),
-    last = Date.parse(utcMidnight(addDays(day, 1)));
+export function layoutDay(
+  entries: TimetableEvent[],
+  day: string,
+  zone = SEOUL,
+) {
+  const first = Date.parse(utcMidnight(day, zone)),
+    last = Date.parse(utcMidnight(addDays(day, 1), zone));
   const rows = entries
     .flatMap((event) => {
       if (!event.start || event.startDate) return [];
@@ -31,12 +41,13 @@ export function layoutDay(entries: TimetableEvent[], day: string) {
         end <= start
       )
         return [];
-      const from = Math.min(1415, Math.max(0, (start - first) / 60000));
+      const from = start <= first ? 0 : wallMinutes(localInput(start, zone));
+      const until = end >= last ? 1440 : wallMinutes(localInput(end, zone));
       return [
         {
           event,
           from,
-          to: Math.min(1440, Math.max(from + 25, (end - first) / 60000)),
+          to: Math.min(1440, Math.max(from + 25, until)),
           column: 0,
           columns: 1,
         },
@@ -67,8 +78,22 @@ export function layoutDay(entries: TimetableEvent[], day: string) {
   finish();
   return rows;
 }
-export function hourRegistrationHref(day: string, hour: number) {
-  const start = new Date(Date.parse(utcMidnight(day)) + hour * 3600000);
+export function wallMinutes(value: string) {
+  return Number(value.slice(-5, -3)) * 60 + Number(value.slice(-2));
+}
+
+export function calendarSlot(day: string, minute: number, zone: string) {
+  const hour = String(Math.floor(minute / 60)).padStart(2, "0");
+  const minutes = String(minute % 60).padStart(2, "0");
+  return zonedInputToUtc(`${day}T${hour}:${minutes}`, zone, "next");
+}
+
+export function slotRegistrationHref(
+  day: string,
+  minute: number,
+  zone = SEOUL,
+) {
+  const start = new Date(calendarSlot(day, minute, zone));
   return (
     "/sources/new?" +
     new URLSearchParams({

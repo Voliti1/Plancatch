@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { aiSource, readyAnalysis } from "./analysis-fixtures";
@@ -96,7 +97,7 @@ async function workflow(page: Page, text = false) {
     changeText: () => {
       source = {
         ...source,
-        extracted_text: "변경된 원문",
+        extracted_text: "변경된 자료 내용",
         extracted_text_hash: "b".repeat(64),
       };
     },
@@ -122,7 +123,7 @@ test("an interrupted text review still needs consent before a new external reque
   await login(page);
   await page.goto("/sources/saved-source/review");
   const button = page.getByRole("button", {
-    name: "동의하고 AI 검토 시작",
+    name: "동의하고 찾은 날짜 확인 시작",
     exact: true,
   });
   await expect(button).toBeDisabled();
@@ -142,18 +143,18 @@ test("saving a URL proceeds to HTML review without detail clicks or AI transmiss
   await page
     .getByLabel("일정 제목 (선택)", { exact: true })
     .fill("내가 입력한 일정 제목");
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
   await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/notice");
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
   await expect(
     page.getByRole("heading", { name: "마감일 검토", exact: true }),
   ).toBeVisible();
   expect(state).toMatchObject({ creates: 1, extracts: 1, analyses: 1 });
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "내가 입력한 일정 제목",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("내가 입력한 일정 제목");
 });
 
 test("text consent is required once before external analysis; reload reuses result", async ({
@@ -162,12 +163,14 @@ test("text consent is required once before external analysis; reload reuses resu
   const { state } = await workflow(page, true);
   await login(page);
   await page.goto("/sources/new");
+  await (await sourceInput(page, "text")).fill(aiSource.original_text!);
   await page
-    .getByLabel("원본 텍스트", { exact: true })
-    .fill(aiSource.original_text!);
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/sources\/saved-source\/review$/);
-  const button = page.getByRole("button", { name: "동의하고 AI 검토 시작" });
+  const button = page.getByRole("button", {
+    name: "동의하고 찾은 날짜 확인 시작",
+  });
   await expect(button).toBeDisabled();
   expect(state.analyses).toBe(0);
   await page.getByRole("checkbox").check();
@@ -185,10 +188,10 @@ test("extraction retry keeps the saved source and lost analysis reply reuses his
   state.failExtraction = true;
   await login(page);
   await page.goto("/sources/new");
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
   await page
-    .getByLabel("원본 URL", { exact: true })
-    .fill("https://example.com/notice");
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   const alert = page
     .getByRole("region", { name: "등록한 자료 검토" })
     .getByRole("alert");
@@ -210,14 +213,16 @@ test("changed text requires fresh consent and leaving the page prevents later st
   const { state, changeText } = await workflow(page, true);
   await login(page);
   await page.goto("/sources/saved-source/review");
-  const button = page.getByRole("button", { name: "동의하고 AI 검토 시작" });
+  const button = page.getByRole("button", {
+    name: "동의하고 찾은 날짜 확인 시작",
+  });
   await expect(button).toBeDisabled();
   await page.getByRole("checkbox").check();
   changeText();
   await button.click();
   await expect(page.getByRole("checkbox")).not.toBeChecked();
   expect(state.analyses).toBe(0);
-  await page.getByRole("link", { name: "← 원본 자료 목록" }).click();
+  await page.getByRole("link", { name: "← 자료 목록" }).click();
   await expect(page).toHaveURL(/\/sources$/);
   expect(state.analyses).toBe(0);
 });
@@ -246,7 +251,7 @@ test("leaving during history lookup cannot launch an analysis or redirect a new 
   await page.goto("/sources/saved-source/review");
   await started;
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   await expect(page).toHaveURL(/\/sources\/new\?new=/);
   const fresh = page.url();

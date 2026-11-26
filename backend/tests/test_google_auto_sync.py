@@ -4,9 +4,9 @@ import uuid
 from datetime import timedelta
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, event, select
 
-from app.models import GoogleCalendarConnection, GoogleExport, User
+from app.models import GoogleCalendarConnection, GoogleExport, ScheduledEvent, User
 from app.services import google_events
 from app.services import google_export as transport
 from app.services import google_sync as sync
@@ -228,7 +228,9 @@ def test_retry_is_owned_bounded_and_works_after_transient_failure(setup, automat
         failure['before'] = 'POST'
         drain(rounds=1, force_retry=True)
     assert rows()[0].sync_attempts == 10 and not rows()[0].sync_pending
-    assert state(setup, auth, target)['state'] == 'failed'
+    stopped = state(setup, auth, target)
+    assert stopped['state'] == 'failed' and stopped['retryable']
+    assert '다시 시도해 주세요' in stopped['note']
     assert setup.client.post(BASE, headers=owner(), json=target).status_code == 404
     assert setup.client.post(BASE, headers=auth, json=target).status_code == 202
     drain()
@@ -254,8 +256,11 @@ def test_fixed_task_placement_transition_and_cascade_deletion_keep_no_old_copies
     event = setup.client.post('/api/scheduled-events', headers=auth, json={'task_id': item['id'],
         'start_at': '2026-11-15T12:00:00+09:00', 'end_at': '2026-11-15T13:00:00+09:00', 'status': 'approved'})
     assert event.status_code == 201
+    target = {'kind': 'task', 'item_id': item['id']}
+    assert state(setup, auth, target)['state'] == 'pending'
     drain(force_retry=True)
     assert old_id not in remote and len(remote) == 1
+    assert state(setup, auth, target)['state'] == 'synced'
     assert writes == ['POST', 'DELETE', 'POST']
     assert setup.client.delete('/api/scheduled-events/' + event.json()['id'], headers=auth).status_code == 204
     drain(force_retry=True)
@@ -263,6 +268,45 @@ def test_fixed_task_placement_transition_and_cascade_deletion_keep_no_old_copies
     assert setup.client.delete('/api/tasks/' + item['id'], headers=auth).status_code == 204
     drain()
     assert remote == {}
+
+
+def test_queueing_a_split_task_reads_existing_exports_in_bulk(setup, automatic):
+    auth, user_id, _, _, _, _, rows, _ = automatic
+    item = task(setup, auth)
+    task_id = uuid.UUID(item['id'])
+    with TestingSession() as db:
+        start = sync.now().replace(microsecond=0)
+        events = [ScheduledEvent(user_id=user_id, task_id=task_id,
+                                 start_at=start + timedelta(hours=i), end_at=start + timedelta(hours=i + 1),
+                                 status='approved', is_user_approved=True) for i in range(20)]
+        db.add_all(events)
+        db.commit()
+
+    def enqueue_and_count():
+        queries = []
+
+        def record(conn, cursor, statement, parameters, context, executemany):
+            if statement.lstrip().upper().startswith('SELECT'):
+                queries.append(statement)
+
+        with TestingSession() as db:
+            event.listen(db.connection(), 'before_cursor_execute', record)
+            sync.lock_owner(db, user_id)
+            sync.enqueue_task(db, user_id, task_id)
+            db.commit()
+        return len(queries)
+
+    reads = enqueue_and_count()
+    assert reads <= 6, reads
+    assert len(rows()) == 21
+    with TestingSession() as db:
+        db.delete(db.get(ScheduledEvent, events[0].id))
+        db.commit()
+    reads = enqueue_and_count()
+    assert reads <= 6, reads
+    desired = {row.item_id: row.desired_payload for row in rows()}
+    assert desired[task_id] is None and desired[events[0].id] is None
+    assert all(desired[block.id]['summary'] == item['title'] for block in events[1:])
 
 
 def test_flexible_and_unapproved_items_stay_local_and_failed_mutations_do_not_change_intents(setup, automatic):

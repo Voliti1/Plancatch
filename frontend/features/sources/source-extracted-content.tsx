@@ -1,6 +1,6 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import { useId, useRef } from "react";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Source } from "@/types/api";
 import { extractedSummary } from "./extracted-summary";
 
@@ -13,6 +13,7 @@ export function SourceExtractedContent({
   pdf?: boolean;
   fileMetadata?: Source["file_metadata"];
 }) {
+  const { formatLocal } = useScheduleTime();
   const dialog = useRef<HTMLDialogElement>(null);
   const outsidePress = useRef(false);
   const titleId = useId();
@@ -45,14 +46,15 @@ export function SourceExtractedContent({
               <dd>
                 {fileMetadata?.deadlines.length
                   ? fileMetadata.deadlines
-                      .map((value) => formatSeoul(value))
+                      .map((value) => formatLocal(value))
                       .join(" · ")
                   : summary.deadline}
               </dd>
             </div>
           </dl>
           <p className="muted small">
-            원문 표시값입니다. 확정된 마감일은 마감일 페이지에서 확인하세요.
+            자료 내용 표시값이에요. 확정된 마감일은 마감일 페이지에서
+            확인하세요.
           </p>
           <button
             type="button"
@@ -119,7 +121,7 @@ export function SourceExtractedContent({
           </dialog>
         </>
       ) : (
-        <p className="muted">추출된 내용이 없습니다.</p>
+        <p className="muted">추출된 내용이 없어요.</p>
       )}
     </section>
   );

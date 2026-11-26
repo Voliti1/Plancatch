@@ -22,7 +22,7 @@ BASE = google.PREFIX + "/exports"
 @pytest.fixture(autouse=True)
 def manual_protocol(monkeypatch):
     """Keep coverage for old clients; automatic CRUD dispatch has separate tests."""
-    monkeypatch.setattr("app.services.google_sync.enqueue", lambda *args, **kwargs: None)
+    monkeypatch.setattr("app.services.google_sync.sync_connection", lambda db, user_id: None)
 
 
 def deadline(setup, auth):

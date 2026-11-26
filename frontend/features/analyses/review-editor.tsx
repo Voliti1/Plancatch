@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import {
   DISCARD_NAVIGATION_EVENT,
   useUnsavedChanges,
@@ -6,7 +7,7 @@ import {
 import { useEffect, useId, useRef, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
-import { seoulInputToUtc, toSeoulInput } from "@/lib/date/seoul";
+import { localInput, zonedInputToUtc } from "@/lib/date/time-zones";
 import type {
   Analysis,
   AnalysisCandidate,
@@ -32,34 +33,40 @@ type Draft = {
   chosenDue?: string;
   suggestionTouched?: boolean;
 };
-const draftOf = (candidate: AnalysisCandidate): Draft => ({
+const draftOf = (candidate: AnalysisCandidate, zone: string): Draft => ({
   id: candidate.id,
   title: candidate.title,
-  due: candidate.due_at ? toSeoulInput(candidate.due_at) : "",
+  due: candidate.due_at ? localInput(candidate.due_at, zone) : "",
   description: candidate.description ?? "",
   selected: candidate.selected,
 });
-function suggestedDraftOf(candidate: AnalysisCandidate): Draft {
-  const draft = draftOf(candidate);
+function suggestedDraftOf(candidate: AnalysisCandidate, zone: string): Draft {
+  const draft = draftOf(candidate, zone);
   if (candidate.suggested_due_at) {
-    draft.due = toSeoulInput(candidate.suggested_due_at);
+    draft.due = localInput(candidate.suggested_due_at, zone);
     draft.chosenDue = candidate.suggested_due_at;
   }
   return draft;
 }
-function payloadOf(draft: Draft, original: AnalysisCandidate): CandidateEdit {
+function payloadOf(
+  draft: Draft,
+  original: AnalysisCandidate,
+  zone: string,
+): CandidateEdit {
   if (!draft.title.trim())
-    throw new Error("제외한 후보를 포함해 모든 후보의 제목을 입력해 주세요.");
+    throw new Error(
+      "제외한 항목도 제목을 입력한 뒤 검토 내용을 저장해 주세요.",
+    );
   return {
     id: draft.id,
     title: draft.title.trim(),
     due_at: !draft.due
       ? null
-      : draft.chosenDue && draft.due === toSeoulInput(draft.chosenDue)
+      : draft.chosenDue && draft.due === localInput(draft.chosenDue, zone)
         ? draft.chosenDue
-        : original.due_at && draft.due === toSeoulInput(original.due_at)
+        : original.due_at && draft.due === localInput(original.due_at, zone)
           ? original.due_at
-          : seoulInputToUtc(draft.due),
+          : zonedInputToUtc(draft.due, zone),
     description: draft.description.trim() || null,
     selected: draft.selected,
   };
@@ -73,21 +80,21 @@ export function CandidateEvidence({
 }) {
   return (
     <div className="candidate-evidence">
-      <h4>원문 근거</h4>
+      <h4>날짜를 찾은 부분</h4>
       {model.startsWith("pdf:") && (
         <p className="small muted">
           {candidate.evidence_page
             ? `PDF ${candidate.evidence_page}페이지`
-            : "PDF 근거 페이지를 확인할 수 없습니다."}
+            : "PDF 근거 페이지를 확인할 수 없어요."}
         </p>
       )}
       <p className="analysis-text">{briefEvidence(candidate.evidence_text)}</p>
       <p className="small muted">
         {isHtmlAnalysis(model)
-          ? "HTML에 명시된 접수기간을 직접 확인한 결과입니다. AI 추정값이 아닙니다."
+          ? "페이지에 적힌 접수 기간을 그대로 읽어 왔어요."
           : isExtractedPdf(model)
-            ? "PDF에서 읽은 근거입니다."
-            : `AI 신뢰도 참고값 ${Math.round(candidate.confidence * 100)}% · 정확도를 보장하지 않습니다.`}
+            ? "PDF에서 읽은 근거예요."
+            : `AI 확신 정도 ${Math.round(candidate.confidence * 100)}% · 등록 전 날짜를 꼭 확인해 주세요.`}
       </p>
     </div>
   );
@@ -101,9 +108,10 @@ export function ReviewEditor({
   now: number | null;
   onUpdated: (data: Analysis, message: string) => void;
 }) {
+  const { toLocalInput, fromLocalInput, zoneLabel, zone } = useScheduleTime();
   const [analysis, setAnalysis] = useState(initialAnalysis);
   const [drafts, setDrafts] = useState(() =>
-    analysis.candidates.map(suggestedDraftOf),
+    analysis.candidates.map((candidate) => suggestedDraftOf(candidate, zone)),
   );
   const [reminders, setReminders] = useState(newReminderSettings);
   const { markSaved } = useUnsavedChanges(JSON.stringify([drafts, reminders]));
@@ -131,7 +139,10 @@ export function ReviewEditor({
   }, []);
   const formId = useId();
   const dirty =
-    JSON.stringify(drafts) !== JSON.stringify(analysis.candidates.map(draftOf));
+    JSON.stringify(drafts) !==
+    JSON.stringify(
+      analysis.candidates.map((candidate) => draftOf(candidate, zone)),
+    );
   const selected = drafts.filter((item) => item.selected);
   const canApprove =
     selected.length > 0 &&
@@ -160,7 +171,7 @@ export function ReviewEditor({
           analysis.id,
           analysis.revision,
           drafts.map((draft, index) =>
-            payloadOf(draft, analysis.candidates[index]),
+            payloadOf(draft, analysis.candidates[index], zone),
           ),
           controller.signal,
         );
@@ -168,7 +179,9 @@ export function ReviewEditor({
         // Keep the acknowledged revision locally so a failed approval can retry
         // without re-saving an older revision or losing the user's edits.
         setAnalysis(current);
-        const savedDrafts = current.candidates.map(suggestedDraftOf);
+        const savedDrafts = current.candidates.map((candidate) =>
+          suggestedDraftOf(candidate, zone),
+        );
         setDrafts(savedDrafts);
         markSaved(JSON.stringify([savedDrafts, newReminderSettings()]));
       }
@@ -179,7 +192,7 @@ export function ReviewEditor({
               analysis.id,
               analysis.revision,
               drafts.map((draft, index) =>
-                payloadOf(draft, analysis.candidates[index]),
+                payloadOf(draft, analysis.candidates[index], zone),
               ),
               controller.signal,
             )
@@ -194,7 +207,9 @@ export function ReviewEditor({
               ? await analysesApi.reject(analysis.id, analysis.revision)
               : await analysesApi.get(analysis.id);
       if (!active.current || controller.signal.aborted) return;
-      const savedDrafts = result.candidates.map(suggestedDraftOf);
+      const savedDrafts = result.candidates.map((candidate) =>
+        suggestedDraftOf(candidate, zone),
+      );
       const defaultReminders = newReminderSettings();
       setAnalysis(result);
       setDrafts(savedDrafts);
@@ -211,9 +226,9 @@ export function ReviewEditor({
       onUpdated(
         result,
         action === "save"
-          ? "검토 내용을 저장했습니다."
+          ? "검토 내용을 저장했어요."
           : action === "reload"
-            ? "최신 결과를 불러왔습니다."
+            ? "최신 결과를 불러왔어요."
             : "",
       );
     } catch (err) {
@@ -248,18 +263,18 @@ export function ReviewEditor({
               : undefined;
           const dateChanged =
             draft.due !==
-            (original.due_at ? toSeoulInput(original.due_at) : "");
+            (original.due_at ? toLocalInput(original.due_at) : "");
           let countdownDate = original.due_at;
           if (dateChanged) {
             try {
-              countdownDate = draft.due ? seoulInputToUtc(draft.due) : null;
+              countdownDate = draft.due ? fromLocalInput(draft.due) : null;
             } catch {
               countdownDate = null;
             }
           }
           return (
             <article className="analysis-candidate" key={draft.id}>
-              <h3>후보 {index + 1}</h3>
+              <h3>찾은 마감일 {index + 1}</h3>
               <label className="checkbox">
                 <input
                   type="checkbox"
@@ -268,10 +283,10 @@ export function ReviewEditor({
                     update(index, { selected: event.target.checked })
                   }
                 />
-                후보 {index + 1} 포함
+                등록할 일정에 포함 {index + 1}
               </label>
               <label htmlFor={`${formId}-${index}-title`}>
-                후보 {index + 1} 제목
+                찾은 마감일 {index + 1} 제목
               </label>
               <input
                 id={`${formId}-${index}-title`}
@@ -283,7 +298,7 @@ export function ReviewEditor({
                 }
               />
               <label htmlFor={`${formId}-${index}-due`}>
-                후보 {index + 1} 마감일 (한국 시간)
+                찾은 마감일 {index + 1} 마감일 ({zoneLabel})
               </label>
               <input
                 id={`${formId}-${index}-due`}
@@ -302,12 +317,12 @@ export function ReviewEditor({
               {(analysis.date_choices?.length ?? 0) > 0 && (
                 <div
                   role="group"
-                  aria-label={`후보 ${index + 1} 읽은 날짜 선택`}
+                  aria-label={`찾은 마감일 ${index + 1} 읽은 날짜 선택`}
                 >
                   <p className="small muted">
                     {analysis.model.startsWith("image:")
-                      ? "사진에서 읽은 마감일을 확인하세요. 시간이 없으면 오후 11시 59분으로 설정됩니다."
-                      : "HTML에서 읽은 날짜 중 마감일을 선택하세요."}
+                      ? "사진에서 읽은 마감일을 확인하세요. 시간이 없으면 오후 11시 59분으로 설정돼요."
+                      : "페이지에서 찾은 날짜 중 마감일을 선택하세요."}
                   </p>
                   <div className="review-secondary-actions">
                     {analysis.date_choices!.map((choice) => (
@@ -317,13 +332,13 @@ export function ReviewEditor({
                         className="secondary"
                         aria-pressed={Boolean(
                           choice.due_at &&
-                          draft.due === toSeoulInput(choice.due_at),
+                          draft.due === toLocalInput(choice.due_at),
                         )}
                         onClick={() => {
                           update(index, {
                             due:
                               choice.due_at && !analysis.is_open_ended
-                                ? toSeoulInput(choice.due_at)
+                                ? toLocalInput(choice.due_at)
                                 : "",
                             selected: true,
                             chosenDue: !analysis.is_open_ended
@@ -332,8 +347,8 @@ export function ReviewEditor({
                           });
                           setChoiceNotice(
                             choice.due_at && !analysis.is_open_ended
-                              ? `선택한 날짜: ${choice.raw_text}. ‘일정 등록’을 누르면 수정 내용도 함께 저장됩니다.`
-                              : `선택한 원문: ${choice.raw_text}. 빠진 연도나 시간을 추측하지 않습니다. 마감 일시를 직접 입력해 주세요.`,
+                              ? `선택한 날짜: ${choice.raw_text}. ‘일정 등록’을 누르면 수정 내용도 함께 저장돼요.`
+                              : `선택한 자료 내용: ${choice.raw_text}. 빠진 연도나 시간을 추측하지 않아요. 마감 일시를 직접 입력해 주세요.`,
                           );
                         }}
                       >
@@ -346,27 +361,27 @@ export function ReviewEditor({
               )}
               {analysis.is_open_ended && (
                 <p className="notice small">
-                  채용 시 마감·상시 모집입니다. 원하는 마감 날짜와 시간을 직접
-                  입력해야 등록할 수 있습니다.
+                  채용 시 마감·상시 모집이에요. 원하는 마감 날짜와 시간을 직접
+                  입력해야 등록할 수 있어요.
                 </p>
               )}
               {original.time_defaulted && draft.due && (
                 <p className="notice small">
-                  마감 시간이 없어 오후 11시 59분으로 설정했습니다. 필요하면
+                  마감 시간이 없어 오후 11시 59분으로 설정했어요. 필요하면
                   변경해 주세요.
                 </p>
               )}
               {original.suggested_due_at && draft.due && (
                 <p className="notice small">
-                  원문에서 확인한 마감일을 입력했습니다. 내용을 확인한 뒤 일정
-                  등록을 눌러 주세요.
+                  자료 내용에서 확인한 마감일을 입력했어요. 내용을 확인한 뒤
+                  일정 등록을 눌러 주세요.
                 </p>
               )}
               {!original.due_at && !original.suggested_due_at && !draft.due && (
                 <p className="notice small">
                   {originalDate
-                    ? `원문 마감 날짜는 ${originalDate}입니다. 마감 시각을 직접 입력하고 후보를 포함해 주세요.`
-                    : "원문에서 날짜를 확정하지 못했습니다. 마감일을 직접 확인하거나 후보를 제외해 주세요."}
+                    ? `자료 내용 마감 날짜는 ${originalDate}이에요. 마감 시각을 직접 입력하고 찾은 마감일을 포함해 주세요.`
+                    : "자료 내용에서 날짜를 확정하지 못했어요. 마감일을 직접 확인하거나 찾은 마감일을 제외해 주세요."}
                 </p>
               )}
               <RemainingPeriod
@@ -375,7 +390,7 @@ export function ReviewEditor({
                 editing={dateChanged}
               />
               <label htmlFor={`${formId}-${index}-description`}>
-                후보 {index + 1} 설명 (선택)
+                찾은 마감일 {index + 1} 설명 (선택)
               </label>
               <textarea
                 id={`${formId}-${index}-description`}
@@ -392,7 +407,7 @@ export function ReviewEditor({
         })}
         {drafts.length === 0 && (
           <p className="notice">
-            마감일 후보가 없습니다. 원문과 주의사항을 확인해 주세요.
+            찾은 마감일이 없어요. 자료 내용과 주의사항을 확인해 주세요.
           </p>
         )}
         {drafts.length > 0 && (
@@ -402,8 +417,8 @@ export function ReviewEditor({
               onChange={(value) => setReminders(value ?? newReminderSettings())}
             />
             <p className="small muted">
-              선택한 마감일에 같은 알림을 적용합니다. 일정 등록을 누를 때
-              저장됩니다.
+              선택한 마감일에 같은 알림을 적용해요. 일정 등록을 누를 때
+              저장돼요.
             </p>
           </div>
         )}
@@ -415,16 +430,16 @@ export function ReviewEditor({
           )}
           <p>
             {selected.length}개 선택 · 승인 전에는 실제 마감일이 생성되지
-            않습니다.
+            않아요.
           </p>
           {dirty && (
             <p className="notice small">
-              일정 등록을 누르면 수정한 내용을 함께 저장합니다.
+              일정 등록을 누르면 수정한 내용을 함께 저장해요.
             </p>
           )}
           {selected.some((item) => !item.due) && (
             <p className="notice small">
-              선택한 후보의 마감일을 입력하거나 선택을 해제해 주세요.
+              등록할 항목의 날짜와 시간을 입력하거나 선택을 해제해 주세요.
             </p>
           )}
           <div className="form-actions">
@@ -444,8 +459,8 @@ export function ReviewEditor({
             </button>
           </div>
           <p className="muted small">
-            선택한 후보를 마감일로 등록합니다. 캘린더에 바로 표시되며, Google
-            계정을 연결했다면 자동으로 반영됩니다.
+            선택한 마감일을 등록해요. 캘린더에 바로 표시되며, 구글 계정을
+            연결했다면 자동으로 반영돼요.
           </p>
           <div className="review-secondary-actions">
             <button
@@ -478,8 +493,8 @@ export function ReviewEditor({
               aria-label="분석 전체 거부 확인"
             >
               <p>
-                선택 여부와 관계없이 이번 분석 결과 전체를 거부합니다. 마감일은
-                생성되지 않습니다.
+                선택 여부와 관계없이 이번 분석 결과 전체를 거부해요. 마감일은
+                생성되지 않아요.
               </p>
               <div className="form-actions">
                 <button
@@ -501,9 +516,7 @@ export function ReviewEditor({
           )}
           {confirmReload && (
             <div className="notice" role="group" aria-label="최신 결과 확인">
-              <p>
-                현재 입력을 버리고 서버에 저장된 최신 결과를 불러오시겠습니까?
-              </p>
+              <p>수정한 내용을 지우고 마지막으로 저장한 결과를 불러올까요?</p>
               <div className="form-actions">
                 <button
                   type="button"
@@ -523,7 +536,7 @@ export function ReviewEditor({
       {error && <ErrorNotice message={error} />}
       {conflict && (
         <p className="small muted">
-          수정 입력을 유지했습니다. 최신 결과를 확인하거나 원본 자료에서 다시
+          수정 입력을 유지했어요. 최신 결과를 확인하거나 자료에서 다시
           추출·분석해 주세요.
         </p>
       )}

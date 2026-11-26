@@ -99,7 +99,7 @@ function RegistrationSession({ userId }: { userId: string }) {
       // draft stays in sessionStorage until the new source is actually created.
       setDraft({ title: draft.title, url: draft.url, [field]: value });
       setProgress(
-        "입력을 변경하여 새 등록으로 진행합니다. 이전 자료와 분석은 그대로 유지됩니다.",
+        "입력을 변경하여 새 등록으로 진행해요. 이전 자료와 분석은 그대로 유지돼요.",
       );
     } else {
       setDraft({ ...draft, [field]: value });
@@ -147,7 +147,7 @@ function RegistrationSession({ userId }: { userId: string }) {
       if (result.kind === "review") {
         setReviewId(result.id);
         setProgress(
-          "HTML에서 읽은 날짜를 확인해 주세요. 검토 화면에서 선택·승인해야 마감일이 등록됩니다.",
+          "페이지에서 찾은 날짜를 확인해 주세요. 검토 화면에서 선택·승인해야 마감일이 등록돼요.",
         );
       } else {
         try {
@@ -177,16 +177,16 @@ function RegistrationSession({ userId }: { userId: string }) {
       <PageHeading
         eyebrow="AUTOMATIC DEADLINE"
         title="자동 일정 등록"
-        description="제목과 공개 URL을 입력하면 원문을 읽고 마감일을 추출해 등록합니다."
+        description="제목과 로그인 없이 볼 수 있는 링크를 입력하면 자료 내용을 읽고 마감일을 추출해 등록해요."
       />
       <form className="card form-card" onSubmit={submit}>
         <fieldset disabled={busy}>
           {resumeDraft && (
             <section className="notice" aria-label="이전 등록 재개">
               <p>
-                중단된 등록이 남아 있습니다. 새 일정은 아래에 입력하거나, 이전
-                등록을 이어서 진행할 수 있습니다. 기존 서버 자료는 삭제하지
-                않습니다.
+                중단된 등록이 남아 있어요. 새 일정은 아래에 입력하거나, 이전
+                등록을 이어서 진행할 수 있어요. 기존 서버 자료는 삭제하지
+                않아요.
               </p>
               <button
                 type="button"
@@ -216,7 +216,7 @@ function RegistrationSession({ userId }: { userId: string }) {
             />
           </label>
           <label>
-            원본 URL
+            웹페이지 링크
             <input
               name="url"
               type="url"
@@ -227,18 +227,18 @@ function RegistrationSession({ userId }: { userId: string }) {
             />
           </label>
           <p className="muted small">
-            공개 HTML·텍스트 페이지만 지원합니다. 로그인 필요 페이지,
-            PDF·이미지, JavaScript 실행이 필요한 페이지는 읽지 않습니다.
+            로그인 없이 볼 수 있는 공고·안내 페이지 링크를 붙여 넣어 주세요.
+            내용을 읽을 수 없으면 필요한 글을 복사해 글 내용으로 등록해 주세요.
           </p>
           <p className="muted small">
-            URL의 HTML에서 날짜를 직접 읽습니다. Gemini 등 외부 AI로 원문을
-            전송하지 않습니다.
+            링크에서 날짜를 직접 찾아요. 이 과정에서는 외부 AI에 내용을 보내지
+            않아요.
           </p>
           <p className="notice">
-            날짜가 하나여도 검토 후 승인해야 등록됩니다. 여러 날짜는 선택지로
-            제공하고, 채용 시 마감이나 날짜 누락은 직접 일시를 입력해야 합니다.
-            Google 계정이 연결되어 있으면 등록한 마감일이 Google 캘린더에도 자동
-            반영됩니다.
+            날짜가 하나여도 검토 후 승인해야 등록돼요. 여러 날짜는 선택지로
+            제공하고, 채용 시 마감이나 날짜 누락은 직접 일시를 입력해야 해요.
+            구글 계정이 연결되어 있으면 등록한 마감일이 구글 캘린더에도 자동
+            반영돼요.
           </p>
           <label className="checkbox analysis-consent">
             <input
@@ -246,15 +246,13 @@ function RegistrationSession({ userId }: { userId: string }) {
               checked={consent}
               onChange={(event) => setConsent(event.target.checked)}
             />
-            <span>
-              HTML에서 읽은 날짜를 원문과 비교하고, 검토 후 등록하겠습니다.
-            </span>
+            <span>페이지에서 찾은 날짜를 자료와 비교한 뒤 등록할게요.</span>
           </label>
           {draft.sourceId && !busy && (
             <p className="small muted">
               입력을 그대로 두면 이전 자료를 이어서 처리하며 중복 생성하지
-              않습니다. 제목이나 URL을 수정하면 기존 자료는 유지하고 새 등록으로
-              진행합니다.
+              않아요. 제목이나 URL을 수정하면 기존 자료는 유지하고 새 등록으로
+              진행해요.
             </p>
           )}
           {progress && (
@@ -287,7 +285,7 @@ function RegistrationSession({ userId }: { userId: string }) {
             className="source-detail-link"
             href={`/sources/${encodeURIComponent(draft.sourceId)}`}
           >
-            저장된 원본 자료 확인 →
+            저장된 자료 확인 →
           </Link>
           {draft.analysisId && (
             <>

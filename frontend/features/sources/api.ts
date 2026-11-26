@@ -48,12 +48,12 @@ export const sourcesApi = {
       if (error instanceof ApiError && error.status === 409) {
         if (error.message === "source_has_deadlines")
           throw new ApiError(
-            "마감일이 등록된 원본 자료는 삭제할 수 없습니다. 연결된 마감일을 먼저 삭제한 후 다시 시도해 주세요.",
+            "마감일이 등록된 자료는 삭제할 수 없어요. 연결된 마감일을 먼저 삭제한 후 다시 시도해 주세요.",
             409,
           );
         if (error.message === "Source is currently processing")
           throw new ApiError(
-            "원문을 처리 중인 자료입니다. 처리가 끝난 뒤 다시 삭제해 주세요.",
+            "자료 내용을 처리 중인 자료예요. 처리가 끝난 뒤 다시 삭제해 주세요.",
             409,
           );
       }

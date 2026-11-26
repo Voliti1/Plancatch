@@ -1,6 +1,6 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import { useId, useRef, useState } from "react";
-import { toSeoulInput, seoulInputToUtc } from "@/lib/date/seoul";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
 import { useHydrated } from "@/lib/use-hydrated";
@@ -22,6 +22,7 @@ export function DeadlineForm({
   initial?: Deadline;
   onSave: (payload: DeadlineInput) => Promise<void>;
 }) {
+  const { toLocalInput, fromLocalInput, zoneLabel } = useScheduleTime();
   const hydrated = useHydrated();
   const safetyHelpId = useId();
   const submitting = useRef(false);
@@ -32,7 +33,7 @@ export function DeadlineForm({
   );
   const [title, setTitle] = useState(initial?.title ?? "");
   const [dueAt, setDueAt] = useState(
-    initial ? toSeoulInput(initial.due_at) : "",
+    initial ? toLocalInput(initial.due_at) : "",
   );
   const [description, setDescription] = useState(initial?.description ?? "");
   const [deadlineType, setDeadlineType] = useState(
@@ -70,9 +71,9 @@ export function DeadlineForm({
         ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
         due_at:
-          initial && dueAt === toSeoulInput(initial.due_at)
+          initial && dueAt === toLocalInput(initial.due_at)
             ? initial.due_at
-            : seoulInputToUtc(dueAt),
+            : fromLocalInput(dueAt),
         safety_buffer_minutes: safetyEnabled
           ? parseSafetyBuffer(safetyParts)
           : null,
@@ -105,7 +106,7 @@ export function DeadlineForm({
         </label>
         <div className="form-grid">
           <label>
-            마감 일시 (한국 시간)
+            마감 일시 ({zoneLabel})
             <input
               name="due_at"
               type="datetime-local"
@@ -137,8 +138,8 @@ export function DeadlineForm({
             안전 마감일 사용
           </label>
           <p id={safetyHelpId} className="small muted">
-            공식 마감일보다 여유시간만큼 앞선 날짜를 안전 마감으로 저장합니다.
-            1일은 24시간이며, 연결된 작업이나 일정은 자동으로 변경되지 않습니다.
+            공식 마감일보다 여유시간만큼 앞선 날짜를 안전 마감으로 저장해요.
+            1일은 24시간이며, 연결된 작업이나 일정은 자동으로 변경되지 않아요.
           </p>
           {safetyEnabled && (
             <div className="safety-inputs">

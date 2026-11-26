@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { sourceInput } from "../tests/source-input";
 import { test, expect, type Page } from "@playwright/test";
 import type { Analysis } from "../types/analysis";
 
@@ -56,9 +57,11 @@ test("live test account: URL/text extraction, AI review, approval persistence an
   await page.getByLabel("이메일", { exact: true }).fill(email);
   await page.getByLabel("비밀번호", { exact: true }).fill(password);
   await page.getByLabel("비밀번호 확인", { exact: true }).fill(password);
-  await page.getByRole("button", { name: "계정 만들기 →", exact: true }).click();
+  await page
+    .getByRole("button", { name: "계정 만들기 →", exact: true })
+    .click();
   await expect(
-    page.getByRole("heading", { name: "가입이 완료되었습니다.", exact: true }),
+    page.getByRole("heading", { name: "가입이 완료됐어요.", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: "로그인으로 이동", exact: true })
@@ -74,36 +77,36 @@ test("live test account: URL/text extraction, AI review, approval persistence an
     title: string,
   ) {
     await page.goto("/sources/new");
-    await page
-      .getByRole("button", {
-        name: type === "text" ? "텍스트" : "URL 링크",
-        exact: true,
-      })
-      .click();
     await page.getByLabel("일정 제목 (선택)").fill(title);
-    await page
-      .getByLabel(type === "text" ? "원본 텍스트" : "원본 URL")
-      .fill(content);
+    await (await sourceInput(page, type)).fill(content);
     const created = page.waitForResponse(
       (response) =>
         response.request().method() === "POST" &&
         new URL(response.url()).pathname.endsWith("/api/sources"),
     );
-    await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    await page
+      .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+      .click();
     const response = await created;
     expect(response.status()).toBe(201);
     const { id } = await response.json();
     sources.push(id);
-    await expect(page).toHaveURL(/\/sources$/);
+    await expect(page).toHaveURL(new RegExp(`/sources/${id}/review$`));
     await page.goto(`/sources/${id}`);
-    await page.getByRole("button", { name: "원문 추출", exact: true }).click();
+    await page
+      .getByRole("button", { name: "내용 불러오기", exact: true })
+      .click();
     return id as string;
   }
   try {
-    await createSource("url", "https://example.com", `${marker} 공개 URL`);
-    await expect(page.getByText("원문 추출 완료", { exact: true })).toBeVisible(
-      { timeout: 95000 },
+    await createSource(
+      "url",
+      "https://example.com",
+      `${marker} 로그인 없이 볼 수 있는 링크`,
     );
+    await expect(
+      page.getByText("내용 불러오기 완료", { exact: true }),
+    ).toBeVisible({ timeout: 95000 });
     await createSource("url", "http://127.0.0.1", `${marker} 접근 제한`);
     await expect(page.getByText("처리 실패", { exact: true })).toBeVisible({
       timeout: 95000,
@@ -115,16 +118,16 @@ test("live test account: URL/text extraction, AI review, approval persistence an
     ).toBeVisible();
     const sourceId = await createSource(
       "text",
-      "이것은 PlanCatch 전용 통합 테스트 자료입니다. 실제 업무가 아닙니다. 테스트 보고서 제출의 마감은 2026년 10월 15일 오후 6시이며, 시간대는 Asia/Seoul (UTC+09:00)입니다.",
+      "이것은 플랜캐치 전용 통합 테스트 자료예요. 실제 업무가 아니에요. 테스트 보고서 제출의 마감은 2026년 10월 15일 오후 6시이며, 시간대는 Asia/Seoul (UTC+09:00)이에요.",
       `${marker} 분석 자료`,
     );
-    await expect(page.getByText("원문 추출 완료", { exact: true })).toBeVisible(
-      { timeout: 95000 },
-    );
+    await expect(
+      page.getByText("내용 불러오기 완료", { exact: true }),
+    ).toBeVisible({ timeout: 95000 });
     await expect(
       page.getByRole("button", { name: "AI 분석 시작", exact: true }),
     ).toBeDisabled();
-    await page.getByRole("checkbox", { name: /Google Gemini/ }).check();
+    await page.getByRole("checkbox", { name: /AI\(구글 Gemini\)/ }).check();
     await page
       .getByRole("button", { name: "AI 분석 시작", exact: true })
       .click();
@@ -139,23 +142,23 @@ test("live test account: URL/text extraction, AI review, approval persistence an
     expect(analysis.candidates.length).toBeGreaterThan(0);
     for (let index = 0; index < analysis.candidates.length; index++) {
       const checkbox = page.getByRole("checkbox", {
-        name: `후보 ${index + 1} 포함`,
+        name: `찾은 마감일 ${index + 1} 포함`,
         exact: true,
       });
       if (index === 0) await checkbox.check();
       else await checkbox.uncheck();
     }
     await page
-      .getByLabel("후보 1 제목", { exact: true })
+      .getByLabel("찾은 마감일 1 제목", { exact: true })
       .fill(`${marker} 수정한 마감일`);
     await page
-      .getByLabel("후보 1 마감일 (한국 시간)", { exact: true })
+      .getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true })
       .fill("2026-10-15T18:00");
     await page
       .getByRole("button", { name: "검토 내용 저장", exact: true })
       .click();
     await expect(
-      page.getByText("검토 내용을 저장했습니다.", { exact: true }),
+      page.getByText("검토 내용을 저장했어요.", { exact: true }),
     ).toBeVisible();
     const approved = page.waitForResponse((response) =>
       response.url().endsWith(`/${analysisId}/approve`),

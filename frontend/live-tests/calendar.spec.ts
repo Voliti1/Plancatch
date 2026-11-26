@@ -53,7 +53,7 @@ test("live dedicated account: calendar placement persistence, editing, cancellat
     .getByRole("button", { name: "계정 만들기 →", exact: true })
     .click();
   await expect(
-    page.getByRole("heading", { name: "가입이 완료되었습니다.", exact: true }),
+    page.getByRole("heading", { name: "가입이 완료됐어요.", exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: "로그인으로 이동", exact: true })
@@ -67,7 +67,7 @@ test("live dedicated account: calendar placement persistence, editing, cancellat
       .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
       .click();
     await page
-      .getByRole("tab", { name: "수동 일정 등록", exact: true })
+      .getByRole("tab", { name: "직접 일정 만들기", exact: true })
       .click();
     await page.getByLabel("일정명", { exact: true }).fill(marker);
     await page
@@ -86,11 +86,11 @@ test("live dedicated account: calendar placement persistence, editing, cancellat
     expect(response.status()).toBe(201);
     await expect(page).toHaveURL(new RegExp(`/tasks/${taskId}$`));
     const placements = page.getByRole("region", {
-      name: "캘린더 배치",
+      name: "캘린더 시간 등록",
       exact: true,
     });
     await placements
-      .getByRole("button", { name: "캘린더에 배치", exact: true })
+      .getByRole("button", { name: "시간표에 등록", exact: true })
       .click();
     const created = page.waitForResponse(
       (r) =>
@@ -99,7 +99,7 @@ test("live dedicated account: calendar placement persistence, editing, cancellat
     );
     await placements
       .locator("form")
-      .getByRole("button", { name: "캘린더에 배치", exact: true })
+      .getByRole("button", { name: "시간표에 등록", exact: true })
       .click();
     const eventResponse = await created;
     const event = (await eventResponse.json()) as ScheduledEvent;
@@ -108,21 +108,25 @@ test("live dedicated account: calendar placement persistence, editing, cancellat
     expect(event.is_user_approved).toBe(true);
     expect(event.google_event_id).toBeNull();
     await placements
-      .getByRole("link", { name: "배치 날짜 보기 →", exact: true })
+      .getByRole("link", { name: "시간 등록 날짜 보기 →", exact: true })
       .click();
     await expect(page.locator(".calendar-agenda")).toContainText(marker);
     await page.reload();
     await expect(page.locator(".calendar-agenda > li")).toHaveCount(1);
     await expect(page.locator(".calendar-agenda")).toContainText(marker);
-    await page.getByRole("link", { name: "일정 상세 · 배치 관리 →" }).click();
-    await placements
-      .getByRole("button", { name: "배치 수정", exact: true })
+    await page
+      .getByRole("link", { name: "일정 상세 · 시간 등록 관리 →" })
       .click();
-    await placements.getByLabel("배치 시작").fill("2026-11-16T14:00");
-    await placements.getByLabel("배치 종료").fill("2026-11-16T15:00");
-    await placements.getByRole("button", { name: "배치 변경 저장" }).click();
+    await placements
+      .getByRole("button", { name: "시간 등록 수정", exact: true })
+      .click();
+    await placements.getByLabel("시간 등록 시작").fill("2026-11-16T14:00");
+    await placements.getByLabel("시간 등록 종료").fill("2026-11-16T15:00");
+    await placements
+      .getByRole("button", { name: "시간 등록 변경 저장" })
+      .click();
     await expect(
-      placements.getByText("캘린더 배치를 저장했습니다.", { exact: true }),
+      placements.getByText("캘린더 시간 등록을 저장했어요.", { exact: true }),
     ).toBeVisible();
     await page.reload();
     await expect(placements.locator("time").first()).toHaveAttribute(
@@ -140,28 +144,32 @@ test("live dedicated account: calendar placement persistence, editing, cancellat
       "2026-11-15T00:00:00.000Z",
     );
     await placements
-      .getByRole("button", { name: "배치 수정", exact: true })
+      .getByRole("button", { name: "시간 등록 수정", exact: true })
       .click();
-    await placements.getByLabel("배치 상태").selectOption("cancelled");
-    await placements.getByRole("button", { name: "배치 변경 저장" }).click();
+    await placements.getByLabel("시간 등록 상태").selectOption("cancelled");
+    await placements
+      .getByRole("button", { name: "시간 등록 변경 저장" })
+      .click();
     await expect(placements.getByText("취소", { exact: true })).toBeVisible();
     await placements
-      .getByRole("link", { name: "배치 날짜 보기 →", exact: true })
+      .getByRole("link", { name: "시간 등록 날짜 보기 →", exact: true })
       .click();
     await expect(
-      page.getByText("선택한 날짜에 배치된 일정이 없습니다", { exact: true }),
+      page.getByText("선택한 날짜에 등록된 일정이 없어요", { exact: true }),
     ).toBeVisible();
-    await page.getByLabel("취소한 배치 포함").check();
+    await page.getByLabel("취소한 시간 등록 포함").check();
     await expect(page.locator(".calendar-agenda")).toContainText(marker);
-    await page.getByRole("link", { name: "일정 상세 · 배치 관리 →" }).click();
-    await placements
-      .getByRole("button", { name: "배치 삭제", exact: true })
+    await page
+      .getByRole("link", { name: "일정 상세 · 시간 등록 관리 →" })
       .click();
     await placements
-      .getByRole("button", { name: "배치 삭제 확인", exact: true })
+      .getByRole("button", { name: "시간 등록 삭제", exact: true })
+      .click();
+    await placements
+      .getByRole("button", { name: "시간 등록 삭제 확인", exact: true })
       .click();
     await expect(
-      placements.getByText("캘린더에 배치된 시간이 없습니다", { exact: true }),
+      placements.getByText("시간표에 등록된 시간이 없어요", { exact: true }),
     ).toBeVisible();
     expect((await ownRequest(page, `/api/tasks/${taskId}`)).status).toBe(200);
     expect(

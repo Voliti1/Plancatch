@@ -7,22 +7,22 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
     if (error instanceof ApiError) {
       if (error.status === 409 && error.message === "deadline_source_busy")
         throw new ApiError(
-          "연결된 자료를 분석하고 있습니다. 분석이 끝난 뒤 다시 삭제해 주세요.",
+          "연결된 자료를 분석하고 있어요. 분석이 끝난 뒤 다시 삭제해 주세요.",
           409,
         );
       if (error.status === 409 && error.message === "deadline_source_changed")
         throw new ApiError(
-          "연결된 자료가 변경되었습니다. 새로고침 후 다시 시도해 주세요.",
+          "연결된 자료가 변경되었어요. 새로고침 후 다시 시도해 주세요.",
           409,
         );
       if (error.status === 404)
         throw new ApiError(
-          "마감일을 찾을 수 없습니다. 삭제되었거나 접근할 수 없는 마감일입니다.",
+          "마감일을 찾을 수 없어요. 삭제되었거나 접근할 수 없는 마감일이에요.",
           404,
         );
       if (error.status === 422)
         throw new ApiError(
-          "제목·공식 마감일·여유시간을 확인해 주세요. 여유시간은 1~2,147,483,647분의 정수여야 하며, 계산된 안전 마감일이 지원되는 날짜 범위 안에 있어야 합니다.",
+          "제목·공식 마감일·여유시간을 확인해 주세요. 여유시간은 1~2,147,483,647분의 정수여야 하며, 계산된 안전 마감일이 지원되는 날짜 범위 안에 있어야 해요.",
           422,
         );
     }
@@ -42,7 +42,7 @@ export const deadlinesApi = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  update: (id: string, payload: DeadlineInput) =>
+  update: (id: string, payload: Partial<DeadlineInput>) =>
     request<Deadline>(`/api/deadlines/${encodeURIComponent(id)}`, {
       method: "PATCH",
       body: JSON.stringify(payload),

@@ -1,0 +1,88 @@
+.time-zone-control {
+  --time-zone-highlight-outset: 0.35rem;
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.45rem calc(5px + var(--time-zone-highlight-outset));
+  color: inherit;
+  font-size: 0.8rem;
+}
+
+.time-zone-clocks {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  border: 1px solid currentColor;
+  border-color: color-mix(in srgb, currentColor 22%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.45rem 0.65rem;
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  flex-wrap: wrap;
+}
+
+.time-zone-clocks time {
+  font-weight: 700;
+}
+
+.time-zone-select {
+  position: relative;
+  border-radius: 0.35rem;
+}
+
+@media (hover: hover) {
+  .time-zone-select:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+    box-shadow: 0 0 0 var(--time-zone-highlight-outset)
+      color-mix(in srgb, currentColor 12%, transparent);
+  }
+}
+
+.time-zone-select:has(select:focus-visible) {
+  outline: 2px solid currentColor;
+  outline-offset: var(--time-zone-highlight-outset);
+}
+
+.time-zone-select select {
+  position: absolute;
+  inset: calc(-1 * var(--time-zone-highlight-outset));
+  width: calc(100% + 2 * var(--time-zone-highlight-outset));
+  height: calc(100% + 2 * var(--time-zone-highlight-outset));
+  opacity: 0;
+  cursor: pointer;
+}
+
+.time-zone-error {
+  flex-basis: 100%;
+  text-align: right;
+}
+
+.auth-panel .auth-time-zone {
+  position: absolute;
+  inset: 1rem 1rem auto auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.auth-time-zone .account-icon {
+  border-color: var(--line);
+}
+
+.auth-panel:has(.auth-time-zone) {
+  position: relative;
+  padding-top: max(5rem, 52px);
+}
+
+@media (max-width: 700px) {
+  .topbar:has(.time-zone-control) {
+    height: auto;
+    min-height: 47px;
+    justify-content: flex-end;
+    padding-block: 0.35rem;
+  }
+  .topbar:has(.time-zone-control) > span {
+    display: none;
+  }
+}

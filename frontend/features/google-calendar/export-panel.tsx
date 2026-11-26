@@ -96,10 +96,10 @@ export function GoogleExportPanel({
     }
   }
   return (
-    <section className="card form-card" aria-label="Google 자동 동기화">
-      <h2>Google 캘린더 자동 반영</h2>
+    <section className="card form-card" aria-label="구글 캘린더 자동 동기화">
+      <h2>구글 캘린더 자동 반영</h2>
       <p className="small muted">
-        Google 연결 후 등록·수정·삭제한 일정은 자동으로 반영됩니다.
+        구글 계정 연결 후 등록·수정·삭제한 일정은 자동으로 반영돼요.
       </p>
       {status.loading && !status.data && <Loading />}
       {status.error && <ErrorNotice message={status.error} retry={reload} />}
@@ -129,7 +129,7 @@ export function GoogleExportPanel({
       )}
       {error && <ErrorNotice message={error} />}
       <p className="small">
-        <Link href="/settings/google-calendar">Google 계정 연결 확인 →</Link>
+        <Link href="/settings/google-calendar">구글 계정 연결 확인 →</Link>
       </p>
     </section>
   );

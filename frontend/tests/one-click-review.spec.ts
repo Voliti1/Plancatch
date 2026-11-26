@@ -10,7 +10,9 @@ test("one click saves every edit before approving the returned revision, double 
   const state = await mockAnalyses(page);
   await login(page);
   await page.goto("/analyses/analysis-1");
-  await page.getByLabel("후보 1 제목", { exact: true }).fill("한 번에 등록");
+  await page
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
+    .fill("한 번에 등록");
   const requests: { method: string; body: unknown }[] = [];
   page.on("request", (request) => {
     if (
@@ -39,7 +41,7 @@ test("save failure never approves and retains inputs for a one click retry", asy
   await login(page);
   await page.goto("/analyses/analysis-1");
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("저장 실패 후 유지");
   let failed = true,
     approvals = 0;
@@ -57,9 +59,9 @@ test("save failure never approves and retains inputs for a one click retry", asy
   );
   expect(approvals).toBe(0);
   expect(state.deadlines).toHaveLength(0);
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "저장 실패 후 유지",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("저장 실패 후 유지");
   failed = false;
   await register(page).click();
   await expect(
@@ -73,8 +75,12 @@ test("failed approval keeps acknowledged revision and retries without saving aga
   const state = await mockAnalyses(page);
   await login(page);
   await page.goto("/analyses/analysis-1");
-  await page.getByLabel("후보 1 제목", { exact: true }).fill("승인 재시도");
-  await page.getByLabel("구글 캘린더 알림", { exact: true }).selectOption("custom");
+  await page
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
+    .fill("승인 재시도");
+  await page
+    .getByLabel("구글 캘린더 알림", { exact: true })
+    .selectOption("custom");
   await page.getByLabel("알림 1 방식", { exact: true }).selectOption("email");
   await page.getByLabel("알림 1 시간 (분 전)", { exact: true }).fill("15");
   let failed = true,
@@ -102,9 +108,9 @@ test("failed approval keeps acknowledged revision and retries without saving aga
   );
   expect(patches).toBe(1);
   expect(state.deadlines).toHaveLength(0);
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "승인 재시도",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("승인 재시도");
   await expect(page.getByLabel("알림 1 방식", { exact: true })).toHaveValue(
     "email",
   );
@@ -172,15 +178,17 @@ test("a changed revision blocks registration and preserves edited values", async
   const state = await mockAnalyses(page);
   await login(page);
   await page.goto("/analyses/analysis-1");
-  await page.getByLabel("후보 1 제목", { exact: true }).fill("충돌 시 유지");
+  await page
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
+    .fill("충돌 시 유지");
   state.analyses[0].revision = 2;
   await register(page).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "버전이 바뀌었습니다",
+    "버전이 바뀌었어요",
   );
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "충돌 시 유지",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("충돌 시 유지");
   expect(state.deadlines).toHaveLength(0);
 });
 test("leaving while edits save cancels the following approval", async ({
@@ -189,7 +197,9 @@ test("leaving while edits save cancels the following approval", async ({
   const state = await mockAnalyses(page);
   await login(page);
   await page.goto("/analyses/analysis-1");
-  await page.getByLabel("후보 1 제목", { exact: true }).fill("이동한 화면");
+  await page
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
+    .fill("이동한 화면");
   let release!: () => void;
   const wait = new Promise<void>((resolve) => (release = resolve));
   let started!: () => void;
@@ -210,7 +220,7 @@ test("leaving while edits save cancels the following approval", async ({
   page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("navigation")
-    .getByRole("link", { name: "일정", exact: true })
+    .getByRole("link", { name: "마감일·할 일", exact: true })
     .click();
   release();
   await expect(page).toHaveURL(/\/deadlines$/);

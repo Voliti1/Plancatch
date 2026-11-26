@@ -12,7 +12,7 @@ const deadline: Deadline = {
   deadline_type: "과제",
   description: "[테스트] 원래 설명",
   confidence: "0.8",
-  evidence_text: "[테스트] 원문 근거",
+  evidence_text: "[테스트] 날짜를 찾은 부분",
   is_confirmed: true,
   created_at: "2026-09-30T00:00:00Z",
   updated_at: "2026-09-30T00:00:00Z",
@@ -54,7 +54,9 @@ test("creating without safety sends null and a past deadline can be configured w
 }) => {
   await open(page, []);
   await page.getByRole("link", { name: "＋ 일정 등록" }).click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page
     .getByLabel("일정명", { exact: true })
@@ -171,7 +173,7 @@ test("editing preserves buffer, official precision, source and evidence; updates
   await expect(
     page.getByText(deadline.evidence_text!, { exact: true }),
   ).toBeVisible();
-  await expect(page.getByText("변경 사항을 저장했습니다.")).toBeVisible();
+  await expect(page.getByText("변경 사항을 저장했어요.")).toBeVisible();
   await page.getByLabel("여유시간 (일)", { exact: true }).fill("0");
   await page.getByLabel("여유시간 (시간)", { exact: true }).fill("3");
   await page.getByLabel("여유시간 (분)", { exact: true }).fill("0");

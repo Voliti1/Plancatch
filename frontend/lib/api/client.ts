@@ -10,10 +10,10 @@ export class ApiError extends Error {
 export function errorMessage(error: unknown): string {
   return error instanceof Error
     ? error.message
-    : "요청을 처리하지 못했습니다. 다시 시도해 주세요.";
+    : "요청을 처리하지 못했어요. 다시 시도해 주세요.";
 }
 function responseDetail(body: unknown): string {
-  const fallback = "요청을 처리하지 못했습니다.";
+  const fallback = "요청을 처리하지 못했어요.";
   if (!body || typeof body !== "object" || !("detail" in body)) return fallback;
   const detail = body.detail;
   if (typeof detail === "string") return detail.trim() || fallback;
@@ -51,7 +51,7 @@ export async function api<T>(
   if (options.body && !(options.body instanceof FormData))
     headers.set("Content-Type", "application/json");
   const token = authenticated ? tokenStore.get() : null;
-  if (authenticated && !token) throw new ApiError("로그인이 필요합니다.", 401);
+  if (authenticated && !token) throw new ApiError("로그인이 필요해요.", 401);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   let response: Response;
   try {
@@ -68,7 +68,7 @@ export async function api<T>(
     });
   } catch {
     throw new ApiError(
-      "서버에 연결하지 못했습니다. 네트워크와 API 주소를 확인하고 다시 시도해 주세요.",
+      "연결하지 못했어요. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.",
       0,
     );
   }
@@ -98,7 +98,7 @@ export async function api<T>(
     // A successful write whose body was lost may already have committed. Keep
     // status 0 so existing uncertainty guards do not offer a blind resubmit.
     throw new ApiError(
-      "서버 응답을 확인하지 못했습니다. 저장 여부를 확인한 뒤 다시 시도해 주세요.",
+      "서버 응답을 확인하지 못했어요. 저장 여부를 확인한 뒤 다시 시도해 주세요.",
       0,
     );
   }

@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -6,14 +7,22 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
-import { formatSeoul } from "@/lib/date/seoul";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 
-export function OccurrenceDetail({ id, at }: { id: string; at: string }) {
+export function OccurrenceDetail({
+  id,
+  at,
+  startEditing = false,
+}: {
+  id: string;
+  at: string;
+  startEditing?: boolean;
+}) {
+  const { formatLocal } = useScheduleTime();
   const loader = useCallback(() => tasksApi.occurrence(id, at), [id, at]);
   const { data, loading, error, reload } = useResource(loader);
-  const [editing, setEditing] = useState(false);
+  const [editing, setEditing] = useState(startEditing);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [mutationError, setMutationError] = useState("");
@@ -27,7 +36,7 @@ export function OccurrenceDetail({ id, at }: { id: string; at: string }) {
       <PageHeading
         eyebrow="REPEATING SCHEDULE"
         title="반복 일정 상세"
-        description="선택한 날짜의 일정만 수정하거나 삭제할 수 있습니다."
+        description="선택한 날짜의 일정만 수정하거나 삭제할 수 있어요."
       />
       {loading ? (
         <Loading />
@@ -38,10 +47,10 @@ export function OccurrenceDetail({ id, at }: { id: string; at: string }) {
           <>
             <section className="card form-card">
               <h2>{data.title}</h2>
-              <p className="small muted">원래 회차: {formatSeoul(at)}</p>
+              <p className="small muted">원래 회차: {formatLocal(at)}</p>
               <p className="notice">
                 ‘이번 일정만’ 변경하면 다른 날짜의 일정과 반복 종료일은
-                유지됩니다.
+                유지돼요.
               </p>
               {editing ? (
                 <TaskForm
@@ -57,11 +66,11 @@ export function OccurrenceDetail({ id, at }: { id: string; at: string }) {
               ) : (
                 <>
                   <p>
-                    {formatSeoul(data.earliest_start!)} ~{" "}
-                    {formatSeoul(data.latest_end!)}
+                    {formatLocal(data.earliest_start!)} ~{" "}
+                    {formatLocal(data.latest_end!)}
                   </p>
                   <p className="source-text">
-                    {data.description || "메모가 없습니다."}
+                    {data.description || "메모가 없어요."}
                   </p>
                   <div className="form-actions">
                     <button
@@ -85,13 +94,12 @@ export function OccurrenceDetail({ id, at }: { id: string; at: string }) {
                 <div>
                   <h2>이번 일정 삭제</h2>
                   <p>
-                    선택한 날짜의 일정만 삭제합니다. 나머지 반복 일정은
-                    유지됩니다.
+                    선택한 날짜의 일정만 삭제해요. 나머지 반복 일정은 유지돼요.
                   </p>
                 </div>
                 {confirmDelete ? (
                   <div role="group" aria-label="이번 일정 삭제 확인">
-                    <p>이 날짜의 일정만 삭제하시겠습니까?</p>
+                    <p>이 날짜의 일정만 삭제할까요?</p>
                     <div className="form-actions">
                       <button
                         className="secondary"

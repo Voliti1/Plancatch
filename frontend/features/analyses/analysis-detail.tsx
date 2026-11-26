@@ -1,4 +1,5 @@
 "use client";
+import { useScheduleTime } from "@/features/settings/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
@@ -6,7 +7,6 @@ import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
 import { useResource } from "@/lib/api/use-resource";
 import { useProcessingPoll } from "@/lib/api/use-processing-poll";
-import { formatSeoul } from "@/lib/date/seoul";
 import type { Analysis } from "@/types/analysis";
 import { analysesApi } from "./api";
 import { analysisError, processingError } from "./errors";
@@ -47,7 +47,7 @@ export function AnalysisDetail({ id }: { id: string }) {
     return (
       <>
         <Link className="back-link" href="/sources">
-          ← 원본 자료 목록
+          ← 자료 목록
         </Link>
         <ErrorNotice message={error} retry={reload} />
       </>
@@ -56,6 +56,7 @@ export function AnalysisDetail({ id }: { id: string }) {
 }
 const isProcessing = (analysis: Analysis) => analysis.status === "processing";
 function AnalysisSession({ initial }: { initial: Analysis }) {
+  const { formatLocal } = useScheduleTime();
   const router = useRouter();
   const now = usePeriodClock();
   const [data, setData] = useState(initial);
@@ -107,15 +108,15 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         className="back-link"
         href={`/sources/${encodeURIComponent(data.source_id)}`}
       >
-        ← 원본 자료 상세
+        ← 자료 상세
       </Link>
       <PageHeading
         eyebrow={
           fromPdf
             ? "PDF DEADLINE REVIEW"
             : fromHtml
-              ? "HTML DEADLINE REVIEW"
-              : "AI DEADLINE REVIEW"
+              ? "마감일 확인"
+              : "마감일 확인"
         }
         title={fromHtml || fromPdf ? "마감일 검토" : "AI 마감일 검토"}
         description="추출된 마감일과 짧은 근거를 확인하고 필요한 마감일만 승인하세요."
@@ -127,13 +128,13 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
             : analysisStatusLabel(data.status, data.model)}
         </span>{" "}
         <span className="small muted">
-          분석 요청 {formatSeoul(data.created_at)}
+          분석 요청 {formatLocal(data.created_at)}
         </span>
       </p>
       {fromHtml && (
         <p className="success">
-          URL의 HTML 직접 분석 방식입니다. Gemini를 호출하거나 원문을 외부 AI에
-          전송하지 않습니다.
+          링크에 적힌 내용을 직접 읽은 결과예요. Gemini를 호출하거나 자료 내용을
+          외부 AI에 전송하지 않아요.
         </p>
       )}
       {notice && (
@@ -144,16 +145,16 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
       {isProcessing(data) && (
         <p className="notice" role="status">
           {fromHtml
-            ? "HTML 접수기간을 확인하고 있습니다."
+            ? "페이지의 접수 기간을 확인하고 있어요."
             : fromPdf
-              ? "PDF에서 접수·제출 기간을 확인하고 있습니다."
-              : "AI가 마감일 후보를 분석하고 있습니다. 완료될 때까지 상태를 확인합니다."}
+              ? "PDF에서 접수·제출 기간을 확인하고 있어요."
+              : "AI가 찾은 마감일을 분석하고 있어요. 완료될 때까지 상태를 확인해요."}
         </p>
       )}
       {poll.error && <ErrorNotice message={poll.error} retry={poll.resume} />}
       {poll.timedOut && (
         <ErrorNotice
-          message="90초 동안 분석 완료를 확인하지 못했습니다. 자동 조회를 중단했습니다. 잠시 후 다시 확인해 주세요."
+          message="90초 동안 분석 완료를 확인하지 못했어요. 자동 조회를 중단했어요. 잠시 후 다시 확인해 주세요."
           retry={poll.resume}
         />
       )}
@@ -180,8 +181,8 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         <section className="card">
           <h2>읽어 온 날짜로 검토 계속하기</h2>
           <p>
-            기존 오류 기록은 유지합니다. 같은 원문을 외부 AI에 보내지 않고 새
-            HTML 검토를 만듭니다.
+            기존 오류 기록은 유지해요. 같은 자료 내용을 외부 AI에 보내지 않고 새
+            마감일 확인를 만듭니다.
           </p>
           <ul>
             {data.date_choices?.map((choice) => (
@@ -207,7 +208,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
               }
             }}
           >
-            {recovering ? "검토 준비 중…" : "HTML 날짜로 검토 계속"}
+            {recovering ? "검토 준비 중…" : "페이지의 날짜로 검토 계속"}
           </button>
           {recoveryError && <ErrorNotice message={recoveryError} />}
         </section>
@@ -238,8 +239,8 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
         <section className="card analysis-approved">
           <h2>마감일 등록 완료</h2>
           <p>
-            선택한 후보 {data.approved_deadline_ids.length}개를 마감일로
-            등록했습니다.
+            선택한 찾은 마감일 {data.approved_deadline_ids.length}개를 마감일로
+            등록했어요.
           </p>
           <ul>
             {data.approved_deadline_ids.map((id, index) => (
@@ -257,14 +258,14 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
             일정 목록 보기
           </Link>
           <p className="small muted">
-            Google 계정이 연결되어 있으면 등록한 마감일이 Google 캘린더에도 자동
-            반영됩니다.
+            구글 계정이 연결되어 있으면 등록한 마감일이 구글 캘린더에도 자동
+            반영돼요.
           </p>
         </section>
       )}
       {data.status === "rejected" && (
         <p className="notice" role="status">
-          분석 결과를 전체 거부했습니다. 이 분석으로 생성된 마감일은 없습니다.
+          분석 결과를 전체 거부했어요. 이 분석으로 생성된 마감일은 없어요.
         </p>
       )}
       {hasSnapshot && (
@@ -275,7 +276,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           aria-controls={snapshotId}
           onClick={() => setShowSnapshot((open) => !open)}
         >
-          {showSnapshot ? "분석 원문 접기" : "분석 원문 보기"}
+          {showSnapshot ? "분석 자료 내용 접기" : "분석 자료 내용 보기"}
         </button>
       )}
       <div
@@ -290,16 +291,16 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           >
             {showSnapshot && (
               <>
-                <h2 id={`${snapshotId}-heading`}>분석에 사용한 원문</h2>
+                <h2 id={`${snapshotId}-heading`}>분석에 사용한 자료 내용</h2>
                 <p className="small muted">
-                  이 결과를 만들 때 저장한 텍스트입니다. PDF나 이미지에서 읽은
-                  텍스트에는 원본의 일부가 빠질 수 있습니다.
+                  이 결과를 만들 때 저장한 텍스트예요. PDF나 이미지에서 읽은
+                  텍스트에는 원본의 일부가 빠질 수 있어요.
                 </p>
                 <div
                   className="source-text"
                   tabIndex={0}
                   role="region"
-                  aria-label="저장된 분석 원문"
+                  aria-label="저장된 분석 자료 내용"
                 >
                   {data.input_text}
                 </div>
@@ -311,13 +312,13 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
           </section>
         )}
         <section className="card analysis-review">
-          <h2>마감일 후보</h2>
+          <h2>찾은 마감일</h2>
           <p className="small muted">
             {fromHtml
-              ? "HTML에 명시된 마감일을 사용합니다. 기업이 마감일을 변경할 수 있으므로 원문도 확인해 주세요."
+              ? "페이지에 적힌 마감일을 사용해요. 기업이 마감일을 변경할 수 있으므로 자료 내용도 확인해 주세요."
               : fromPdf
-                ? "PDF에서 읽은 접수·제출 기한입니다. 원문과 날짜를 확인해 주세요."
-                : "AI 신뢰도는 모델의 참고값이며 사실의 정확도를 보장하지 않습니다. 원문을 직접 확인해 주세요."}
+                ? "PDF에서 읽은 접수·제출 기한이에요. 자료 내용과 날짜를 확인해 주세요."
+                : "AI 확신 정도는 참고용이에요. 등록 전 자료와 날짜를 직접 확인해 주세요."}
           </p>
           {data.status === "ready" ? (
             <ReviewEditor
@@ -334,12 +335,12 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
               {data.candidates.map((candidate, index) => (
                 <article className="analysis-candidate" key={candidate.id}>
                   <h3>
-                    후보 {index + 1} · {candidate.title}
+                    찾은 마감일 {index + 1} · {candidate.title}
                   </h3>
                   <p>
                     {candidate.selected ? "포함" : "제외"} ·{" "}
                     {candidate.due_at
-                      ? formatSeoul(candidate.due_at)
+                      ? formatLocal(candidate.due_at)
                       : "마감일 확인 필요"}
                   </p>
                   <RemainingPeriod dueAt={candidate.due_at} now={now} />
@@ -350,7 +351,7 @@ function AnalysisSession({ initial }: { initial: Analysis }) {
                 </article>
               ))}
               {!isProcessing(data) && data.candidates.length === 0 && (
-                <p>마감일 후보가 없습니다.</p>
+                <p>찾은 마감일이 없어요.</p>
               )}
             </>
           )}

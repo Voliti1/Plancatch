@@ -34,6 +34,64 @@ const deadline: Deadline = {
   updated_at: "2026-10-20T00:00:00Z",
 };
 
+test("approved time blocks appear in the schedule list and detail without changing editable availability", async ({
+  page,
+}) => {
+  const blocks = [
+    {
+      id: "first",
+      start_at: "2026-11-23T01:00:00Z",
+      end_at: "2026-11-23T02:00:00Z",
+    },
+    {
+      id: "second",
+      start_at: "2026-11-24T04:00:00Z",
+      end_at: "2026-11-24T05:00:00Z",
+    },
+  ];
+  const scheduled: Task = {
+    ...task,
+    schedule_type: "flexible",
+    earliest_start: null,
+    latest_end: null,
+    estimated_minutes: 120,
+    placement: {
+      start_at: blocks[0].start_at,
+      end_at: blocks[1].end_at,
+      block_count: 2,
+    },
+    placement_blocks: blocks,
+  };
+  await mockApi(page, [], { tasks: [scheduled] });
+  await login(page);
+  await expect(
+    page.getByRole("region", { name: "등록한 일정" }).locator("time").first(),
+  ).toHaveAttribute("datetime", blocks[0].start_at);
+  await page.goto("/deadlines");
+  const row = page.getByRole("link").filter({ hasText: scheduled.title });
+  await expect(row).toContainText("캘린더에 등록한 시간 · 2개 구간");
+  await expect(row.locator("time").last()).toHaveAttribute(
+    "datetime",
+    blocks[1].end_at,
+  );
+  await row.click();
+  await expect(page.getByText("시간 등록 시작 일시")).toBeVisible();
+  const detail = page
+    .locator(".task-description")
+    .filter({ hasText: "캘린더에 등록한 시간" });
+  await expect(detail.getByRole("listitem")).toHaveCount(2);
+  await expect(detail.locator("time").nth(2)).toHaveAttribute(
+    "datetime",
+    blocks[1].start_at,
+  );
+  await expect(
+    page.getByRole("link", { name: "등록한 시간 다시 추천받기" }),
+  ).toHaveAttribute("href", /mode=replan/);
+  await page.getByRole("button", { name: "일정 수정" }).click();
+  await expect(page.getByLabel("시작 일시")).toHaveValue("");
+  await expect(page.getByLabel("종료 일시")).toHaveValue("");
+});
+
 test("dashboard separates deadlines and the five newest schedules, including undated and completed items", async ({
   page,
 }) => {
@@ -105,12 +163,14 @@ test("manual registration, simple detail editing and completion are reflected on
     exact: true,
   });
   await expect(
-    overview.getByText("등록한 일정이 없습니다", { exact: true }),
+    overview.getByText("등록한 일정이 없어요", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
     .click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 직접 입력 회의");
@@ -159,7 +219,7 @@ test("manual registration, simple detail editing and completion are reflected on
     is_completed: false,
   });
   await expect(
-    page.getByText("변경 사항을 저장했습니다.", { exact: true }),
+    page.getByText("변경 사항을 저장했어요.", { exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(
@@ -215,14 +275,14 @@ test("schedule loading and retry do not hide deadline data or misreport an error
     "[테스트] 일정 조회 실패",
   );
   await expect(
-    overview.getByText("등록한 일정이 없습니다", { exact: true }),
+    overview.getByText("등록한 일정이 없어요", { exact: true }),
   ).toHaveCount(0);
   await page.unroute("**/test-api/api/tasks?**");
   await overview
     .getByRole("button", { name: "다시 시도", exact: true })
     .click();
   await expect(
-    overview.getByText("등록한 일정이 없습니다", { exact: true }),
+    overview.getByText("등록한 일정이 없어요", { exact: true }),
   ).toBeVisible();
 });
 
@@ -245,9 +305,7 @@ test("legacy undated schedules remain editable without losing optional fields", 
     .getByRole("link")
     .filter({ hasText: task.title })
     .click();
-  await expect(
-    page.getByText("메모가 없습니다.", { exact: true }),
-  ).toBeVisible();
+  await expect(page.getByText("메모가 없어요.", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "일정 수정", exact: true }).click();
   await expect(page.getByLabel("시작 일시", { exact: true })).toHaveValue("");
   await expect(page.getByLabel("종료 일시", { exact: true })).toHaveValue("");
@@ -267,7 +325,7 @@ test("legacy undated schedules remain editable without losing optional fields", 
     description: null,
   });
   await expect(
-    page.getByText("변경 사항을 저장했습니다.", { exact: true }),
+    page.getByText("변경 사항을 저장했어요.", { exact: true }),
   ).toBeVisible();
   await page.reload();
   await expect(

@@ -8,9 +8,12 @@ from importlib import import_module
 import pytest
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from fastapi import Response
 from sqlalchemy import inspect, select, text
+from sqlalchemy.orm import Session
 
-from app.models import SchedulePlan, Task, User
+from app.api.routes.schedules import list_schedules
+from app.models import Deadline, ScheduledEvent, SchedulePlan, Task, User
 from tests.test_postgresql import pg as pg  # noqa: PLC0414
 
 pytestmark = pytest.mark.skipif(
@@ -71,3 +74,26 @@ def test_plan_table_upgrade_preserves_tasks_and_can_retain_approval_receipts(pg)
         ]
         == "CASCADE"
     )
+
+
+def test_mixed_schedule_query_keeps_confirmed_calendar_times_and_skips_cancelled_blocks(pg):
+    owner = User(email="placement-test@example.com", password_hash="synthetic-only")
+    start = datetime(2027, 1, 1, 1, tzinfo=UTC)
+    end = start + timedelta(hours=1)
+    with Session(pg) as db:
+        db.add(owner)
+        db.flush()
+        task = Task(user_id=owner.id, title="할 일")
+        db.add_all([task, Deadline(user_id=owner.id, title="마감일", due_at=end)])
+        db.flush()
+        db.add_all([
+            ScheduledEvent(user_id=owner.id, task_id=task.id, start_at=start, end_at=end, status="approved"),
+            ScheduledEvent(user_id=owner.id, task_id=task.id, start_at=end,
+                           end_at=end + timedelta(hours=1), status="cancelled"),
+        ])
+        db.flush()
+        result = list_schedules(owner, db, Response(), limit=1)
+        assert result["has_more"]
+        item = result["entries"][0]["item"]
+        assert item.id == task.id
+        assert item.placement.model_dump() == {"start_at": start, "end_at": end, "block_count": 1}
