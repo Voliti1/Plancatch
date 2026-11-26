@@ -191,21 +191,21 @@ test("preview errors keep the sentence, retry safely, and tabs support keyboard 
     "내일 회의",
   );
   const natural = page.getByRole("tab", {
-    name: "수동 일정 등록",
+    name: "직접 일정 만들기",
     exact: true,
   });
   await natural.press("ArrowRight");
   await expect(
-    page.getByRole("tab", { name: "자료로 등록", exact: true }),
+    page.getByRole("tab", { name: "자료에서 자동 찾기", exact: true }),
   ).toBeFocused();
   await page
-    .getByRole("tab", { name: "수동 일정 등록", exact: true })
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
     .press("Home");
   await expect(
-    page.getByRole("tab", { name: "자료로 등록", exact: true }),
+    page.getByRole("tab", { name: "자료에서 자동 찾기", exact: true }),
   ).toBeFocused();
   await page
-    .getByRole("tab", { name: "자료로 등록", exact: true })
+    .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
     .press("ArrowRight");
   await expect(natural).toBeFocused();
   await expect(page.getByLabel("일정 설명", { exact: true })).toHaveValue(
@@ -239,19 +239,23 @@ test("a late preview cannot restore an old registration after the sidebar opens 
 
   await sent;
   await expect(
-    page.getByRole("tab", { name: "수동 일정 등록", exact: true }),
+    page.getByRole("tab", { name: "직접 일정 만들기", exact: true }),
   ).toBeEnabled();
   page.once("dialog", (dialog) => dialog.accept());
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   release();
   await expect(
-    page.getByRole("tab", { name: "자료로 등록", exact: true }),
+    page.getByRole("tab", { name: "자료에서 자동 찾기", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("");
-  await page.getByRole("tab", { name: "문장으로 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "한 문장으로 입력", exact: true })
+    .click();
   await expect(page.getByLabel("일정 설명", { exact: true })).toHaveValue("");
   await expect(
     page.getByRole("region", { name: "일정 입력", exact: true }),

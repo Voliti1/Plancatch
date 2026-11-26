@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { aiSource, readyAnalysis } from "./analysis-fixtures";
@@ -142,10 +143,10 @@ test("saving a URL proceeds to HTML review without detail clicks or AI transmiss
   await page
     .getByLabel("일정 제목 (선택)", { exact: true })
     .fill("내가 입력한 일정 제목");
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
   await page
-    .getByLabel("웹페이지 링크", { exact: true })
-    .fill("https://example.com/notice");
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/analyses\/analysis-1$/);
   await expect(
     page.getByRole("heading", { name: "마감일 검토", exact: true }),
@@ -162,10 +163,10 @@ test("text consent is required once before external analysis; reload reuses resu
   const { state } = await workflow(page, true);
   await login(page);
   await page.goto("/sources/new");
+  await (await sourceInput(page, "text")).fill(aiSource.original_text!);
   await page
-    .getByLabel("글 내용", { exact: true })
-    .fill(aiSource.original_text!);
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/sources\/saved-source\/review$/);
   const button = page.getByRole("button", {
     name: "동의하고 찾은 날짜 확인 시작",
@@ -187,10 +188,10 @@ test("extraction retry keeps the saved source and lost analysis reply reuses his
   state.failExtraction = true;
   await login(page);
   await page.goto("/sources/new");
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
   await page
-    .getByLabel("웹페이지 링크", { exact: true })
-    .fill("https://example.com/notice");
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   const alert = page
     .getByRole("region", { name: "등록한 자료 검토" })
     .getByRole("alert");
@@ -250,7 +251,7 @@ test("leaving during history lookup cannot launch an analysis or redirect a new 
   await page.goto("/sources/saved-source/review");
   await started;
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   await expect(page).toHaveURL(/\/sources\/new\?new=/);
   const fresh = page.url();

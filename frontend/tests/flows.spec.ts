@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 test.beforeEach(async ({ page }) => {
@@ -39,19 +40,19 @@ test("URL and text source registration and empty list", async ({ page }) => {
   await page.getByRole("link", { name: "자료함", exact: true }).click();
   await expect(page.getByText("등록된 자료가 없어요")).toBeVisible();
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   await page.getByLabel("일정 제목 (선택)").fill("수업 공지");
-  await page.getByLabel("웹페이지 링크").fill("https://example.com/notice");
-  await page.getByRole("button", { name: "자료 저장" }).click();
+  await (await sourceInput(page, "url")).fill("https://example.com/notice");
+  await page.getByRole("button", { name: "저장하고 마감일 확인하기" }).click();
   await expect(page).toHaveURL(/\/sources\/source-1\/review$/);
   await page.goto("/sources");
   await expect(page.getByRole("heading", { name: "수업 공지" })).toBeVisible();
   await page
-    .getByRole("link", { name: "새 일정 등록하기", exact: true })
+    .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
-  await page.getByLabel("글 내용").fill("다음 주 발표 자료 제출");
-  await page.getByRole("button", { name: "자료 저장" }).click();
+  await (await sourceInput(page, "text")).fill("다음 주 발표 자료 제출");
+  await page.getByRole("button", { name: "저장하고 마감일 확인하기" }).click();
   await expect(page).toHaveURL(/\/sources\/source-2\/review$/);
   await page.goto("/sources");
   await page.getByText("텍스트 내용 보기").click();
@@ -69,7 +70,9 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   await page.getByRole("link", { name: "마감일·할 일", exact: true }).click();
   await expect(page.getByText("아직 일정이 없어요")).toBeVisible();
   await page.getByRole("link", { name: "＋ 일정 등록" }).click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page
     .getByRole("group", { name: "등록 종류" })
     .getByRole("button", { name: "마감일", exact: true })

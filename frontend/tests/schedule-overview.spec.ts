@@ -168,7 +168,9 @@ test("manual registration, simple detail editing and completion are reflected on
   await page
     .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
     .click();
-  await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
+  await page
+    .getByRole("tab", { name: "직접 일정 만들기", exact: true })
+    .click();
   await page
     .getByLabel("일정명", { exact: true })
     .fill("[테스트] 직접 입력 회의");

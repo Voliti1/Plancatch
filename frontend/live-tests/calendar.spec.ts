@@ -67,7 +67,7 @@ test("live dedicated account: calendar placement persistence, editing, cancellat
       .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
       .click();
     await page
-      .getByRole("tab", { name: "수동 일정 등록", exact: true })
+      .getByRole("tab", { name: "직접 일정 만들기", exact: true })
       .click();
     await page.getByLabel("일정명", { exact: true }).fill(marker);
     await page

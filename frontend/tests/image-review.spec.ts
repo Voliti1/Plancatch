@@ -1,3 +1,4 @@
+import { sourceInput } from "./source-input";
 import { test, expect } from "@playwright/test";
 import { login } from "./fixtures";
 import { mockAnalyses, aiSource, readyAnalysis } from "./analysis-fixtures";
@@ -80,14 +81,16 @@ test("image upload requires consent, preserves missing time and original preview
   await login(page);
   await page.goto("/sources/new");
   await expect(
-    page.getByRole("heading", { name: "일정 입력", exact: true }),
+    page.getByRole("heading", { name: "자료 올리기", exact: true }),
   ).toBeVisible();
   await page.getByLabel("일정 제목 (선택)", { exact: true }).fill(enteredTitle);
-  await page
-    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
-    .setInputFiles({ name: "캡처.png", mimeType: "image/png", buffer: png });
+  await (
+    await sourceInput(page, "file")
+  ).setInputFiles({ name: "캡처.png", mimeType: "image/png", buffer: png });
   expect(uploads).toBe(0);
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/sources\/ai-source\/review$/);
   const consent = page.getByRole("checkbox");
   await expect(
@@ -268,15 +271,17 @@ test("text PDF opens review without consent and allows selecting a deadline cand
   });
   await login(page);
   await page.goto("/sources/new");
-  await page
-    .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
-    .setInputFiles({
-      name: "notice.PDF",
-      mimeType: "application/pdf",
-      buffer: Buffer.from("%PDF-1.4\n%%EOF"),
-    });
+  await (
+    await sourceInput(page, "file")
+  ).setInputFiles({
+    name: "notice.PDF",
+    mimeType: "application/pdf",
+    buffer: Buffer.from("%PDF-1.4\n%%EOF"),
+  });
   await expect(page.getByText("PDF 1개 선택됨")).toBeVisible();
-  await page.getByRole("button", { name: "자료 저장", exact: true }).click();
+  await page
+    .getByRole("button", { name: "저장하고 마감일 확인하기", exact: true })
+    .click();
   await expect(
     page.getByLabel("찾은 마감일 1 제목", { exact: true }),
   ).toHaveValue("서류 접수");
