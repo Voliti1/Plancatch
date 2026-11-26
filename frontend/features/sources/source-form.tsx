@@ -183,9 +183,6 @@ export function SourceForm({
             </li>
           </ol>
         </div>
-        <p className="small muted source-registration-guide">
-          원하는 방식을 하나 고른 뒤 내용을 입력해 주세요.
-        </p>
         <div
           className="source-kind-tabs"
           role="tablist"

@@ -6,6 +6,7 @@ import {
   useState,
   type DragEvent,
 } from "react";
+import { WorkspaceIcon } from "@/components/workspace-icon";
 
 const IMAGE_NAME = /\.(png|jpe?g|webp|bmp|gif|tiff?|avif)$/i;
 const PDF_NAME = /\.pdf$/i;
@@ -117,10 +118,9 @@ export function SourceFileInput({
       className="source-file-input"
       aria-labelledby="source-file-heading"
     >
-      <div className="source-file-heading">
-        <h3 id="source-file-heading">파일로 추가</h3>
-        <span className="tag">PDF·이미지 지원</span>
-      </div>
+      <h3 id="source-file-heading" className="source-file-label">
+        파일 올리기
+      </h3>
       <button
         type="button"
         className={`source-file-drop${dragging ? " is-dragging" : ""}`}
@@ -139,17 +139,8 @@ export function SourceFileInput({
         onDragLeave={() => setDragging(false)}
         onDrop={drop}
       >
-        <span className="source-file-symbol" aria-hidden="true">
-          PDF<span>JPG</span>
-        </span>
-        <strong>PDF나 이미지를 여기에 끌어다 놓으세요</strong>
-        <span className="source-file-hint">
-          캡처한 사진은 이 화면에서 Ctrl+V로 붙여넣을 수도 있어요.
-        </span>
-        <span className="source-file-picker">또는 파일 선택</span>
-        <span className="source-file-hint">
-          PDF · PNG · JPG 등 · 파일 한 개 · 최대 5MB
-        </span>
+        <WorkspaceIcon name="upload" />
+        <strong>PDF 또는 이미지 파일을 끌어다 놓거나 선택하세요</strong>
       </button>
       <input
         ref={picker}
@@ -164,9 +155,15 @@ export function SourceFileInput({
         }}
       />
       <p id="source-file-help" className="small muted source-file-help">
-        PDF와 PNG·JPG·WebP·BMP·GIF·TIFF·AVIF 이미지를 지원해요. PDF의 텍스트를
-        먼저 읽고, 스캔 PDF와 이미지는 동의 후 AI(구글 Gemini)로 읽어요.
+        파일 한 개 · 최대 5MB · 캡처한 이미지는 Ctrl+V로 붙여넣을 수 있어요.
       </p>
+      <details className="source-file-support">
+        <summary>지원 파일과 분석 안내</summary>
+        <p className="small muted">
+          PDF와 PNG·JPG·WebP·BMP·GIF·TIFF·AVIF 이미지를 지원해요. PDF의 텍스트를
+          먼저 읽고, 스캔 PDF와 이미지는 동의 후 AI(구글 Gemini)로 읽어요.
+        </p>
+      </details>
       <p role="status" className="small muted">
         {files.length
           ? PDF_NAME.test(files[0].name)
