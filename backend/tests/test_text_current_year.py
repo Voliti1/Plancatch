@@ -4,9 +4,9 @@ import uuid
 from datetime import UTC, datetime
 
 import pytest
-
 from app.services import ai_analysis as service
 from app.services.deadline_dates import DEFAULT_TIME_NOTICE, closing_choice
+
 from tests.test_sources import auth_headers, client, configure_test_jwt  # noqa: F401
 
 REFERENCE = datetime(2026, 11, 26, 0, tzinfo=UTC)
@@ -147,3 +147,13 @@ def test_text_source_extract_analyze_approve_and_reload_persists_this_year_witho
     assert len(saved) == 1
     assert datetime.fromisoformat(saved[0]["due_at"]) == datetime.fromisoformat(expected)
     assert client.get(path, headers=headers).json()["candidates"][0]["due_at"] == expected
+
+
+def test_missing_evidence_does_not_pick_up_unrelated_timezone():
+    from app.schemas.analysis import ProviderResult
+    from app.services.text_date_policy import apply_current_year
+    result = ProviderResult(deadlines=[{
+        "title": "회식", "evidence_text": "12월 3일 17시", "confidence": 1,
+    }])
+    apply_current_year(result, "미국 뉴욕 시간으로 안내된 별도 행사", REFERENCE)
+    assert result.deadlines[0].due_at.isoformat() == "2026-12-03T17:00:00+09:00"

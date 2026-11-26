@@ -30,7 +30,8 @@ def apply_current_year(result: ProviderResult, text: str, reference: datetime) -
         if not matches or any(match["year"] for match in matches):
             continue
         position = text.find(item.evidence_text)
-        context = text[max(0, position - 100):position + len(item.evidence_text) + 100]
+        context = (text[max(0, position - 100):position + len(item.evidence_text) + 100]
+                   if position != -1 else "")
         if FOREIGN_ZONE.search(context):
             continue  # Preserve a separately stated zone interpreted by the model.
         choice = closing_choice(item.evidence_text, context, document_year=str(year))
