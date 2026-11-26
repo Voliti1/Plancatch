@@ -95,6 +95,7 @@ test("manual registration replaces the sidebar task entry and saves through the 
   await expect(page.getByLabel("연결할 마감일", { exact: true })).toBeHidden();
   await page.getByLabel("시작 일시", { exact: true }).fill("2026-11-06T09:00");
   await page.getByLabel("종료 일시", { exact: true }).fill("2026-11-06T10:00");
+  await page.locator(".manual-unified-settings > summary").click();
   await page
     .getByLabel("우선순위", { exact: true })
     .selectOption({ label: "높음" });
@@ -306,25 +307,22 @@ test("collapsed settings and memo keep their values across mode changes and save
   await page
     .getByLabel("메모 (선택)", { exact: true })
     .fill("  [테스트] 회의실 A  ");
-  await page.getByText("상세 설정", { exact: true }).click();
+  await page.locator(".manual-unified-settings > summary").click();
   await expect(page.getByLabel("연결할 마감일", { exact: true })).toHaveValue(
     "deadline-1",
   );
-  await expect(
-    page.getByRole("button", { name: "직접 시간 지정", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
-  await page.getByLabel("예상 소요시간 (분, 선택)").fill("0");
-  await page.getByText("상세 설정", { exact: true }).click();
+  await expect(page.getByLabel("시간 나중에 정하기")).not.toBeChecked();
+  await page.getByLabel("시간 나중에 정하기").check();
+  await page.getByLabel("예상 소요시간 (분, 필수)").fill("0");
+  await page.locator(".manual-unified-settings > summary").click();
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
     "예상 소요시간은 1분 이상의 정수",
   );
-  await page.getByText("상세 설정", { exact: true }).click();
-  await page.getByLabel("예상 소요시간 (분, 선택)").fill("90");
+  await page.locator(".manual-unified-settings > summary").click();
+  await page.getByLabel("예상 소요시간 (분, 필수)").fill("90");
   await page.getByLabel("우선순위", { exact: true }).selectOption("2");
-  await page
-    .getByRole("button", { name: "시간 미정으로 등록", exact: true })
-    .click();
+  await page.getByLabel("시간 나중에 정하기").check();
   await page
     .getByLabel("가능 시작 일시 (선택)", { exact: true })
     .fill("2026-12-31T23:30");
@@ -332,7 +330,7 @@ test("collapsed settings and memo keep their values across mode changes and save
     .getByLabel("가능 종료 일시 (선택)", { exact: true })
     .fill("2027-01-01T01:00");
   await page.getByLabel("완료한 작업으로 표시").check();
-  await page.getByText("상세 설정", { exact: true }).click();
+  await page.locator(".manual-unified-settings > summary").click();
   await page
     .getByRole("tab", { name: "자료에서 자동 찾기", exact: true })
     .click();
@@ -343,7 +341,7 @@ test("collapsed settings and memo keep their values across mode changes and save
     "  [테스트] 회의실 A  ",
   );
   await expect(page.getByLabel("시작 일시", { exact: true })).toBeHidden();
-  await page.getByText("상세 설정", { exact: true }).click();
+  await page.locator(".manual-unified-settings > summary").click();
   await expect(
     page.getByLabel("가능 시작 일시 (선택)", { exact: true }),
   ).toHaveValue("2026-12-31T23:30");

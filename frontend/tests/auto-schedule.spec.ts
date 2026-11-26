@@ -509,9 +509,7 @@ test("a new task without times is selected and can save two recommended hours", 
   await page
     .getByRole("link", { name: "새 할 일 만들기", exact: true })
     .click();
-  await expect(
-    page.getByRole("button", { name: "시간 미정으로 등록", exact: true }),
-  ).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByLabel("시간 나중에 정하기")).toBeChecked();
   await page
     .getByRole("textbox", { name: "일정명", exact: true })
     .fill("발표 자료 준비");

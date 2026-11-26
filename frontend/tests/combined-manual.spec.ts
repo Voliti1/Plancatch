@@ -56,7 +56,7 @@ test("direct entry opens first and preserves its draft across keyboard and regis
   );
   await expect(
     page.getByRole("heading", { name: "직접 일정 만들기", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "일정 미리보기", exact: true }),
   ).toHaveCount(0);

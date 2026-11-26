@@ -8,8 +8,9 @@ test("custom browser and email reminders save with a task and remain editable", 
   await mockApi(page);
   await login(page);
   await page.goto("/sources/new?mode=manual");
+  await page.locator(".manual-unified-settings > summary").click();
   await expect(
-    page.getByText(/구글 계정이 연결되어 있지 않아요/),
+    page.getByText(/구글 연결 후 저장한 알림이 반영됩니다/),
   ).toBeVisible();
   await expect(
     page.getByLabel("구글 캘린더 알림", { exact: true }),
@@ -55,6 +56,7 @@ test("invalid or duplicate reminder times cannot register and deadline mode send
   );
   await login(page);
   await page.goto("/sources/new?mode=manual");
+  await page.locator(".manual-unified-settings > summary").click();
   await page.getByRole("button", { name: "마감일", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("알림 없는 마감");
   await page.getByLabel("마감 일시", { exact: true }).fill("2026-11-15T23:59");

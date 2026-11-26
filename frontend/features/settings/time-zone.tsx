@@ -101,20 +101,17 @@ export function TimeZoneControl() {
 
   return (
     <div className="time-zone-control">
-      {now && (
-        <div className="time-zone-clocks" aria-label="현재 시각">
+      {now && zone !== SEOUL && (
+        <div className="time-zone-clocks" aria-label="한국 현재 시각">
           <span>
             한국 <time>{clockTime(now, SEOUL)}</time>
           </span>
-          {zone !== SEOUL && (
-            <span>
-              {zoneName(zone)} <time>{clockTime(now, zone)}</time>
-            </span>
-          )}
         </div>
       )}
       <span className="timezone time-zone-select">
-        {zoneName(zone)} ({zone})
+        <span aria-label="현재 시각">
+          {zoneName(zone)} {now && <time>{clockTime(now, zone)}</time>} ({zone})
+        </span>
         <select
           aria-label="기준 시간대 변경"
           value={zone}

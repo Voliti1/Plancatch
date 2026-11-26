@@ -37,6 +37,7 @@ test("repeat ending can use this month or a chosen inclusive date", async ({
   await mockApi(page);
   await login(page);
   await page.goto("/sources/new?mode=manual");
+  await page.locator(".manual-unified-settings > summary").click();
   await page
     .getByRole("textbox", { name: "일정명", exact: true })
     .fill("이번 달 운동");

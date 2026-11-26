@@ -115,7 +115,7 @@ function ManualRegistration({
           ? "알림을 받으려면 구글 계정을 다시 연결해 권한을 허용해 주세요."
           : status.data.connected
             ? "연결된 구글 캘린더에 알림 설정이 반영됩니다."
-            : "구글 계정이 연결되어 있지 않아요. 알림 설정은 일정과 함께 저장됩니다.";
+            : "구글 연결 후 저장한 알림이 반영됩니다.";
 
   function selectMethod(next: ManualMethod) {
     if (next === "direct") setDirectOpened(true);
@@ -150,8 +150,19 @@ function ManualRegistration({
 
   return (
     <section className="card source-registration manual-registration-card">
-      <div className="manual-registration-heading">
-        <h2>직접 일정 만들기</h2>
+      <div className="manual-registration-toolbar">
+        <RegistrationTabs<ManualMethod>
+          id={id}
+          label="직접 입력 방식"
+          tabs={[
+            { value: "direct", label: "날짜·시간 직접 입력" },
+            { value: "sentence", label: "한 문장으로 입력" },
+          ]}
+          selected={method}
+          onSelect={selectMethod}
+          disabled={saving}
+          className="registration-methods"
+        />
         <Link
           className="text-button"
           href="/deadlines"
@@ -163,18 +174,6 @@ function ManualRegistration({
           등록한 일정 보기 →
         </Link>
       </div>
-      <RegistrationTabs<ManualMethod>
-        id={id}
-        label="직접 입력 방식"
-        tabs={[
-          { value: "direct", label: "날짜·시간 직접 입력" },
-          { value: "sentence", label: "한 문장으로 입력" },
-        ]}
-        selected={method}
-        onSelect={selectMethod}
-        disabled={saving}
-        className="registration-methods"
-      />
       <div
         id={`${id}-direct-panel`}
         role="tabpanel"
