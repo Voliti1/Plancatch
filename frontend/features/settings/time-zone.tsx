@@ -114,7 +114,7 @@ export function TimeZoneControl() {
         </div>
       )}
       <span className="timezone time-zone-select">
-        {zone} · {zoneName(zone)}
+        {zoneName(zone)} ({zone})
         <select
           aria-label="기준 시간대 변경"
           value={zone}

@@ -227,19 +227,23 @@ function RegistrationSession({ userId }: { userId: string }) {
             />
           </label>
           <p className="muted small">
-            로그인 없이 볼 수 있는 공고·안내 페이지 링크를 붙여 넣어 주세요.
-            내용을 읽을 수 없으면 필요한 글을 복사해 글 내용으로 등록해 주세요.
+            로그인 없이 볼 수 있는 공고·안내 링크를 넣고, 찾은 날짜를 확인한 뒤
+            등록해 주세요.
           </p>
-          <p className="muted small">
-            링크에서 날짜를 직접 찾아요. 이 과정에서는 외부 AI에 내용을 보내지
-            않아요.
-          </p>
-          <p className="notice">
-            날짜가 하나여도 검토 후 승인해야 등록돼요. 여러 날짜는 선택지로
-            제공하고, 채용 시 마감이나 날짜 누락은 직접 일시를 입력해야 해요.
-            구글 계정이 연결되어 있으면 등록한 마감일이 구글 캘린더에도 자동
-            반영돼요.
-          </p>
+          <details className="notice">
+            <summary>지원되는 링크 및 주의사항 보기</summary>
+            <p className="muted small">
+              내용을 읽을 수 없으면 필요한 글을 복사해 글 내용으로 등록해
+              주세요. 링크에서 날짜를 직접 찾아요. 이 과정에서는 외부 AI에
+              내용을 보내지 않아요.
+            </p>
+            <p className="muted small">
+              날짜가 하나여도 검토 후 승인해야 등록돼요. 여러 날짜는 선택지로
+              제공하고, 채용 시 마감이나 날짜 누락은 직접 일시를 입력해야 해요.
+              구글 계정이 연결되어 있으면 등록한 마감일이 구글 캘린더에도 자동
+              반영돼요.
+            </p>
+          </details>
           <label className="checkbox analysis-consent">
             <input
               type="checkbox"

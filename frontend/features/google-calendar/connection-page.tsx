@@ -133,8 +133,8 @@ export function GoogleCalendarConnection() {
               </strong>
               <p>
                 {status.data.connected
-                  ? "저장된 연결 정보를 확인했어요. 구글 캘린더에서 직접 권한을 취소했다면 재연결이 필요할 수 있어요."
-                  : "연결 버튼을 누른 뒤 구글 캘린더에서 계정과 캘린더 권한을 직접 승인해 주세요."}
+                  ? "구글 캘린더와 연결되어 있어요. 구글 계정에서 플랜캐치 연결을 해제했다면 다시 연결해 주세요."
+                  : "연결 버튼을 누른 뒤 구글 계정을 고르고 캘린더 사용을 허용해 주세요."}
               </p>
             </div>
             <div className="google-calendar-connection-actions">
@@ -164,13 +164,15 @@ export function GoogleCalendarConnection() {
                   연결 해제
                 </button>
               )}
-              <button
-                className="secondary"
-                disabled={busy || confirming}
-                onClick={status.reload}
-              >
-                상태 다시 확인
-              </button>
+              {(status.data.pending || status.data.reconnect_required) && (
+                <button
+                  className="secondary"
+                  disabled={busy || confirming}
+                  onClick={status.reload}
+                >
+                  상태 다시 확인
+                </button>
+              )}
               {status.data.connected && (
                 <button
                   className="secondary"
