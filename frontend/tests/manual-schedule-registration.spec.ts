@@ -137,7 +137,7 @@ test("registration modes preserve both drafts and new registration clears them",
     .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
     .click();
   await page
-    .getByLabel("원본 텍스트", { exact: true })
+    .getByLabel("글 내용", { exact: true })
     .fill("[테스트] 자료 입력 초안");
   await page
     .getByLabel("PDF 또는 이미지 파일 입력", { exact: true })
@@ -161,7 +161,7 @@ test("registration modes preserve both drafts and new registration clears them",
   await page
     .getByRole("tab", { name: "수동 일정 등록", exact: true })
     .press("Home");
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("글 내용", { exact: true })).toHaveValue(
     "[테스트] 자료 입력 초안",
   );
   await expect(
@@ -178,7 +178,7 @@ test("registration modes preserve both drafts and new registration clears them",
   await expect(
     page.getByRole("tab", { name: "자료로 등록", exact: true }),
   ).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue("");
+  await expect(page.getByLabel("글 내용", { exact: true })).toHaveValue("");
   await expect(page.getByRole("list", { name: "선택한 파일" })).toHaveCount(0);
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
   await expect(page.getByLabel("일정명", { exact: true })).toHaveValue("");

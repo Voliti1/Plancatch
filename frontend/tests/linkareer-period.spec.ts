@@ -4,7 +4,7 @@ import { aiSource, mockAnalyses, readyAnalysis } from "./analysis-fixtures";
 import type { Analysis } from "../types/analysis";
 
 const due = "2026-10-31T14:59:59.999Z";
-const evidence = `마감일 원문: 2026.10.31\n공고 메타데이터 마감일: ${due}`;
+const evidence = `마감일 자료 내용: 2026.10.31\n공고 메타데이터 마감일: ${due}`;
 const source = {
   ...aiSource,
   title: "[테스트] 링커리어 채용공고",
@@ -18,7 +18,7 @@ const review: Analysis = {
   model: "html:url:v1",
   input_text: source.extracted_text,
   warnings: [
-    "공고 화면에는 마감 날짜만 표시되어 있습니다. 링커리어 메타데이터의 마감 시각을 확인하고 필요하면 수정해 주세요.",
+    "공고 화면에는 마감 날짜만 표시되어 있어요. 링커리어 메타데이터의 마감 시각을 확인하고 필요하면 수정해 주세요.",
   ],
   candidates: [
     {
@@ -67,7 +67,7 @@ test("Linkareer explains the metadata time and preserves milliseconds through ti
     page.getByRole("region", { name: "분석 주의사항" }),
   ).toContainText("메타데이터의 마감 시각");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-10-31T23:59");
   await expect(page.locator(".candidate-evidence")).toContainText(due);
   await expect(page.locator(".candidate-evidence")).not.toContainText("신뢰도");
@@ -77,7 +77,7 @@ test("Linkareer explains the metadata time and preserves milliseconds through ti
   expect(state.reads).toBe(1);
   expect(state.deadlines).toHaveLength(0);
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 링커리어 지원");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
@@ -115,7 +115,7 @@ test("Linkareer explains the metadata time and preserves milliseconds through ti
 test("Linkareer without a metadata clock requires a user time instead of defaulting to midnight", async ({
   page,
 }) => {
-  const dateEvidence = "마감일 원문: 2026.10.31";
+  const dateEvidence = "마감일 자료 내용: 2026.10.31";
   const dateSource = {
     ...source,
     extracted_text: `(주)테스트기업\n${dateEvidence}`,
@@ -127,7 +127,7 @@ test("Linkareer without a metadata clock requires a user time instead of default
         ...review,
         input_text: dateSource.extracted_text,
         warnings: [
-          "링커리어 마감 시각을 확정하지 못했습니다. 마감 시각을 직접 입력하세요.",
+          "링커리어 마감 시각을 확정하지 못했어요. 마감 시각을 직접 입력하세요.",
         ],
         candidates: [
           {
@@ -154,9 +154,9 @@ test("Linkareer without a metadata clock requires a user time instead of default
   await login(page);
   await page.goto("/analyses/analysis-1");
   await expect(
-    page.getByText("원문 마감 날짜는 2026-10-31입니다.", { exact: false }),
+    page.getByText("자료 내용 마감 날짜는 2026-10-31이에요.", { exact: false }),
   ).toBeVisible();
-  const dateInput = page.getByLabel("후보 1 마감일 (한국 시간)", {
+  const dateInput = page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", {
     exact: true,
   });
   await expect(dateInput).toHaveValue("");
@@ -193,7 +193,7 @@ test("Linkareer conflicting source dates stay unselected and cannot be approved"
     [
       {
         ...review,
-        warnings: ["링커리어 접수기간과 메타데이터 날짜가 일치하지 않습니다."],
+        warnings: ["링커리어 접수기간과 메타데이터 날짜가 일치하지 않아요."],
         candidates: [
           { ...review.candidates[0], due_at: null, selected: false },
         ],
@@ -213,7 +213,7 @@ test("Linkareer conflicting source dates stay unselected and cannot be approved"
     page.getByRole("region", { name: "링커리어 접수기간" }),
   ).toContainText("충돌");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),

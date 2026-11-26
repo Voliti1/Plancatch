@@ -58,7 +58,9 @@ function TaskRow({ task, onUpdated }: { task: Task; onUpdated: () => void }) {
               ? "소요시간 미정"
               : `${task.estimated_minutes}분`}{" "}
             · 우선순위 {task.priority} ·{" "}
-            {task.schedule_type === "fixed" ? "고정 일정" : "유동 작업"}
+            {task.schedule_type === "fixed"
+              ? "시간이 정해진 일정"
+              : "시간 미정 할 일"}
           </p>
           {task.latest_end && (
             <p className="muted small">

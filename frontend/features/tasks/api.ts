@@ -51,7 +51,7 @@ export const tasksApi = {
     } catch (err) {
       if (err instanceof ApiError && err.status === 404)
         throw new ApiError(
-          "작업을 찾을 수 없습니다. 삭제되었거나 접근할 수 없는 작업입니다.",
+          "작업을 찾을 수 없어요. 삭제되었거나 접근할 수 없는 작업이에요.",
           404,
         );
       throw err;
@@ -73,7 +73,7 @@ export const tasksApi = {
     } catch (err) {
       if (err instanceof ApiError && err.status === 409)
         throw new ApiError(
-          "연결된 캘린더 일정이 있어 삭제할 수 없습니다. 동기화 상태를 먼저 확인해 주세요.",
+          "연결된 캘린더 일정이 있어 삭제할 수 없어요. 동기화 상태를 먼저 확인해 주세요.",
           409,
         );
       throw err;

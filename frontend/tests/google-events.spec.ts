@@ -111,9 +111,9 @@ test("Google failures are not an empty calendar and do not hide local events", a
   await expect(
     page.getByRole("link", { name: "구글 계정 연결 설정 →" }),
   ).toHaveAttribute("href", "/settings/google-calendar");
-  await expect(
-    page.getByText("선택한 날짜의 구글 일정이 없습니다."),
-  ).toHaveCount(0);
+  await expect(page.getByText("선택한 날짜의 구글 일정이 없어요.")).toHaveCount(
+    0,
+  );
 });
 
 test("late responses stay hidden after opt-out; partial results are labelled", async ({
@@ -150,7 +150,7 @@ test("late responses stay hidden after opt-out; partial results are labelled", a
     }),
   );
   await page.getByLabel("구글 일정 함께 보기").check();
-  await expect(page.getByText(/구글 일정을 일부만 불러왔습니다/)).toBeVisible();
+  await expect(page.getByText(/구글 일정을 일부만 불러왔어요/)).toBeVisible();
   await expect(
     page.getByText(/확인할 수 없거나 중복된 구글 일정 2건/),
   ).toBeVisible();

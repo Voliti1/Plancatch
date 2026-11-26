@@ -3,7 +3,7 @@ import { login, mockApi } from "./fixtures";
 
 const task = {
   id: "replace-task",
-  title: "다시 배치할 보고서",
+  title: "다시 시간 등록할 보고서",
   sort_at: "2026-11-18T09:00:00Z",
   deadline_id: null,
   estimated_minutes: 60,
@@ -84,7 +84,7 @@ async function open(page: Page, deepLink = false) {
   await expect(
     page.getByRole("button", { name: "저장한 시간 다시 정하기", exact: true }),
   ).toHaveAttribute("aria-pressed", "true");
-  await page.getByRole("checkbox", { name: /다시 배치할 보고서/ }).check();
+  await page.getByRole("checkbox", { name: /다시 시간 등록할 보고서/ }).check();
   await page.getByText("추천 조건", { exact: true }).click();
   await page.getByLabel("추천 기간 시작일", { exact: true }).fill("2026-11-16");
   await page.getByLabel("추천 기간 종료일", { exact: true }).fill("2026-11-16");
@@ -129,7 +129,7 @@ test("replacement compares old and new times and only explicit approval sends a 
   });
   await expect(
     result.getByRole("region", { name: "기존 시간과 비교" }),
-  ).toContainText("선택한 할 일의 시간을 저장하면 아래 시간이 바뀝니다.");
+  ).toContainText("선택한 할 일의 시간을 저장하면 아래 시간이 바뀌어요.");
   await expect(
     result.getByRole("region", { name: "기존 시간과 비교" }),
   ).toContainText("2026. 11. 17.");
@@ -180,7 +180,7 @@ test("stale replacement never deletes directly and changing mode drops old previ
       approvals++;
       return r.fulfill({
         status: 409,
-        json: { detail: "기존 배치가 변경됐습니다. 다시 확인해 주세요." },
+        json: { detail: "기존 시간 등록가 변경됐어요. 다시 확인해 주세요." },
       });
     },
   );
@@ -193,7 +193,7 @@ test("stale replacement never deletes directly and changing mode drops old previ
   });
   await result
     .getByRole("checkbox", {
-      name: "다시 배치할 보고서 추천 시간 포함",
+      name: "다시 시간 등록할 보고서 추천 시간 포함",
       exact: true,
     })
     .uncheck();
@@ -205,7 +205,7 @@ test("stale replacement never deletes directly and changing mode drops old previ
   ).toBeDisabled();
   await result
     .getByRole("checkbox", {
-      name: "다시 배치할 보고서 추천 시간 포함",
+      name: "다시 시간 등록할 보고서 추천 시간 포함",
       exact: true,
     })
     .check();
@@ -213,7 +213,7 @@ test("stale replacement never deletes directly and changing mode drops old previ
     .getByRole("button", { name: "선택한 시간으로 변경", exact: true })
     .click();
   await expect(result.getByRole("alert")).toContainText(
-    "기존 배치가 변경됐습니다",
+    "기존 시간 등록가 변경됐어요",
   );
   expect(approvals).toBe(1);
   await page

@@ -5,7 +5,7 @@ import "./globals.css";
 import "./theme.css";
 import "./readability-preview.css";
 export const metadata: Metadata = {
-  title: "PlanCatch | 놓치지 않는 마감",
+  title: "플랜캐치 | 놓치지 않는 마감",
   description: "흩어진 자료와 마감일을 한곳에서 관리하세요.",
 };
 export default function RootLayout({

@@ -31,7 +31,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
     try {
       if (signup) {
         if (password !== confirmation)
-          throw new Error("비밀번호가 일치하지 않습니다.");
+          throw new Error("비밀번호가 일치하지 않아요.");
         await authApi.signup({
           email: email.trim(),
           password,
@@ -51,7 +51,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
     <main className="auth-page">
       <section className="auth-story">
         <Link className="brand" href="/login">
-          <span className="logo">P</span>PlanCatch.
+          <span className="logo">P</span>플랜캐치.
         </Link>
         <div>
           <span className="eyebrow">LESS CHAOS, MORE CLARITY</span>
@@ -88,12 +88,12 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
           <h1>{signup ? "회원가입" : "다시 만나 반가워요"}</h1>
           <p className="muted">
             {signup
-              ? "PlanCatch와 함께 계획을 시작하세요."
+              ? "플랜캐치와 함께 계획을 시작하세요."
               : "로그인하고 오늘의 계획을 이어가세요."}
           </p>
           {registered ? (
             <div className="notice" role="status">
-              <h2>가입이 완료되었습니다.</h2>
+              <h2>가입이 완료됐어요.</h2>
               <p>등록한 이메일로 로그인해 주세요.</p>
               <Link className="button" href="/login">
                 로그인으로 이동

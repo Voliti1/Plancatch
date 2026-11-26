@@ -139,6 +139,6 @@ export function zonedInputToUtc(
     if (next !== undefined) return new Date(next).toISOString();
   }
   throw new Error(
-    "이 지역의 시계 변경으로 존재하지 않는 시각입니다. 다른 시간을 선택해 주세요.",
+    "이 지역의 시계 변경으로 존재하지 않는 시각이에요. 다른 시간을 선택해 주세요.",
   );
 }

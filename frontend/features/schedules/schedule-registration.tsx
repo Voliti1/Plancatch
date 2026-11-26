@@ -106,16 +106,16 @@ function ManualRegistration({
   const [directOpened, setDirectOpened] = useState(initialMethod === "direct");
   const status = useResource(googleCalendarApi.status);
   const googleNotice = status.loading
-    ? "Google 캘린더 연결을 확인하고 있어요."
+    ? "구글 캘린더 연결을 확인하고 있어요."
     : !status.data
-      ? "Google 캘린더 연결 상태를 확인할 수 없어요."
+      ? "구글 캘린더 연결 상태를 확인할 수 없어요."
       : !status.data.configured
-        ? "현재 Google 캘린더 연동을 사용할 수 없어요."
+        ? "현재 구글 캘린더 연동을 사용할 수 없어요."
         : status.data.reconnect_required
-          ? "알림을 받으려면 Google 계정을 다시 연결해 권한을 허용해 주세요."
+          ? "알림을 받으려면 구글 계정을 다시 연결해 권한을 허용해 주세요."
           : status.data.connected
-            ? "연결된 Google 캘린더에 알림 설정이 반영됩니다."
-            : "Google 계정이 연결되어 있지 않아요. 알림 설정은 일정과 함께 저장됩니다.";
+            ? "연결된 구글 캘린더에 알림 설정이 반영돼요."
+            : "구글 계정이 연결되어 있지 않아요. 알림 설정은 일정과 함께 저장돼요.";
 
   function selectMethod(next: ManualMethod) {
     if (next === "direct") setDirectOpened(true);
@@ -283,7 +283,7 @@ export function ScheduleRegistration({
         ← 대시보드
       </Link>
       <PageHeading
-        eyebrow="NEW SCHEDULE"
+        eyebrow="새 일정"
         title="새 일정 등록"
         description="자료에서 마감일을 찾거나 할 일과 마감일을 직접 등록하세요."
       />
@@ -294,7 +294,7 @@ export function ScheduleRegistration({
           {
             value: "source",
             label: "자료로 등록",
-            hint: "PDF, 이미지, 링크 또는 원문",
+            hint: "PDF, 이미지, 링크 또는 자료 내용",
           },
           {
             value: "manual",

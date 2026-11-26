@@ -71,7 +71,7 @@ export async function mockApi(
       return route.fulfill({
         json: {
           state: "not_connected",
-          note: "Google 계정을 연결하면 이후 변경이 자동 반영됩니다.",
+          note: "구글 계정을 연결하면 이후 변경이 자동 반영돼요.",
           retryable: false,
         },
       });

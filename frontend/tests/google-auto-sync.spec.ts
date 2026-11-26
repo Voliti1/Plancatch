@@ -3,7 +3,7 @@ import { login, mockApi } from "./fixtures";
 import { calendarTask } from "./calendar-fixtures";
 
 const region = (page: Page) =>
-  page.getByRole("region", { name: "Google 자동 동기화", exact: true });
+  page.getByRole("region", { name: "구글 캘린더 자동 동기화", exact: true });
 type State =
   | "not_connected"
   | "pending"
@@ -41,18 +41,18 @@ async function setup(page: Page, initial: State = "synced") {
         state,
         note:
           state === "synced"
-            ? "Google 캘린더에 반영되었습니다."
+            ? "구글 캘린더에 반영되었어요."
             : state === "pending"
-              ? "Google 캘린더에 반영 중입니다."
+              ? "구글 캘린더에 반영 중이에요."
               : state === "retrying"
-                ? "자동으로 다시 시도합니다."
+                ? "자동으로 다시 시도해요."
                 : state === "not_connected"
-                  ? "Google 계정을 연결해 주세요."
+                  ? "구글 계정을 연결해 주세요."
                   : state === "deleted"
-                    ? "Google 캘린더에서도 삭제되었습니다."
+                    ? "구글 캘린더에서도 삭제되었어요."
                     : state === "not_scheduled"
-                      ? "실제 시간을 지정하면 자동 반영됩니다."
-                      : "Google 연결과 반영 상태를 확인해 주세요.",
+                      ? "실제 시간을 지정하면 자동 반영돼요."
+                      : "구글 계정 연결과 반영 상태를 확인해 주세요.",
         retryable: state === "failed" || state === "ready",
       },
     });
@@ -83,9 +83,7 @@ test("automatic status replaces previews and task detail completion button", asy
   await expect(
     page.getByRole("button", { name: "미완료로 변경", exact: true }),
   ).toHaveCount(0);
-  await expect(region(page).getByRole("status")).toContainText(
-    "반영되었습니다",
-  );
+  await expect(region(page).getByRole("status")).toContainText("반영되었어요");
   await expect(region(page).getByRole("button")).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: /미리보기|캘린더 등록/ }),
@@ -98,10 +96,9 @@ test("pending status polls to completion without confirmation requests", async (
 }) => {
   const state = await setup(page, "pending");
   state.setState("synced");
-  await expect(region(page).getByRole("status")).toContainText(
-    "반영되었습니다",
-    { timeout: 7000 },
-  );
+  await expect(region(page).getByRole("status")).toContainText("반영되었어요", {
+    timeout: 7000,
+  });
   expect(state.reads()).toBeGreaterThan(1);
   expect(state.posts()).toBe(0);
 });
@@ -119,7 +116,7 @@ for (const kind of [
     await expect(region(page).getByRole("button")).toHaveCount(0);
     expect(state.posts()).toBe(0);
     await expect(
-      region(page).getByRole("link", { name: "Google 계정 연결 확인 →" }),
+      region(page).getByRole("link", { name: "구글 계정 연결 확인 →" }),
     ).toBeVisible();
   });
 }
@@ -140,7 +137,7 @@ for (const initial of ["ready", "failed"] as const) {
     expect(state.bodies).toEqual([{ kind: "task", item_id: calendarTask.id }]);
     state.setState("synced");
     await expect(region(page).getByRole("status")).toContainText(
-      "반영되었습니다",
+      "반영되었어요",
       { timeout: 7000 },
     );
   });
@@ -176,7 +173,7 @@ test("status request failure is an error instead of a false synchronization succ
   await page.goto("/tasks/" + calendarTask.id);
   await expect(region(page).getByRole("alert")).toContainText("상태 확인 실패");
   await expect(
-    region(page).getByText("Google 캘린더에 반영되었습니다.", { exact: true }),
+    region(page).getByText("구글 캘린더에 반영되었어요.", { exact: true }),
   ).toHaveCount(0);
 });
 
@@ -199,9 +196,11 @@ test("new connection explanation describes future automatic changes", async ({
   await login(page);
   await page.goto("/settings/google-calendar");
   await expect(
-    page.getByText(/플랜캐치에서 등록·수정·삭제하는 일정이 Google 캘린더에 자동으로 반영/),
+    page.getByText(
+      /플랜캐치에서 등록·수정·삭제하는 일정이 구글 캘린더에 자동으로 반영/,
+    ),
   ).toBeVisible();
   await expect(
-    page.getByText(/다른 앱에서 만든 Google 일정은 변경하지/),
+    page.getByText(/다른 앱에서 만든 구글 캘린더 일정은 변경하지/),
   ).toBeVisible();
 });

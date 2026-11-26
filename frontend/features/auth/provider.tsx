@@ -88,12 +88,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const current = ++generation.current;
       const token = await authenticate();
       if (current !== generation.current)
-        throw new Error("로그인이 취소되었습니다.");
+        throw new Error("로그인이 취소되었어요.");
       tokenStore.set(token.access_token);
       try {
         const me = await authApi.me();
         if (current !== generation.current)
-          throw new Error("로그인이 취소되었습니다.");
+          throw new Error("로그인이 취소되었어요.");
         setUser(me);
         setError("");
         setLoading(false);
@@ -126,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const current = generation.current;
     const token = await authApi.changePassword(currentPassword, nextPassword);
     if (current !== generation.current)
-      throw new Error("로그인 상태가 바뀌었습니다. 다시 로그인해 주세요.");
+      throw new Error("로그인 상태가 바뀌었어요. 다시 로그인해 주세요.");
     tokenStore.set(token.access_token);
     setUser((previous) =>
       previous?.password_change_required

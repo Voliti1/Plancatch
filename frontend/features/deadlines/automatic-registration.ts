@@ -39,7 +39,7 @@ async function waitFor<T>(
     await pause(signal);
   }
   throw new Error(
-    "90초 동안 완료되지 않아 대기를 중단했습니다. ‘이어서 등록’으로 상태를 다시 확인해 주세요. 서버 작업은 취소되지 않습니다.",
+    "90초 동안 완료되지 않아 대기를 중단했어요. ‘이어서 등록’으로 상태를 다시 확인해 주세요. 서버 작업은 취소되지 않아요.",
   );
 }
 
@@ -53,7 +53,7 @@ export async function registerAutomatically(
   const requestSignal = () =>
     AbortSignal.any([signal, AbortSignal.timeout(15000)]);
   if (!draft.sourceId) {
-    progress("1/3 · URL 자료를 저장하고 있습니다.");
+    progress("1/3 · 링크 자료를 저장하고 있어요.");
     const source = await sourcesApi.create(
       { source_type: "url", title: draft.title, original_url: draft.url },
       requestSignal(),
@@ -69,9 +69,9 @@ export async function registerAutomatically(
   let source = await sourcesApi.get(sourceId, requestSignal());
   if (source.title !== draft.title || source.original_url !== draft.url)
     throw new Error(
-      "저장한 자료가 변경되었습니다. 원본 자료 상세에서 내용을 확인해 주세요.",
+      "저장한 자료가 변경되었어요. 자료 상세에서 내용을 확인해 주세요.",
     );
-  progress("2/3 · URL에서 원문 텍스트를 추출하고 있습니다.");
+  progress("2/3 · URL에서 글 내용를 추출하고 있어요.");
   if (
     source.processing_status !== "extracted" &&
     source.processing_status !== "processing"
@@ -85,7 +85,7 @@ export async function registerAutomatically(
     );
   if (source.processing_status !== "extracted" || !source.extracted_text)
     throw new Error(processingError(source.error_message ?? "empty_content"));
-  progress("3/3 · HTML에서 마감 날짜를 확인하고 있습니다.");
+  progress("3/3 · 페이지에서 마감 날짜를 확인하고 있어요.");
   // Recover an interrupted/lost POST response using this form's already-created source.
   let analysis = draft.analysisId
     ? await analysesApi.get(draft.analysisId, requestSignal())

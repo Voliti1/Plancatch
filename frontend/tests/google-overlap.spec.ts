@@ -52,11 +52,11 @@ test("Google busy conflicts show provider and all-day labels before explicit sav
   });
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   const warning = page.getByRole("region", {
-    name: "시간이 겹치는 일정이 있습니다",
+    name: "시간이 겹치는 일정이 있어요",
     exact: true,
   });
   await expect(warning).toContainText("구글 캘린더에서 등록한 휴가");
-  await expect(warning).toContainText("Google Calendar · 종일");
+  await expect(warning).toContainText("구글 캘린더 · 종일");
   await expect(warning.locator('a[href*="/tasks/"]')).toHaveCount(0);
   expect(writes).toBe(0);
   await warning.screenshot({
@@ -91,14 +91,14 @@ for (const state of ["partial", "unavailable", "reconnect_required"]) {
           google_state: state,
           google_message:
             state === "partial"
-              ? "일부 구글 일정만 확인했습니다."
-              : "구글 일정을 확인하지 못했습니다.",
+              ? "일부 구글 일정만 확인했어요."
+              : "구글 일정을 확인하지 못했어요.",
         },
       }),
     );
     await page.getByRole("button", { name: "일정 등록", exact: true }).click();
     const warning = page.getByRole("region", {
-      name: "구글 일정 확인이 필요합니다",
+      name: "구글 일정 확인이 필요해요",
       exact: true,
     });
     await expect(warning).toBeVisible();
@@ -129,7 +129,7 @@ test("local conflicts survive Google failure and a normal save retries the read"
       json: {
         ...empty,
         google_state: reads === 1 ? "unavailable" : "checked",
-        google_message: reads === 1 ? "구글 읽기에 실패했습니다." : null,
+        google_message: reads === 1 ? "구글 읽기에 실패했어요." : null,
         conflicts:
           reads === 1
             ? [
@@ -151,7 +151,7 @@ test("local conflicts survive Google failure and a normal save retries the read"
   await save.click();
   await expect(
     page.getByRole("region", {
-      name: "시간이 겹치는 일정이 있습니다",
+      name: "시간이 겹치는 일정이 있어요",
       exact: true,
     }),
   ).toContainText("기존 로컬 회의");

@@ -43,7 +43,7 @@ export function AccountControls({
       return;
     }
     if (next !== confirmation) {
-      setError("새 비밀번호가 일치하지 않습니다.");
+      setError("새 비밀번호가 일치하지 않아요.");
       return;
     }
     if (next === current) {
@@ -62,7 +62,7 @@ export function AccountControls({
       const message = errorMessage(err);
       setError(
         message === "current_password_incorrect"
-          ? "현재 비밀번호가 맞지 않습니다. 다시 확인해 주세요."
+          ? "현재 비밀번호가 맞지 않아요. 다시 확인해 주세요."
           : message === "new_password_unchanged"
             ? "현재와 다른 새 비밀번호를 입력해 주세요."
             : message,
@@ -149,7 +149,7 @@ export function AccountControls({
             <>
               <h3>비밀번호 변경</h3>
               <p className="small muted">
-                현재 비밀번호를 확인한 뒤 새 비밀번호로 변경합니다.
+                현재 비밀번호를 확인한 뒤 새 비밀번호로 변경해요.
               </p>
               <form onSubmit={submit} noValidate>
                 <fieldset disabled={busy}>
@@ -191,7 +191,7 @@ export function AccountControls({
                   {error && <ErrorNotice message={error} />}
                   {success && (
                     <p className="success" role="status">
-                      비밀번호를 변경했습니다.
+                      비밀번호를 변경했어요.
                     </p>
                   )}
                   <div className="form-actions">

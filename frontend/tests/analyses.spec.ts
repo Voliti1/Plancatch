@@ -15,7 +15,7 @@ test("consent, analysis polling, full candidate save and selected approval persi
   expect(state.starts).toBe(0);
   await page
     .getByRole("checkbox", {
-      name: "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다.",
+      name: "마감일을 찾기 위해 이 글 내용 전체를 AI(구글 Gemini)에 보내 분석하는 데 동의해요.",
       exact: true,
     })
     .check();
@@ -36,16 +36,16 @@ test("consent, analysis polling, full candidate save and selected approval persi
     page.getByRole("region", { name: "분석 주의사항" }),
   ).toContainText("발표 날짜");
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 보고서 수정");
   await page
-    .getByRole("checkbox", { name: "후보 1 포함", exact: true })
+    .getByRole("checkbox", { name: "등록할 일정에 포함 1", exact: true })
     .uncheck();
   await page
-    .getByRole("checkbox", { name: "후보 2 포함", exact: true })
+    .getByRole("checkbox", { name: "등록할 일정에 포함 2", exact: true })
     .check();
   await page
-    .getByLabel("후보 2 마감일 (한국 시간)", { exact: true })
+    .getByLabel("찾은 마감일 2 마감일 (한국 시간)", { exact: true })
     .fill("2026-10-03T18:00");
   await expect(
     page.getByRole("button", { name: "선택한 1개 일정 등록", exact: true }),
@@ -61,7 +61,7 @@ test("consent, analysis polling, full candidate save and selected approval persi
   expect(payload.candidates[0].selected).toBe(false);
   expect(payload.candidates[1].due_at).toBe("2026-10-03T09:00:00.000Z");
   await expect(
-    page.getByText("검토 내용을 저장했습니다.", { exact: true }),
+    page.getByText("검토 내용을 저장했어요.", { exact: true }),
   ).toBeVisible();
   expect(state.deadlines).toHaveLength(0);
   await page.screenshot({
@@ -107,7 +107,7 @@ test("save failure and revision conflict preserve input until explicit reload", 
   await login(page);
   await page.goto("/analyses/analysis-1");
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 유지할 입력");
   await page.route("**/test-api/api/ai-analyses/analysis-1", (route) =>
     route.request().method() === "PATCH"
@@ -120,9 +120,9 @@ test("save failure and revision conflict preserve input until explicit reload", 
   await expect(
     page.getByRole("alert").filter({ hasText: "테스트 저장 실패" }),
   ).toBeVisible();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "[테스트] 유지할 입력",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("[테스트] 유지할 입력");
   await page.unroute("**/test-api/api/ai-analyses/analysis-1");
   state.analyses[0].revision = 2;
   state.analyses[0].candidates[0].title = "[테스트] 서버 최신 제목";
@@ -130,28 +130,28 @@ test("save failure and revision conflict preserve input until explicit reload", 
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "버전이 바뀌었습니다" }),
+    page.getByRole("alert").filter({ hasText: "버전이 바뀌었어요" }),
   ).toBeVisible();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "[테스트] 유지할 입력",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("[테스트] 유지할 입력");
   await page
     .getByRole("button", { name: "최신 결과 불러오기", exact: true })
     .click();
   await page.getByRole("button", { name: "계속 수정", exact: true }).click();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "[테스트] 유지할 입력",
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("[테스트] 유지할 입력");
   await page
     .getByRole("button", { name: "최신 결과 불러오기", exact: true })
     .click();
   await page
     .getByRole("button", { name: "입력을 버리고 불러오기", exact: true })
     .click();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "[테스트] 서버 최신 제목",
-  );
-  await expect(page.getByText("최신 결과를 불러왔습니다.")).toBeVisible();
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("[테스트] 서버 최신 제목");
+  await expect(page.getByText("최신 결과를 불러왔어요.")).toBeVisible();
 });
 
 test("changed source blocks approval and leaves result visible", async ({
@@ -167,11 +167,11 @@ test("changed source blocks approval and leaves result visible", async ({
   await expect(
     page
       .getByRole("alert")
-      .filter({ hasText: "원문이 변경되어 승인할 수 없습니다" }),
+      .filter({ hasText: "자료 내용이 변경되어 승인할 수 없어요" }),
   ).toBeVisible();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    readyAnalysis.candidates[0].title,
-  );
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue(readyAnalysis.candidates[0].title);
   expect(state.deadlines).toHaveLength(0);
 });
 
@@ -183,7 +183,9 @@ test("empty result and ambiguous date can be rejected without creating deadlines
   await login(page);
   await page.goto("/analyses/analysis-1");
   await expect(
-    page.getByText("마감일 후보가 없습니다. 원문과 주의사항을 확인해 주세요."),
+    page.getByText(
+      "찾은 마감일이 없어요. 자료 내용과 주의사항을 확인해 주세요.",
+    ),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
@@ -201,7 +203,7 @@ test("empty result and ambiguous date can be rejected without creating deadlines
   expect((await reject).postDataJSON()).toEqual({ revision: 1 });
   await expect(
     page.getByText(
-      "분석 결과를 전체 거부했습니다. 이 분석으로 생성된 마감일은 없습니다.",
+      "분석 결과를 전체 거부했어요. 이 분석으로 생성된 마감일은 없어요.",
     ),
   ).toBeVisible();
   expect(state.deadlines).toHaveLength(0);
@@ -215,16 +217,18 @@ test("capacity and missing AI configuration do not clear consent or invent resul
   const state = await mockAnalyses(page, []);
   await login(page);
   await page.goto("/sources/ai-source");
-  await page.getByRole("checkbox", { name: /Google Gemini/ }).check();
+  await page.getByRole("checkbox", { name: /AI\(구글 Gemini\)/ }).check();
   await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) =>
     route.fulfill({ status: 503, json: { detail: "ai_not_configured" } }),
   );
   await page.getByRole("button", { name: "AI 분석 시작", exact: true }).click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "AI 설정이 준비되지 않아" }),
+    page
+      .getByRole("alert")
+      .filter({ hasText: "지금은 AI 분석을 사용할 수 없어요" }),
   ).toBeVisible();
   await expect(
-    page.getByRole("checkbox", { name: /Google Gemini/ }),
+    page.getByRole("checkbox", { name: /AI\(구글 Gemini\)/ }),
   ).toBeChecked();
   await page.unroute("**/test-api/api/sources/ai-source/ai-analyses");
   await page.route("**/test-api/api/sources/ai-source/ai-analyses", (route) =>
@@ -259,7 +263,7 @@ test("oversized input is blocked and changed extraction requires fresh consent",
     route.fulfill({ json: aiSource }),
   );
   await page.reload();
-  await page.getByRole("checkbox", { name: /Google Gemini/ }).check();
+  await page.getByRole("checkbox", { name: /AI\(구글 Gemini\)/ }).check();
   await page.route("**/test-api/api/sources/ai-source/analyze", (route) =>
     route.fulfill({
       status: 202,
@@ -272,24 +276,27 @@ test("oversized input is blocked and changed extraction requires fresh consent",
   );
   await page.route("**/test-api/api/sources/ai-source", (route) =>
     route.fulfill({
-      json: { ...aiSource, extracted_text: "[테스트] 새로 추출한 원문입니다." },
+      json: {
+        ...aiSource,
+        extracted_text: "[테스트] 새로 추출한 자료 내용이에요.",
+      },
     }),
   );
   await page
-    .getByRole("button", { name: "원문 다시 추출", exact: true })
+    .getByRole("button", { name: "내용 다시 불러오기", exact: true })
     .click();
   await expect(page.locator(".source-content-dialog .source-text")).toHaveText(
-    "[테스트] 새로 추출한 원문입니다.",
+    "[테스트] 새로 추출한 자료 내용이에요.",
   );
   await page.getByRole("button", { name: "자세히 보기", exact: true }).click();
   await expect(
     page
       .getByRole("dialog")
-      .getByText("[테스트] 새로 추출한 원문입니다.", { exact: true }),
+      .getByText("[테스트] 새로 추출한 자료 내용이에요.", { exact: true }),
   ).toBeVisible();
   await page.getByRole("button", { name: "자세히 보기 닫기" }).click();
   await expect(
-    page.getByRole("checkbox", { name: /Google Gemini/ }),
+    page.getByRole("checkbox", { name: /AI\(구글 Gemini\)/ }),
   ).not.toBeChecked();
   await expect(
     page.getByRole("button", { name: "AI 분석 시작", exact: true }),
@@ -309,7 +316,7 @@ test("AI polling stops on timeout, terminal failure and page exit", async ({
   await expect(page.getByText("AI 분석 중", { exact: true })).toBeVisible();
   await page.clock.fastForward(91000);
   await expect(
-    page.getByRole("alert").filter({ hasText: "자동 조회를 중단했습니다" }),
+    page.getByRole("alert").filter({ hasText: "자동 조회를 중단했어요" }),
   ).toBeVisible();
   const stopped = state.reads;
   await page.clock.fastForward(10000);
@@ -319,9 +326,7 @@ test("AI polling stops on timeout, terminal failure and page exit", async ({
   await page.getByRole("button", { name: "다시 시도", exact: true }).click();
   await page.clock.fastForward(2001);
   await expect(
-    page
-      .getByRole("alert")
-      .filter({ hasText: "AI 결과를 검증하지 못했습니다" }),
+    page.getByRole("alert").filter({ hasText: "AI 결과를 검증하지 못했어요" }),
   ).toBeVisible();
   const failed = state.reads;
   await page.clock.fastForward(10000);
@@ -329,9 +334,7 @@ test("AI polling stops on timeout, terminal failure and page exit", async ({
   state.analyses[0].status = "processing";
   await page.reload();
   await expect(page.getByText("AI 분석 중", { exact: true })).toBeVisible();
-  await page
-    .getByRole("link", { name: "← 원본 자료 상세", exact: true })
-    .click();
+  await page.getByRole("link", { name: "← 자료 상세", exact: true }).click();
   await expect(page).toHaveURL(/\/sources\/ai-source$/);
   const exited = state.reads;
   await page.clock.fastForward(10000);
@@ -349,7 +352,7 @@ test("analysis missing record and login expiration follow existing protection", 
   await expect(
     page
       .getByRole("alert")
-      .filter({ hasText: "자료 또는 분석을 찾을 수 없습니다" }),
+      .filter({ hasText: "자료 또는 분석을 찾을 수 없어요" }),
   ).toBeVisible();
   await page.route("**/test-api/api/ai-analyses/analysis-1", (route) =>
     route.fulfill({ status: 401, json: { detail: "Unauthorized" } }),
@@ -391,7 +394,9 @@ test("history pagination and approved results stay read-only", async ({
   await expect(
     page.getByRole("button", { name: /승인|전체 거부|검토 내용 저장/ }),
   ).toHaveCount(0);
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveCount(0);
+  await expect(
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: "생성된 마감일 1 보기 →", exact: true }),
   ).toBeVisible();
@@ -404,21 +409,21 @@ test("missing dates, blank titles and 422 validation keep review input", async (
   await login(page);
   await page.goto("/analyses/analysis-1");
   await page
-    .getByRole("checkbox", { name: "후보 2 포함", exact: true })
+    .getByRole("checkbox", { name: "등록할 일정에 포함 2", exact: true })
     .check();
   await expect(
     page.getByRole("button", { name: "선택한 2개 일정 등록", exact: true }),
   ).toBeDisabled();
-  await page.getByLabel("후보 1 제목", { exact: true }).fill("   ");
+  await page.getByLabel("찾은 마감일 1 제목", { exact: true }).fill("   ");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
     .click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "모든 후보의 제목" }),
+    page.getByRole("alert").filter({ hasText: "제외한 항목도 제목" }),
   ).toBeVisible();
   expect(state.analyses[0].revision).toBe(1);
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 검증할 제목");
   await page.route("**/test-api/api/ai-analyses/analysis-1", (route) =>
     route.request().method() === "PATCH"
@@ -434,11 +439,11 @@ test("missing dates, blank titles and 422 validation keep review input", async (
   await expect(
     page.getByRole("alert").filter({ hasText: "입력값을 확인해 주세요" }),
   ).toBeVisible();
-  await expect(page.getByLabel("후보 1 제목", { exact: true })).toHaveValue(
-    "[테스트] 검증할 제목",
-  );
   await expect(
-    page.getByRole("checkbox", { name: "후보 2 포함", exact: true }),
+    page.getByLabel("찾은 마감일 1 제목", { exact: true }),
+  ).toHaveValue("[테스트] 검증할 제목");
+  await expect(
+    page.getByRole("checkbox", { name: "등록할 일정에 포함 2", exact: true }),
   ).toBeChecked();
   expect(state.deadlines).toHaveLength(0);
 });

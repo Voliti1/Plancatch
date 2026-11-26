@@ -43,11 +43,11 @@ test("schedule list stays first and deletion status is fetched only in the botto
     page.getByRole("region", { name: "일정 목록", exact: true }),
   ).toContainText("지원 회의");
   await expect(
-    page.getByRole("dialog", { name: "Google 캘린더 삭제 상태", exact: true }),
+    page.getByRole("dialog", { name: "구글 캘린더 삭제 상태", exact: true }),
   ).toHaveCount(0);
   expect(reads).toBe(0);
   const opener = page.getByRole("button", {
-    name: "Google 캘린더 삭제 상태 보기",
+    name: "구글 캘린더 삭제 상태 보기",
     exact: true,
   });
   expect(
@@ -68,10 +68,10 @@ test("schedule list stays first and deletion status is fetched only in the botto
   });
   await opener.click();
   const dialog = page.getByRole("dialog", {
-    name: "Google 캘린더 삭제 상태",
+    name: "구글 캘린더 삭제 상태",
     exact: true,
   });
-  await expect(dialog).toContainText("표시할 삭제 내역이 없습니다.");
+  await expect(dialog).toContainText("표시할 삭제 내역이 없어요.");
   expect(reads).toBe(1);
   for (let i = 0; i < 6; i++) {
     await page.keyboard.press("Tab");
@@ -91,12 +91,12 @@ test("schedule list stays first and deletion status is fetched only in the botto
   await expect(dialog).not.toBeVisible();
   await expect(opener).toBeFocused();
   await opener.click();
-  await expect(dialog).toContainText("표시할 삭제 내역이 없습니다.");
+  await expect(dialog).toContainText("표시할 삭제 내역이 없어요.");
   expect(reads).toBe(2);
   await page.mouse.click(2, 2);
   await expect(dialog).not.toBeVisible();
   await opener.click();
-  await expect(dialog).toContainText("표시할 삭제 내역이 없습니다.");
+  await expect(dialog).toContainText("표시할 삭제 내역이 없어요.");
   expect(reads).toBe(3);
   await dialog
     .getByRole("button", { name: "삭제 상태 창 닫기", exact: true })
@@ -136,12 +136,12 @@ test("closing deletion status stops polling and reopening reads fresh status", a
   );
   await page.goto("/deadlines");
   const opener = page.getByRole("button", {
-    name: "Google 캘린더 삭제 상태 보기",
+    name: "구글 캘린더 삭제 상태 보기",
     exact: true,
   });
   await opener.click();
   const dialog = page.getByRole("dialog", {
-    name: "Google 캘린더 삭제 상태",
+    name: "구글 캘린더 삭제 상태",
     exact: true,
   });
   await expect(dialog).toContainText("삭제 중");
@@ -224,10 +224,10 @@ test("deleted Google copies keep their status after reload and retry without del
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
   await page
-    .getByRole("button", { name: "Google 캘린더 삭제 상태 보기", exact: true })
+    .getByRole("button", { name: "구글 캘린더 삭제 상태 보기", exact: true })
     .click();
   const panel = page.getByRole("region", {
-    name: "Google 캘린더 삭제 상태",
+    name: "구글 캘린더 삭제 상태",
     exact: true,
   });
   await expect(panel).toContainText("삭제 중");
@@ -235,7 +235,7 @@ test("deleted Google copies keep their status after reload and retry without del
   state = "failed";
   await page.reload();
   await page
-    .getByRole("button", { name: "Google 캘린더 삭제 상태 보기", exact: true })
+    .getByRole("button", { name: "구글 캘린더 삭제 상태 보기", exact: true })
     .click();
   await expect(panel).toContainText("삭제 확인 필요");
   await expect(panel).toContainText("연결을 확인한 뒤");
@@ -277,7 +277,7 @@ test("unified title search, native type chips, distinct deletion keys and task d
   await expect(
     page
       .getByRole("navigation")
-      .getByRole("link", { name: "일정", exact: true }),
+      .getByRole("link", { name: "마감일·할 일", exact: true }),
   ).toBeVisible();
   const filters = page.getByRole("group", { name: "표시할 일정 종류" }),
     rows = page.locator(".schedule-rows > *");

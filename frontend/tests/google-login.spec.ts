@@ -22,7 +22,7 @@ async function mockGoogle(
       contentType: "application/javascript",
       body: `window.google={accounts:{id:{
         initialize(options){this.send=options.callback;},
-        renderButton(el, options){const b=document.createElement('button'); b.textContent='Google로 계속하기'; b.dataset.googleType=options.type; b.dataset.googleTheme=options.theme; b.dataset.googleShape=options.shape;b.onclick=()=>this.send({credential:'test-only-id-token'});el.append(b);}
+        renderButton(el, options){const b=document.createElement('button'); b.textContent='구글로 계속하기'; b.dataset.googleType=options.type; b.dataset.googleTheme=options.theme; b.dataset.googleShape=options.shape;b.onclick=()=>this.send({credential:'test-only-id-token'});el.append(b);}
       }}};`,
     }),
   );
@@ -50,7 +50,7 @@ test("Google-only accounts can sign in and do not show password changes", async 
 }) => {
   await mockGoogle(page, false);
   await page.goto("/login");
-  await page.getByRole("button", { name: "Google로 계속하기" }).click();
+  await page.getByRole("button", { name: "구글로 계속하기" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.getByRole("button", { name: "설정 열기" }).click();
   const settings = page.getByRole("dialog", { name: "설정" });
@@ -73,12 +73,10 @@ test("an existing email account supplies its password to link Google and keeps p
 }) => {
   await mockGoogle(page, true);
   await page.goto("/login");
-  await page.getByRole("button", { name: "Google로 계속하기" }).click();
+  await page.getByRole("button", { name: "구글로 계속하기" }).click();
   await expect(page).toHaveURL(/\/login$/);
-  await page.getByLabel("현재 PlanCatch 비밀번호").fill("existing-password");
-  await page
-    .getByRole("button", { name: "Google 계정 연결 후 로그인" })
-    .click();
+  await page.getByLabel("현재 플랜캐치 비밀번호").fill("existing-password");
+  await page.getByRole("button", { name: "구글 계정 연결 후 로그인" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.getByRole("button", { name: "설정 열기" }).click();
   await expect(
@@ -91,7 +89,7 @@ test("guest theme toggle updates the centered Google icon and persists", async (
 }) => {
   await mockGoogle(page, false);
   await page.goto("/login");
-  const google = page.getByRole("button", { name: "Google로 계속하기" });
+  const google = page.getByRole("button", { name: "구글로 계속하기" });
   await expect(page.getByText("간편 로그인", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "카카오 로그인" })).toHaveCount(
     0,

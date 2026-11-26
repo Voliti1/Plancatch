@@ -9,7 +9,7 @@ test("larger typography aligns detail cards and keeps calendar and compact regis
   await login(page);
   await page.goto(`/tasks/${calendarTask.id}`);
   const cards = page.locator(
-    ".task-detail, [aria-label='Google 자동 동기화'], .schedule-detail-danger",
+    ".task-detail, [aria-label='구글 캘린더 자동 동기화'], .schedule-detail-danger",
   );
   await expect(cards).toHaveCount(3);
   const boxes = await cards.evaluateAll((items) =>

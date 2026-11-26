@@ -62,7 +62,7 @@ test("schedule registration uses the shared fresh page and source library has no
   page.once("dialog", (dialog) => dialog.accept());
   await page
     .getByRole("navigation")
-    .getByRole("link", { name: "일정", exact: true })
+    .getByRole("link", { name: "마감일·할 일", exact: true })
     .click();
   await page.getByRole("link", { name: "＋ 일정 등록", exact: true }).click();
   await page.getByRole("tab", { name: "수동 일정 등록", exact: true }).click();
@@ -70,7 +70,7 @@ test("schedule registration uses the shared fresh page and source library has no
   expect(writes).toEqual([]);
   await page.goto("/sources");
   await expect(
-    menu.getByRole("link", { name: "원본 자료", exact: true }),
+    menu.getByRole("link", { name: "자료함", exact: true }),
   ).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("link", { name: "＋ 자료 등록", exact: true }),

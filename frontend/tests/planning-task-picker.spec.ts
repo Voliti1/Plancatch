@@ -132,7 +132,7 @@ test("task list can browse later pages, search with no matches, and retry failur
   const search = page.getByRole("searchbox", { name: "할 일 제목 검색" });
   await search.fill("없음");
   const panel = page.getByRole("region", { name: "시간을 정할 할 일 목록" });
-  await expect(panel).toContainText("검색 결과가 없습니다");
+  await expect(panel).toContainText("검색 결과가 없어요");
   await search.fill("");
   await panel.getByRole("button", { name: "할 일 더 보기" }).click();
   await expect(panel.getByRole("alert")).toBeVisible();

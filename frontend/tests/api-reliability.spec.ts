@@ -18,21 +18,21 @@ test("unexpected error bodies retain HTTP status and a usable message", async ()
         new Response(JSON.stringify(body), { status: 422 });
       await expect(api("/synthetic", {}, false)).rejects.toMatchObject({
         status: 422,
-        message: "요청을 처리하지 못했습니다.",
+        message: "요청을 처리하지 못했어요.",
       });
     }
     globalThis.fetch = async () =>
       new Response("<html>bad gateway</html>", { status: 502 });
     await expect(api("/synthetic", {}, false)).rejects.toMatchObject({
       status: 502,
-      message: "요청을 처리하지 못했습니다.",
+      message: "요청을 처리하지 못했어요.",
     });
     globalThis.fetch = async () =>
       new Response(
         JSON.stringify({
           detail: [
             null,
-            { msg: "제목이 필요합니다." },
+            { msg: "제목이 필요해요." },
             { msg: 3 },
             { msg: "시간을 확인해 주세요." },
           ],
@@ -41,7 +41,7 @@ test("unexpected error bodies retain HTTP status and a usable message", async ()
       );
     await expect(api("/synthetic", {}, false)).rejects.toMatchObject({
       status: 422,
-      message: "제목이 필요합니다. / 시간을 확인해 주세요.",
+      message: "제목이 필요해요. / 시간을 확인해 주세요.",
     });
   } finally {
     globalThis.fetch = original;
@@ -120,7 +120,7 @@ test("malformed login replies stay readable, preserve inputs and never resubmit 
   await page.getByLabel("비밀번호", { exact: true }).fill("Test-password-123");
   await page.getByRole("button", { name: "로그인 →" }).click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "요청을 처리하지 못했습니다" }),
+    page.getByRole("alert").filter({ hasText: "요청을 처리하지 못했어요" }),
   ).toBeVisible();
   expect(calls).toBe(1);
   await page.getByRole("button", { name: "로그인 →" }).click();

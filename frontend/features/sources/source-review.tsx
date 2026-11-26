@@ -42,7 +42,7 @@ export function SourceReview({
   const [source, setSource] = useState<Source | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState(true);
-  const [progress, setProgress] = useState("저장한 자료를 확인하고 있습니다.");
+  const [progress, setProgress] = useState("저장한 자료를 확인하고 있어요.");
   const [error, setError] = useState("");
   const [consentText, setConsentText] = useState<string | null>(null);
   const consent = useRef<string | null>(null);
@@ -57,13 +57,12 @@ export function SourceReview({
         let item = await sourcesApi.get(id, requestSignal());
         signal.throwIfAborted();
         if (!["url", "text", "image", "pdf"].includes(item.source_type))
-          throw new Error("이 자료 유형은 아직 검토할 수 없습니다.");
+          throw new Error("이 자료 유형은 아직 검토할 수 없어요.");
         setSource(item);
         if (item.source_type === "image" || item.source_type === "pdf") {
           const digest =
             item.source_type === "pdf" ? item.pdf_sha256 : item.image_sha256;
-          if (!digest)
-            throw new Error("저장한 파일 버전을 확인하지 못했습니다.");
+          if (!digest) throw new Error("저장한 파일 버전을 확인하지 못했어요.");
           const history = await analysesApi.list(id, 0, requestSignal());
           signal.throwIfAborted();
           const matching = history.filter(
@@ -100,13 +99,13 @@ export function SourceReview({
           if (item.source_type === "image" && consent.current !== digest) {
             setProgress(
               existing
-                ? "이전 분석에 실패했습니다. 파일 전송에 동의한 뒤 다시 시도할 수 있습니다."
-                : "AI 전송에 동의하면 저장한 파일을 분석합니다.",
+                ? "이전 분석에 실패했어요. 파일 전송에 동의한 뒤 다시 시도할 수 있어요."
+                : "AI 전송에 동의하면 저장한 파일을 분석해요.",
             );
             return;
           }
           if (item.source_type === "pdf")
-            setProgress("PDF에서 접수·제출 기간을 확인하고 있습니다.");
+            setProgress("PDF에서 접수·제출 기간을 확인하고 있어요.");
           const analysis = await analysesApi.start(
             id,
             requestSignal(),
@@ -118,14 +117,14 @@ export function SourceReview({
           router.replace(`/analyses/${encodeURIComponent(analysis.id)}`);
           return;
         }
-        setProgress("원문을 추출하고 있습니다.");
+        setProgress("내용을 불러오고 있어요.");
         if (!["extracted", "processing"].includes(item.processing_status))
           item = await sourcesApi.extract(id, requestSignal());
         const expires = Date.now() + 90000;
         while (item.processing_status === "processing") {
           if (Date.now() >= expires)
             throw new Error(
-              "90초 동안 완료 상태를 확인하지 못했습니다. 자료는 저장되어 있으니 잠시 후 상태를 다시 확인해 주세요.",
+              "90초 동안 완료 상태를 확인하지 못했어요. 자료는 저장되어 있으니 잠시 후 상태를 다시 확인해 주세요.",
             );
           await pause(signal);
           item = await sourcesApi.get(id, requestSignal());
@@ -151,21 +150,21 @@ export function SourceReview({
         if (item.source_type === "text") {
           if (Array.from(item.extracted_text).length > 40000)
             throw new Error(
-              "원문이 AI 분석 한도 40,000자를 초과했습니다. 필요한 내용을 나누어 새 자료로 등록해 주세요.",
+              "자료 내용이 AI 분석 한도 40,000자를 초과했어요. 필요한 내용을 나누어 새 자료로 등록해 주세요.",
             );
           if (consent.current !== item.extracted_text) {
-            setProgress("AI 전송에 동의하면 바로 검토를 시작합니다.");
+            setProgress("AI 전송에 동의하면 바로 검토를 시작해요.");
             return;
           }
         }
         if (!item.extracted_text_hash)
           throw new Error(
-            "자료의 원문 버전을 확인하지 못했습니다. 상태를 다시 확인해 주세요.",
+            "자료의 자료 내용 버전을 확인하지 못했어요. 상태를 다시 확인해 주세요.",
           );
         setProgress(
           item.source_type === "url"
-            ? "HTML에서 마감일을 확인하고 있습니다."
-            : "AI 검토를 시작하고 있습니다.",
+            ? "페이지에서 마감일을 확인하고 있어요."
+            : "찾은 날짜 확인를 시작하고 있어요.",
         );
         const analysis = await analysesApi.start(
           id,
@@ -204,34 +203,34 @@ export function SourceReview({
   return (
     <>
       <Link className="back-link" href="/sources">
-        ← 원본 자료 목록
+        ← 자료 목록
       </Link>
       <PageHeading
         eyebrow="DEADLINE REVIEW"
         title="마감일 검토 준비"
-        description="자료를 저장했습니다. 원문 추출 후 바로 검토 화면으로 연결합니다."
+        description="자료를 저장했어요. 내용 불러오기 후 바로 검토 화면으로 연결해요."
       />
       <section className="card form-card" aria-label="등록한 자료 검토">
         <h2>{source?.title || "저장한 자료"}</h2>
         <p role="status">{progress}</p>
         <p className="small muted">
-          URL은 외부 AI 전송 없이 HTML에서 날짜를 읽습니다. 검토 결과를 승인하기
-          전에는 마감일이나 Google 일정이 생성되지 않습니다.
+          URL은 외부 AI 전송 없이 페이지에서 날짜를 찾아요. 검토 결과를 승인하기
+          전에는 마감일이나 구글 캘린더 일정이 생성되지 않아요.
         </p>
         {needsConsent && !busy && !error && (
           <>
             {image ? (
               <p>
-                원본 이미지 한 장을 Google Gemini로 전송합니다. 날짜·시각과
-                제목이 불명확하면 직접 입력한 뒤 승인합니다.
+                원본 이미지 한 장을 AI(구글 Gemini)로 전송해요. 날짜·시각과
+                제목이 불명확하면 직접 입력한 뒤 승인해요.
               </p>
             ) : (
               <p>
-                입력한 원문{" "}
+                입력한 자료 내용{" "}
                 {Array.from(source?.extracted_text ?? "").length.toLocaleString(
                   "ko-KR",
                 )}
-                자를 분석합니다.
+                자를 분석해요.
               </p>
             )}
             <label className="checkbox">
@@ -247,11 +246,11 @@ export function SourceReview({
                 }}
               />
               {image
-                ? "이 원본 이미지를 Google Gemini에 전송하여 분석하는 데 동의합니다."
-                : "이 자료의 추출 원문 전체를 Google Gemini에 전송하여 분석하는 데 동의합니다."}
+                ? "이 원본 이미지를 AI(구글 Gemini)에 전송하여 분석하는 데 동의해요."
+                : "마감일을 찾기 위해 이 글 내용 전체를 AI(구글 Gemini)에 보내 분석하는 데 동의해요."}
             </label>
             <button disabled={!accepted} onClick={retry}>
-              동의하고 AI 검토 시작
+              동의하고 찾은 날짜 확인 시작
             </button>
           </>
         )}
@@ -259,8 +258,8 @@ export function SourceReview({
           <>
             <ErrorNotice message={error} />
             <p className="small muted">
-              자료를 다시 저장하지 않습니다. 같은 자료의 진행 상태와 기존 검토
-              결과부터 확인합니다.
+              자료를 다시 저장하지 않아요. 같은 자료의 진행 상태와 기존 검토
+              결과부터 확인해요.
             </p>
             <button className="secondary" disabled={busy} onClick={retry}>
               진행 상태 확인·다시 시도
@@ -269,7 +268,7 @@ export function SourceReview({
         )}
         <p className="small">
           <Link href={`/sources/${encodeURIComponent(id)}`}>
-            저장된 원본 자료 확인 →
+            저장된 자료 확인 →
           </Link>
         </p>
       </section>

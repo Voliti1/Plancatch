@@ -130,7 +130,7 @@ export function NaturalSchedule({
     <div className="natural-registration">
       <div className="natural-sentence-input">
         <p className="small muted">
-          날짜와 할 일을 한 문장으로 적으면 검토할 일정이 자동으로 표시됩니다.
+          날짜와 할 일을 한 문장으로 적으면 검토할 일정이 자동으로 표시돼요.
         </p>
         <label>
           <span id={textLabelId}>일정 설명</span>
@@ -172,8 +172,8 @@ export function NaturalSchedule({
         </div>
         <p className="small muted">
           시각 하나는 마감일로, 시작·종료 시각이나 시작 시각과 소요시간은 할
-          일로 제안합니다. 날짜만 있는 마감일은 23:59로 제안합니다.
-          매일·매주·격주·매월 일정은 반복되는 할 일로 제안합니다.
+          일로 제안해요. 날짜만 있는 마감일은 23:59로 제안해요.
+          매일·매주·격주·매월 일정은 반복되는 할 일로 제안해요.
         </p>
         {reading && (
           <p className="small muted" role="status">

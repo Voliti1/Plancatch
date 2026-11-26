@@ -37,7 +37,7 @@ export function TaskPlacements({ task }: { task: Task }) {
     try {
       await eventsApi.remove(id);
       setConfirmation(null);
-      setMessage("캘린더에서 시간을 삭제했습니다. 할 일은 그대로 남습니다.");
+      setMessage("캘린더에서 시간을 삭제했어요. 할 일은 그대로 남아요.");
       reload();
     } catch (error) {
       setMutationError(errorMessage(error));
@@ -57,8 +57,8 @@ export function TaskPlacements({ task }: { task: Task }) {
         <Link href="/calendar">캘린더 보기 →</Link>
       </div>
       <p className="small muted">
-        할 일에 필요한 시간을 플랜캐치 캘린더에 추가합니다. Google 계정이
-        연결되어 있으면 해당 시간도 자동 반영됩니다.
+        할 일에 필요한 시간을 플랜캐치 캘린더에 추가해요. 구글 계정이 연결되어
+        있으면 해당 시간도 자동 반영돼요.
       </p>
       {message && (
         <p role="status" className="success">
@@ -74,7 +74,7 @@ export function TaskPlacements({ task }: { task: Task }) {
         data && (
           <>
             {data.hasMore && (
-              <p role="status">저장한 시간이 많아 처음 2,000건을 표시합니다.</p>
+              <p role="status">저장한 시간이 많아 처음 2,000건을 표시해요.</p>
             )}
             {data.events.length ? (
               <ul className="placement-list">
@@ -101,7 +101,7 @@ export function TaskPlacements({ task }: { task: Task }) {
                     </div>
                     {lockedEvent(event) ? (
                       <p className="small muted">
-                        동기화된 일정은 여기서 변경할 수 없습니다.
+                        동기화된 일정은 여기서 변경할 수 없어요.
                       </p>
                     ) : (
                       !editor && (
@@ -131,8 +131,7 @@ export function TaskPlacements({ task }: { task: Task }) {
                     {confirmation === event.id && (
                       <div role="group" aria-label="시간 삭제 확인">
                         <p>
-                          캘린더에서 이 시간만 삭제합니다. 할 일은 그대로
-                          남습니다.
+                          캘린더에서 이 시간만 삭제해요. 할 일은 그대로 남아요.
                         </p>
                         <button
                           className="secondary"
@@ -164,7 +163,7 @@ export function TaskPlacements({ task }: { task: Task }) {
                 ))}
               </ul>
             ) : (
-              <Empty title="캘린더에 저장한 시간이 없습니다">
+              <Empty title="캘린더에 저장한 시간이 없어요">
                 가능 기간을 확인한 뒤 원하는 시간을 추가하세요.
               </Empty>
             )}
@@ -199,7 +198,7 @@ export function TaskPlacements({ task }: { task: Task }) {
                 await eventsApi.create({ task_id: task.id, ...input });
               else await eventsApi.update(editor.id, input);
               setEditor(null);
-              setMessage("캘린더에 시간을 저장했습니다.");
+              setMessage("캘린더에 시간을 저장했어요.");
               reload();
             } catch (error) {
               if (
@@ -209,7 +208,7 @@ export function TaskPlacements({ task }: { task: Task }) {
               ) {
                 setUncertain(true);
                 throw new Error(
-                  `${errorMessage(error)} 저장 여부가 불확실하므로 다시 저장하지 않습니다. 저장한 시간을 확인한 뒤 다시 추가해 주세요.`,
+                  `${errorMessage(error)} 저장 여부가 불확실하므로 다시 저장하지 않아요. 저장한 시간을 확인한 뒤 다시 추가해 주세요.`,
                 );
               }
               throw error;

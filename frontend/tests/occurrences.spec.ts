@@ -129,7 +129,7 @@ test("single deletion needs confirmation and can retry without deleting the seri
       return writes === 1
         ? route.fulfill({
             status: 503,
-            json: { detail: "삭제하지 못했습니다. 다시 시도해 주세요." },
+            json: { detail: "삭제하지 못했어요. 다시 시도해 주세요." },
           })
         : route.fulfill({ status: 204, body: "" });
     }

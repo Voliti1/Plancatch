@@ -15,7 +15,7 @@ async function setup(page: Page) {
     revision: 1,
     status: "ready",
     created_at: "2026-11-17T00:00:00Z",
-    warnings: ["AI 예상 작업입니다."],
+    warnings: ["AI 예상 작업이에요."],
     approved_task_ids: [] as string[],
     candidates: [
       {
@@ -77,7 +77,7 @@ async function setup(page: Page) {
         return route.fulfill({
           status: 409,
           json: {
-            detail: "마감일 정보가 바뀌었습니다. 새 후보를 만들어 주세요.",
+            detail: "마감일 정보가 바뀌었어요. 새 제안을 만들어 주세요.",
           },
         });
       proposal = {
@@ -103,12 +103,14 @@ async function setup(page: Page) {
 
 async function generate(page: Page) {
   await expect(
-    page.getByRole("button", { name: "AI 작업 후보 만들기" }),
+    page.getByRole("button", { name: "AI 제안한 할 일 만들기" }),
   ).toBeDisabled();
-  await page.getByRole("checkbox", { name: /Google Gemini에 전송/ }).check();
-  await page.getByRole("button", { name: "AI 작업 후보 만들기" }).click();
+  await page
+    .getByRole("checkbox", { name: /AI\(구글 Gemini\)에 전송/ })
+    .check();
+  await page.getByRole("button", { name: "AI 제안한 할 일 만들기" }).click();
   await expect(
-    page.getByRole("heading", { name: "작업 후보 검토" }),
+    page.getByRole("heading", { name: "제안한 할 일 검토" }),
   ).toBeVisible();
 }
 
@@ -135,13 +137,13 @@ test("consent, editable candidates and one-click review approval", async ({
   });
   await page.getByRole("button", { name: "선택한 작업 등록" }).click();
   await expect(page.getByRole("status")).toContainText(
-    "할 일 2개와 작업 순서를 등록했습니다",
+    "할 일 2개와 작업 순서를 등록했어요",
   );
   expect(state.generated).toBe(1);
   expect(state.patched).toBe(1);
   expect(state.approved).toBe(1);
   await expect(
-    page.getByRole("link", { name: "할 일 시간 추천으로 이동" }),
+    page.getByRole("link", { name: "자동 시간 추천으로 이동" }),
   ).toBeVisible();
   expect(
     await page.evaluate(
@@ -174,12 +176,12 @@ test("changed deadline error preserves saved review and does not report success"
     .fill("보존할 수정");
   await page.getByRole("button", { name: "선택한 작업 등록" }).click();
   await expect(
-    page.getByRole("alert").filter({ hasText: "마감일 정보가 바뀌었습니다" }),
+    page.getByRole("alert").filter({ hasText: "마감일 정보가 바뀌었어요" }),
   ).toBeVisible();
   await expect(
     page.getByLabel("작업 제목", { exact: true }).first(),
   ).toHaveValue("보존할 수정");
   await expect(
-    page.getByRole("link", { name: "할 일 시간 추천으로 이동" }),
+    page.getByRole("link", { name: "자동 시간 추천으로 이동" }),
   ).toHaveCount(0);
 });
