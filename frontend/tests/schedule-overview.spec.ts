@@ -145,7 +145,7 @@ test("dashboard separates deadlines and the five newest schedules, including und
     ),
   ).toBeTruthy();
   await overview
-    .getByRole("link", { name: "전체 일정 보기 →", exact: true })
+    .getByRole("link", { name: "전체 할 일 보기 →", exact: true })
     .click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(
