@@ -1,5 +1,6 @@
 """JobPlanet HTML date-only review; synthetic documents and isolated SQLite."""
 import json
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import event
@@ -148,4 +149,4 @@ def test_date_only_api_prefills_time_and_explicit_approval_remains_idempotent(mo
     assert first.json()["approved_deadline_ids"] == again.json()["approved_deadline_ids"]
     assert client.get(path, headers=headers).json()["status"] == "approved"
     assert len(client.get("/api/deadlines", headers=headers).json()) == 1
-    assert inserted == [candidate["due_at"]]  # SQLite drops offsets after binding.
+    assert inserted == [datetime.fromisoformat(candidate["due_at"]).astimezone(UTC).isoformat()]

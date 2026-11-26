@@ -1,6 +1,6 @@
 """Catch closing-period extraction and review, using synthetic HTML and SQLite."""
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import event
@@ -225,4 +225,4 @@ def test_review_edit_approve_refresh_and_retry_preserve_catch_time(monkeypatch):
     assert first.json()["approved_deadline_ids"] == again.json()["approved_deadline_ids"]
     assert client.get(path, headers=headers).json()["status"] == "approved"
     assert len(client.get("/api/deadlines", headers=headers).json()) == 1
-    assert inserted == [DUE]  # SQLite itself drops offsets; check the persisted input.
+    assert inserted == [datetime.fromisoformat(DUE).astimezone(UTC).isoformat()]

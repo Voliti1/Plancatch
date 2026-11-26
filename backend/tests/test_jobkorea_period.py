@@ -1,6 +1,6 @@
 """Synthetic JobKorea HTML and isolated SQLite; no live fetch, AI or user DB."""
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import event
@@ -205,4 +205,4 @@ def test_ready_review_approval_and_duplicate_approval_keep_exact_jobkorea_deadli
     assert len(rows) == 1
     assert rows[0]["id"] == first.json()["approved_deadline_ids"][0]
     assert inserted == [datetime.fromisoformat(DUE)]
-    assert inserted[0].utcoffset() == datetime.fromisoformat(DUE).utcoffset()
+    assert inserted[0].tzinfo == UTC

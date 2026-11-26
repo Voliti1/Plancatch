@@ -1,6 +1,6 @@
 """Owned, revision-checked AI review; approval creates deadlines atomically."""
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
@@ -281,7 +281,7 @@ def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
     ids = []
     for item in selected:
         deadline = Deadline(user_id=current_user.id, source_id=source.id,
-                            title=item["title"], due_at=datetime.fromisoformat(item["due_at"]),
+                            title=item["title"], due_at=datetime.fromisoformat(item["due_at"]).astimezone(UTC),
                             description=item["description"], confidence=item["confidence"],
                             evidence_text=item["evidence_text"], is_confirmed=True,
                             google_reminders=reminders.model_dump())

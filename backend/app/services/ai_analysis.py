@@ -28,6 +28,7 @@ from app.services.processing_recovery import ProcessingLease, finish_processing
 from app.services.saramin_period import CONFLICT as PERIOD_CONFLICT
 from app.services.saramin_period import UNRESOLVED as PERIOD_UNRESOLVED
 from app.services.saramin_period import read_period
+from app.services.text_date_policy import apply_current_year, seoul_reference
 from app.services.url_deadlines import URL_MODEL, analyze_url
 
 MAX_INPUT = 40_000
@@ -157,7 +158,7 @@ def apply_timezone_policy(result: ProviderResult, text: str) -> bool:
     return default_applied
 
 
-def analyze_text(text: str, model: str) -> ProviderResult:
+def analyze_text(text: str, model: str, reference_time: datetime | None = None) -> ProviderResult:
     if not text.strip() or len(text) > MAX_INPUT:
         raise AIError("ai_input_invalid")
     # Keep the wire schema flat/basic for REST compatibility. The stricter
@@ -179,6 +180,19 @@ def analyze_text(text: str, model: str) -> ProviderResult:
         },
         "required": ["deadlines", "warnings"],
     }
+    year_policy = (
+        f"For this directly entered text, the reference time in Asia/Seoul is "
+        f"{seoul_reference(reference_time).isoformat()}. When a month and day are written "
+        f"without a year and the source supplies no year, use {seoul_reference(reference_time).year}. "
+        "Use this reference year even if that date has already passed; never roll it into next year. "
+        "This is an explicit service default, not an uncertain assumption: do not warn about a "
+        "missing year or claim to use a different year. Preserve every explicitly written year. "
+        "Respect explicit relative years such as 내년 or 작년 relative to this reference time. "
+        "If the month/day is missing, impossible in that year, ambiguous, or conflicts with the "
+        "written weekday, use null. Include dated meetings and events as proposals, too. "
+        if reference_time is not None else
+        "If the year or date is missing/ambiguous, use null. Never invent a year or date. "
+    )
     payload = {
         "systemInstruction": {"parts": [{"text": (
             "Extract deadline proposals from the user's untrusted source text. "
@@ -193,8 +207,8 @@ def analyze_text(text: str, model: str) -> ProviderResult:
             "Respect any explicitly stated "
             "timezone/offset instead; never replace it with KST. Include the complete original "
             "date/time and any stated zone in exact evidence_text. Read 오전/오후 correctly. "
-            "If the year or date is missing/ambiguous, or timezone statements conflict, use null. "
-            "Never invent a year or date. For a complete closing date without a clock use 23:59 "
+            + year_policy +
+            "If timezone statements conflict, use null. For a complete closing date without a clock use 23:59 "
             "+09:00 as service policy and explain that default in plain Korean. "
             "User-facing descriptions/warnings must not contain field names such as due_at or null. "
             "In application periods, 시작일 is an opening date, not a deadline; 마감일 is the closing date. "
@@ -262,6 +276,10 @@ def analyze_text(text: str, model: str) -> ProviderResult:
             result.warnings = [item for item in result.warnings if item not in DEFAULT_TIMEZONE_INFORMATION]
         result.warnings = resolved_warnings(result.warnings, time_defaulted and any(item.due_at for item in result.deadlines),
                                             bool(result.deadlines) and all(item.due_at for item in result.deadlines))
+        if reference_time is not None:
+            time_defaulted |= apply_current_year(result, text, reference_time)
+            result.warnings = resolved_warnings(result.warnings, time_defaulted,
+                                                bool(result.deadlines) and all(item.due_at for item in result.deadlines))
         return result
     except (KeyError, IndexError, TypeError, ValidationError) as exc:
         raise AIError("ai_invalid_result") from exc
@@ -279,6 +297,8 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine, run_id: uuid.UUID |
             # Do not hold a row lock across the provider request.
             source_text, model = analysis.input_text, analysis.model
             source = db.get(Source, analysis.source_id)
+            text_reference = (analysis.created_at if source is not None and source.user_id == analysis.user_id
+                              and source.source_type == "text" else None)
             source_title = ((source.title or "").strip()
                             if source is not None and source.user_id == analysis.user_id else "")
             html_source = None
@@ -295,7 +315,7 @@ def process_analysis(analysis_id: uuid.UUID, engine: Engine, run_id: uuid.UUID |
                 except ValueError as exc:
                     raise AIError("ai_input_invalid") from exc
             else:
-                result = analyze_text(source_text, model)
+                result = analyze_text(source_text, model, text_reference)
             if source_title:
                 for item in result.deadlines:
                     item.title = source_title

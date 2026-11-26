@@ -1,6 +1,6 @@
 """Same-job Jasoseol HTML/JSON clock verification, no live network or user DB."""
 import json
-from datetime import timezone
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import event
@@ -140,5 +140,5 @@ def test_review_title_edit_and_idempotent_approval_preserve_the_seoul_instant(mo
     assert first.status_code == again.status_code == 200
     assert first.json()["approved_deadline_ids"] == again.json()["approved_deadline_ids"]
     assert len(client.get("/api/deadlines", headers=headers).json()) == 1
-    assert inserted[0].isoformat() == DUE  # Verify before SQLite drops the offset.
-    assert inserted[0].astimezone(timezone.utc).isoformat() == "2026-11-07T14:50:00+00:00"
+    assert inserted[0] == datetime.fromisoformat(DUE)  # Preserve the instant across UTC normalization.
+    assert inserted[0].astimezone(UTC).isoformat() == "2026-11-07T14:50:00+00:00"
