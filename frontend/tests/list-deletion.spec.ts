@@ -302,7 +302,10 @@ for (const kind of ["sources", "deadlines"] as const) {
     await expect(page).toHaveURL(/\/dashboard$/);
     release();
     await expect(
-      page.getByRole("heading", { name: /오늘도 차근차근/ }),
+      page.getByRole("heading", {
+        name: "머릿속 할 일 대신, 눈앞의 계획으로.",
+        level: 1,
+      }),
     ).toBeVisible();
     expect(state.attempts).toEqual(["item-1"]);
   });
