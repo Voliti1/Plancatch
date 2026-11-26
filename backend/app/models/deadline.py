@@ -28,6 +28,7 @@ class Deadline(Base):
 
     __tablename__ = "deadlines"
     __table_args__ = (
+        CheckConstraint("category IS NULL OR category IN ('career', 'study', 'work', 'personal', 'other')", name="ck_deadlines_category"),
         CheckConstraint(
             "confidence IS NULL OR (confidence >= 0 AND confidence <= 1)",
             name="ck_deadlines_confidence",
@@ -48,6 +49,7 @@ class Deadline(Base):
         nullable=True,
         index=True,
     )
+    category: Mapped[str | None] = mapped_column(String(20), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(255))
     due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     safety_buffer_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)

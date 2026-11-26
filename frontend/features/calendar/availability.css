@@ -79,3 +79,35 @@
   font-weight: 600;
   min-height: 44px;
 }
+
+.availability-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 18px;
+}
+.availability-save-bar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 14px 18px calc(14px + env(safe-area-inset-bottom));
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--white);
+  color: var(--ink);
+  box-shadow: 0 -4px 16px #00000012;
+}
+@media (max-width: 760px) {
+  .availability-presets button {
+    white-space: normal;
+    text-align: left;
+  }
+  .availability-save-bar button {
+    flex: 1;
+  }
+}

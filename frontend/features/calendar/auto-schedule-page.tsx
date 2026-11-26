@@ -338,15 +338,12 @@ export function AutoSchedulePage({
                     {useSaved
                       ? describeHours(availability.data)
                       : `${weekdayLabel} ${clock(begin)}~${clock(end)}`}
+                    {useSaved &&
+                      Boolean(availability.data?.exceptions.length) &&
+                      ` · 예외 ${availability.data?.exceptions.length}일`}
                   </span>
-                  {useSaved &&
-                    Boolean(availability.data?.exceptions.length) && (
-                      <span>
-                        예외 날짜 {availability.data?.exceptions.length}일 반영
-                      </span>
-                    )}
                   <span>한 번에 최대 {chunk}분</span>
-                  <span>플랜캐치 일정 피하기</span>
+
                   <span>
                     {!google
                       ? "구글 캘린더 일정 제외"

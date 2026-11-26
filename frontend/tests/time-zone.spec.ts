@@ -7,17 +7,15 @@ test("guest choice stays in its browser across reloads", async ({ page }) => {
   await page.goto("/login");
   const picker = page.getByLabel("기준 시간대 변경");
   await expect(picker).toHaveValue("Asia/Seoul");
-  await expect(page.getByLabel("현재 시각")).toHaveText("한국 10:30");
+  await expect(page.getByLabel("현재 시각", { exact: true })).toContainText(
+    "한국 시간 10:30 (Asia/Seoul)",
+  );
   const trigger = page.locator(".timezone.time-zone-select");
-  await expect(trigger).toContainText("Asia/Seoul · 한국 시간");
+  await expect(trigger).toContainText("한국 시간 10:30 (Asia/Seoul)");
   await expect(trigger).toHaveCSS("font-size", "12px");
   await expect(trigger).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   await expect(trigger.locator("svg")).toHaveCount(0);
-  const clockBox = await page.getByLabel("현재 시각").boundingBox();
-  const pickerBox = await picker.boundingBox();
-  expect(clockBox).not.toBeNull();
-  expect(pickerBox).not.toBeNull();
-  expect(pickerBox!.x - (clockBox!.x + clockBox!.width)).toBeCloseTo(5, 0);
+  await expect(page.locator(".time-zone-clocks")).toHaveCount(0);
   if (await page.evaluate(() => matchMedia("(hover: hover)").matches)) {
     await picker.hover();
     await expect(trigger).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
@@ -25,7 +23,12 @@ test("guest choice stays in its browser across reloads", async ({ page }) => {
     await expect(trigger).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
   }
   await picker.selectOption("America/New_York");
-  await expect(page.getByLabel("현재 시각")).toContainText("미국 · 뉴욕 20:30");
+  await expect(page.getByLabel("현재 시각", { exact: true })).toContainText(
+    "미국 · 뉴욕 20:30",
+  );
+  await expect(page.getByLabel("한국 현재 시각", { exact: true })).toHaveText(
+    "한국 10:30",
+  );
   await page.reload();
   await expect(picker).toHaveValue("America/New_York");
 });
@@ -70,6 +73,9 @@ test("account choice updates the deadline editor and local calendar date", async
   await expect(page.getByLabel("마감 일시 (미국 · 뉴욕)")).toHaveValue(
     "2026-11-24T20:30",
   );
+  await expect(page.getByLabel("한국 현재 시각", { exact: true })).toHaveText(
+    "한국 10:30",
+  );
   await page.reload();
   await expect(picker).toHaveValue("America/New_York");
   await page.goto("/calendar");
@@ -98,4 +104,11 @@ test("regional wall times round-trip and account for daylight saving", () => {
   expect(zonedInputToUtc("2026-11-25T07:15", "Asia/Kathmandu")).toBe(
     "2026-11-25T01:30:00.000Z",
   );
+});
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
 });

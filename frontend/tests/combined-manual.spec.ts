@@ -11,7 +11,14 @@ const draft = {
   notices: [],
 };
 
-test("today is the default and uses the same short date header as week", async ({
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
+test("remembered day view uses the same short date header as week", async ({
   page,
 }) => {
   await page.clock.install({ time: new Date("2026-11-02T03:00:00Z") });
@@ -56,7 +63,7 @@ test("direct entry opens first and preserves its draft across keyboard and regis
   );
   await expect(
     page.getByRole("heading", { name: "직접 일정 만들기", exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     page.getByRole("button", { name: "일정 미리보기", exact: true }),
   ).toHaveCount(0);

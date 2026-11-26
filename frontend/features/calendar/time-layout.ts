@@ -1,6 +1,7 @@
 import { localInput, SEOUL, zonedInputToUtc } from "@/lib/date/time-zones";
 import { addDays, utcMidnight } from "./dates";
 export type TimetableEvent = {
+  category?: import("@/components/category-badge").Category | null;
   id: string;
   title: string;
   kind: "deadline" | "task";
@@ -37,6 +38,7 @@ export function layoutDay(
         !Number.isFinite(start) ||
         !Number.isFinite(end) ||
         start >= last ||
+        (!event.end && start < first) ||
         end <= first ||
         end <= start
       )

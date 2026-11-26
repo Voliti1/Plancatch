@@ -80,3 +80,10 @@ for (const dark of [false, true])
       ),
     ).toBeTruthy();
   });
+
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});

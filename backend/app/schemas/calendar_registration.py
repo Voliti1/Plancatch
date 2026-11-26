@@ -6,10 +6,13 @@ from typing import Literal
 
 from pydantic import BaseModel
 
+from app.schemas.category import Category
+
 
 class CalendarRegistration(BaseModel):
     id: uuid.UUID
     kind: Literal["deadline", "fixed_task"]
+    category: Category | None = None
     title: str
     start_at: datetime
     end_at: datetime | None = None

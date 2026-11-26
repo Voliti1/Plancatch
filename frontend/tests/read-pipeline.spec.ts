@@ -32,7 +32,7 @@ test("selecting days reuses all three calendar reads; refresh still fetches curr
   await page.getByLabel("구글 일정 함께 보기").check();
   await expect(refresh).toBeEnabled();
   const initial = { ...reads };
-  expect(initial).toEqual({ placements: 2, registrations: 2, google: 1 });
+  expect(initial).toEqual({ placements: 1, registrations: 1, google: 1 });
   const grid = page.getByRole("group", { name: "월간 날짜" });
   await grid
     .getByRole("button", { name: "2026년 11월 2일 월요일", exact: true })
@@ -49,17 +49,20 @@ test("selecting days reuses all three calendar reads; refresh still fetches curr
   await expect(refresh).toBeEnabled();
   await expect
     .poll(() => reads)
-    .toEqual({ placements: 3, registrations: 3, google: 2 });
+    .toEqual({ placements: 2, registrations: 2, google: 2 });
   await page.getByRole("button", { name: "다음 기간", exact: true }).click();
   await expect(refresh).toBeEnabled();
   await expect
     .poll(() => reads)
-    .toEqual({ placements: 4, registrations: 4, google: 3 });
+    .toEqual({ placements: 3, registrations: 3, google: 3 });
 });
 
 test("leaving a calendar range cancels its pending read and never requests its later pages", async ({
   page,
 }) => {
+  await page.addInitScript(() =>
+    localStorage.setItem("plancatch.calendar.view", "day"),
+  );
   await calendarApi(page);
   let release!: () => void;
   const gate = new Promise<void>((resolve) => {

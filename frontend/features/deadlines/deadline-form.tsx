@@ -1,4 +1,5 @@
 "use client";
+import { CategorySelect, type Category } from "@/components/category-badge";
 import { useScheduleTime } from "@/features/settings/time-zone";
 import { useId, useRef, useState } from "react";
 import { errorMessage } from "@/lib/api/client";
@@ -31,6 +32,9 @@ export function DeadlineForm({
   const [reminders, setReminders] = useState<GoogleReminderSettings | null>(
     initial ? (initial.google_reminders ?? null) : newReminderSettings(),
   );
+  const [category, setCategory] = useState<Category | null>(
+    initial?.category ?? null,
+  );
   const [title, setTitle] = useState(initial?.title ?? "");
   const [dueAt, setDueAt] = useState(
     initial ? toLocalInput(initial.due_at) : "",
@@ -49,6 +53,7 @@ export function DeadlineForm({
   const { markSaved } = useUnsavedChanges(
     JSON.stringify([
       title,
+      category,
       dueAt,
       description,
       deadlineType,
@@ -70,6 +75,7 @@ export function DeadlineForm({
       await onSave({
         ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
+        ...(category !== (initial?.category ?? null) ? { category } : {}),
         due_at:
           initial && dueAt === toLocalInput(initial.due_at)
             ? initial.due_at
@@ -92,6 +98,7 @@ export function DeadlineForm({
   }
   return (
     <form onSubmit={submit}>
+      <CategorySelect value={category} onChange={setCategory} disabled={busy} />
       <fieldset disabled={busy || !hydrated}>
         <label>
           마감 제목

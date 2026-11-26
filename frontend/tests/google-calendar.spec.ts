@@ -63,6 +63,11 @@ async function setup(page: Page, initial = {}) {
   await expect(
     page.getByRole("region", { name: "구글 계정 연결 설정" }),
   ).toBeVisible();
+  await expect(connections).toHaveAttribute(
+    "href",
+    "/settings/google-calendar",
+  );
+  await expect(connections).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("region", { name: "카카오 캘린더 연결" }),
   ).toContainText("추후 지원");
@@ -83,7 +88,9 @@ test("연결은 명시적 클릭만 시작하고 서버 상태를 표시한다",
   await expect(
     page.getByText("다른 앱에서 만든 구글 캘린더 일정은 변경하지 않아요."),
   ).toBeVisible();
-  await page.getByRole("button", { name: "상태 다시 확인" }).click();
+  await expect(
+    page.getByRole("button", { name: "상태 다시 확인" }),
+  ).toHaveCount(0);
   await expect(
     page.getByText("아직 연결하지 않았어요", { exact: true }),
   ).toBeVisible();
@@ -99,18 +106,40 @@ test("서버 설정이 없으면 연결 시작 버튼은 없다", async ({ page 
   ).toHaveCount(0);
 });
 
+test("연결 확인 중에는 상태를 다시 확인할 수 있다", async ({ page }) => {
+  const { requests } = await setup(page, { pending: true });
+  await expect(
+    page.getByText("구글 계정 확인 진행 중", { exact: true }),
+  ).toBeVisible();
+  const reads = requests.filter((item) => item === "GET status").length;
+  await page
+    .getByRole("button", { name: "상태 다시 확인", exact: true })
+    .click();
+  await expect
+    .poll(() => requests.filter((item) => item === "GET status").length)
+    .toBeGreaterThan(reads);
+  expect(requests.every((item) => item === "GET status")).toBeTruthy();
+});
+
 test("연결됨과 재연결 필요 상태를 구분한다", async ({ page }) => {
   await setup(page, { connected: true });
   await expect(
     page.getByText("구글 캘린더 연결됨", { exact: true }),
   ).toBeVisible();
   const actions = page.locator(".google-calendar-connection-actions");
-  await expect(actions.getByRole("button")).toHaveCount(4);
+  await expect(actions.getByRole("button")).toHaveCount(3);
+  await expect(
+    actions.getByRole("button", { name: "상태 다시 확인" }),
+  ).toHaveCount(0);
   await expect(actions).toHaveCSS("gap", "8px");
   await expect(actions).toHaveCSS("flex-wrap", "wrap");
   await page.route("**/google-calendar/status", (route) =>
     route.fulfill({ json: { ...emptyStatus, reconnect_required: true } }),
   );
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(
+    page.getByText("재연결이 필요해요", { exact: true }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "상태 다시 확인" }).click();
   await expect(
     page.getByText("재연결이 필요해요", { exact: true }),
@@ -162,7 +191,7 @@ test("서버가 잘못된 인증 주소를 주면 외부 이동을 막는다", a
       .getByRole("region", { name: "구글 계정 연결 설정" })
       .getByRole("alert"),
   ).toContainText("안전한 구글 계정 확인 주소");
-  await expect(page).toHaveURL(/\/settings\/connections$/);
+  await expect(page).toHaveURL(/\/settings\/connections(?:#google)?$/);
 });
 
 test("연결 해제는 확인 후에만 수행하고 취소하면 유지한다", async ({ page }) => {
@@ -237,7 +266,7 @@ test("연결 오류는 재시도 가능하고 상태 조회 실패를 연결 해
       json: { detail: "잠시 후 다시 시도해 주세요." },
     }),
   );
-  await page.getByRole("button", { name: "상태 다시 확인" }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await expect(
     page.getByText("잠시 후 다시 시도해 주세요.", { exact: true }),
   ).toBeVisible();

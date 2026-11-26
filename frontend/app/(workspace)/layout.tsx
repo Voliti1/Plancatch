@@ -8,25 +8,27 @@ import { NewRegistrationLink } from "@/features/deadlines/new-registration-link"
 import { TimeZoneControl, useTimeZone } from "@/features/settings/time-zone";
 import { AccountControls } from "@/features/settings/account-controls";
 import { useUnsavedNavigation } from "@/lib/unsaved-changes";
+import { WorkspaceIcon } from "@/components/workspace-icon";
+import "./workspace-reference.css";
 
 const navGroups = [
   {
     label: "홈",
-    items: [["/dashboard", "◈", "대시보드"]] as const,
+    items: [["/dashboard", "dashboard", "대시보드"]] as const,
   },
   {
     label: "일정 관리",
     items: [
-      ["/calendar", "▦", "캘린더"],
-      ["/deadlines", "◷", "마감일·할 일"],
-      ["/planning", "▥", "자동 시간 추천"],
+      ["/calendar", "calendar", "캘린더"],
+      ["/deadlines", "checklist", "마감일·할 일"],
+      ["/planning", "timer", "자동 시간 추천"],
     ] as const,
   },
   {
     label: "자료 및 연동",
     items: [
-      ["/sources", "▤", "자료함"],
-      ["/settings/connections", "↗", "구글 캘린더"],
+      ["/sources", "inbox", "자료함"],
+      ["/settings/google-calendar", "google-calendar", "구글 캘린더"],
     ] as const,
   },
 ];
@@ -61,7 +63,7 @@ export default function WorkspaceLayout({
       </a>
       <aside className="sidebar">
         <Link className="brand" href="/dashboard">
-          <span className="logo">P</span>플랜캐치
+          <span className="logo">P</span>PlanCatch
           <span className="brand-dot">.</span>
         </Link>
         <NewRegistrationLink className="sidebar-new-registration">
@@ -79,12 +81,14 @@ export default function WorkspaceLayout({
                     !isNewRegistration &&
                     (path.startsWith(href) ||
                       (href === "/sources" && path.startsWith("/analyses/")) ||
+                      (href === "/settings/google-calendar" &&
+                        path.startsWith("/settings/connections")) ||
                       (href === "/deadlines" && path.startsWith("/tasks")))
                       ? "page"
                       : undefined
                   }
                 >
-                  <span aria-hidden>{icon}</span>
+                  <WorkspaceIcon name={icon} />
                   {label}
                 </Link>
               ))}

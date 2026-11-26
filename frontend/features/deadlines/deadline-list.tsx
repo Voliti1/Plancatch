@@ -1,4 +1,6 @@
 "use client";
+import { CategoryBadge } from "@/components/category-badge";
+import { DeadlineDday } from "@/components/deadline-dday";
 import Link from "next/link";
 import { DeadlineTimes } from "./deadline-times";
 import type { Deadline } from "@/types/api";
@@ -29,6 +31,8 @@ export function DeadlineRows({
               <strong>
                 <HighlightTitle title={item.title} query={query} />
               </strong>
+              <CategoryBadge value={item.category} />
+              <DeadlineDday due={item.due_at} />
               <DeadlineTimes deadline={item} compact />
               <span>{item.deadline_type || "일반"}</span>
             </div>

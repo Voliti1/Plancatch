@@ -11,6 +11,13 @@ const task = {
   latest_end: "2026-11-23T01:00:00Z",
 };
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
 test("editing the default color updates only items using the default and persists it", async ({
   page,
 }) => {
@@ -245,4 +252,57 @@ test("day view edge drops move to the adjacent date without changing the Seoul t
     ).toContainText("09:07");
     await expect(page.getByRole("dialog")).toHaveCount(0);
   }
+});
+
+test("URL deadline at 23:59 can be dragged from its visible weekly title", async ({
+  page,
+}, info) => {
+  test.skip(info.project.name !== "desktop", "Uses an actual mouse");
+  await mockApi(page, [], {
+    deadlines: [
+      {
+        id: "url-deadline",
+        title: "URL 채용 마감",
+        due_at: "2026-11-23T14:59:59Z",
+        source_id: "url-source",
+        safe_due_at: null,
+        safety_buffer_minutes: null,
+        deadline_type: null,
+        description: null,
+        confidence: "1",
+        evidence_text: "접수 마감",
+        is_confirmed: true,
+        created_at: task.created_at,
+        updated_at: task.updated_at,
+      },
+    ],
+  });
+  await login(page);
+  await page.goto("/calendar?date=2026-11-23");
+  await page.getByRole("button", { name: "주간", exact: true }).click();
+  const grid = page.getByRole("region", { name: "주간 시간표" });
+  const card = grid.locator(".time-event").filter({ hasText: "URL 채용 마감" });
+  await expect(card).toHaveCount(1);
+  await expect(
+    grid.locator('[data-calendar-day="2026-11-24"] .time-event'),
+  ).toHaveCount(0);
+  await card.scrollIntoViewIfNeeded();
+  const title = card.locator("strong");
+  await title.hover();
+  const box = (await title.boundingBox())!;
+  const column = (await grid
+    .locator('[data-calendar-day="2026-11-24"]')
+    .boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(column.x + column.width / 2, column.y + 23 * 56 + 7, {
+    steps: 10,
+  });
+  await expect(grid.locator(".time-drop-preview")).toBeVisible();
+  const saved = page.waitForRequest(
+    (r) =>
+      r.method() === "PATCH" && r.url().endsWith("/api/deadlines/url-deadline"),
+  );
+  await page.mouse.up();
+  await saved;
 });

@@ -51,7 +51,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
     <main className="auth-page">
       <section className="auth-story">
         <Link className="brand" href="/login">
-          <span className="logo">P</span>플랜캐치.
+          <span className="logo">P</span>PlanCatch.
         </Link>
         <div>
           <span className="eyebrow">LESS CHAOS, MORE CLARITY</span>

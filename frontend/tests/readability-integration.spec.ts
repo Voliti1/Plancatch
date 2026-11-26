@@ -2,6 +2,13 @@ import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { calendarTask } from "./calendar-fixtures";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
 test("larger typography aligns detail cards and keeps calendar and compact registration usable", async ({
   page,
 }) => {

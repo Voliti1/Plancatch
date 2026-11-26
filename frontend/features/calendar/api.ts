@@ -6,6 +6,7 @@ import type {
 } from "@/types/scheduled-event";
 
 type EventFilters = {
+  category?: string | null;
   task_id?: string;
   start_from?: string;
   end_before?: string;

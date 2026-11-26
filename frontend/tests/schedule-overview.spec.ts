@@ -65,7 +65,7 @@ test("approved time blocks appear in the schedule list and detail without changi
   await mockApi(page, [], { tasks: [scheduled] });
   await login(page);
   await expect(
-    page.getByRole("region", { name: "등록한 일정" }).locator("time").first(),
+    page.getByRole("region", { name: "할 일" }).locator("time").first(),
   ).toHaveAttribute("datetime", blocks[0].start_at);
   await page.goto("/deadlines");
   const row = page.getByRole("link").filter({ hasText: scheduled.title });
@@ -108,25 +108,21 @@ test("dashboard separates deadlines and the five newest schedules, including und
   await mockApi(page, [], { tasks, deadlines: [deadline] });
   await login(page);
   const overview = page.getByRole("region", {
-    name: "등록한 일정",
+    name: "할 일",
     exact: true,
   });
   await expect(overview.getByRole("listitem")).toHaveCount(5);
   await expect(overview.getByRole("listitem").nth(0)).toContainText(
-    "[테스트] 등록 일정 1",
+    "[테스트] 등록 일정 2",
+  );
+  await expect(overview.getByRole("listitem").nth(0)).toContainText(
+    "시간 미정",
   );
   await expect(overview.getByRole("listitem").nth(1)).toContainText(
-    "시작 미정 → 종료 미정",
-  );
-  await expect(overview.getByRole("listitem").nth(2)).toContainText("완료");
-  await expect(
-    overview.getByRole("listitem").nth(0).locator("time").nth(0),
-  ).toHaveAttribute("datetime", task.earliest_start!);
-  await expect(overview.getByRole("listitem").nth(0)).toContainText(
-    "오전 9:00",
+    "[테스트] 등록 일정 1",
   );
   await expect(
-    overview.getByText("[테스트] 등록 일정 6", { exact: true }),
+    overview.getByText("[테스트] 등록 일정 3", { exact: true }),
   ).toHaveCount(0);
   await expect(overview.getByText(deadline.title, { exact: true })).toHaveCount(
     0,
@@ -134,7 +130,7 @@ test("dashboard separates deadlines and the five newest schedules, including und
   await expect(
     page.getByRole("link").filter({ hasText: deadline.title }),
   ).toBeVisible();
-  await page.getByRole("heading", { name: "등록한 일정", exact: true }).click();
+  await page.getByRole("heading", { name: "할 일", exact: true }).click();
   await page.screenshot({
     path: test.info().outputPath("dashboard-schedules.png"),
     fullPage: true,
@@ -145,7 +141,7 @@ test("dashboard separates deadlines and the five newest schedules, including und
     ),
   ).toBeTruthy();
   await overview
-    .getByRole("link", { name: "전체 일정 보기 →", exact: true })
+    .getByRole("link", { name: "전체 할 일 보기 →", exact: true })
     .click();
   await expect(page).toHaveURL(/\/tasks$/);
   await expect(
@@ -159,11 +155,11 @@ test("manual registration, simple detail editing and completion are reflected on
   await mockApi(page);
   await login(page);
   const overview = page.getByRole("region", {
-    name: "등록한 일정",
+    name: "할 일",
     exact: true,
   });
   await expect(
-    overview.getByText("등록한 일정이 없어요", { exact: true }),
+    overview.getByText("등록한 할 일이 없어요", { exact: true }),
   ).toBeVisible();
   await page
     .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
@@ -260,7 +256,7 @@ test("schedule loading and retry do not hide deadline data or misreport an error
   });
   await login(page);
   const overview = page.getByRole("region", {
-    name: "등록한 일정",
+    name: "할 일",
     exact: true,
   });
   try {
@@ -275,14 +271,14 @@ test("schedule loading and retry do not hide deadline data or misreport an error
     "[테스트] 일정 조회 실패",
   );
   await expect(
-    overview.getByText("등록한 일정이 없어요", { exact: true }),
+    overview.getByText("등록한 할 일이 없어요", { exact: true }),
   ).toHaveCount(0);
   await page.unroute("**/test-api/api/tasks?**");
   await overview
     .getByRole("button", { name: "다시 시도", exact: true })
     .click();
   await expect(
-    overview.getByText("등록한 일정이 없어요", { exact: true }),
+    overview.getByText("등록한 할 일이 없어요", { exact: true }),
   ).toBeVisible();
 });
 
@@ -301,7 +297,7 @@ test("legacy undated schedules remain editable without losing optional fields", 
   await mockApi(page, [], { tasks: [legacy] });
   await login(page);
   await page
-    .getByRole("region", { name: "등록한 일정", exact: true })
+    .getByRole("region", { name: "할 일", exact: true })
     .getByRole("link")
     .filter({ hasText: task.title })
     .click();

@@ -140,3 +140,15 @@ SUPPORTED_TIME_ZONES = frozenset({
     "Pacific/Auckland",
     "Asia/Seoul",
 })
+
+
+class ProfileUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: str | None = Field(default=None, max_length=100)
+
+    @field_validator("display_name")
+    @classmethod
+    def normalize_name(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return value.strip() or None

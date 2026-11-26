@@ -87,7 +87,7 @@ test("task detail has no placement controls or placement requests; existing plac
   await page.goto("/calendar?date=2026-11-01");
   await page.getByRole("button", { name: "월간", exact: true }).click();
   await expect(page.locator(".calendar-agenda > li")).toHaveCount(1);
-  await page.getByRole("link", { name: "상세, 수정 →", exact: true }).click();
+  await page.getByRole("link", { name: "상세 보기 →", exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/tasks/${calendarTask.id}$`));
   expect(requests.every((method) => method === "GET")).toBe(true);
 });

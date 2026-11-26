@@ -23,8 +23,9 @@ function withSafetyDate(deadline: Deadline): Deadline {
 export async function mockApi(
   page: Page,
   initialSources: Source[] = [],
-  initial: { deadlines?: Deadline[]; tasks?: Task[] } = {},
+  initial: { deadlines?: Deadline[]; tasks?: Task[]; token?: string } = {},
 ) {
+  let profile = { ...user };
   const sources: Source[] = initialSources.map((source) => ({ ...source }));
   const deadlines: Deadline[] = (initial.deadlines ?? []).map((item) => ({
     ...item,
@@ -85,7 +86,7 @@ export async function mockApi(
     if (path === "/api/auth/login")
       return route.fulfill({
         json: {
-          access_token: "test-only-placeholder",
+          access_token: initial.token ?? "test-only-placeholder",
           token_type: "bearer",
           expires_in: 3600,
         },
@@ -93,9 +94,13 @@ export async function mockApi(
     if (path === "/api/kakao/login/status")
       return route.fulfill({ json: { configured: false } });
     expect(request.headers().authorization).toBe(
-      "Bearer test-only-placeholder",
+      `Bearer ${initial.token ?? "test-only-placeholder"}`,
     );
-    if (path === "/api/auth/me") return route.fulfill({ json: user });
+    if (path === "/api/auth/me") {
+      if (method === "PATCH")
+        profile = { ...profile, ...request.postDataJSON() };
+      return route.fulfill({ json: profile });
+    }
     if (path === "/api/scheduled-events" && method === "GET")
       return route.fulfill({ json: [] });
     if (path === "/api/calendar/registrations" && method === "GET") {
@@ -111,6 +116,7 @@ export async function mockApi(
             kind: "deadline",
             title: d.title,
             start_at: d.due_at,
+            category: d.category,
             end_at: null,
             is_confirmed: d.is_confirmed,
             is_completed: false,
@@ -129,6 +135,7 @@ export async function mockApi(
             kind: "fixed_task",
             title: t.title,
             start_at: t.earliest_start,
+            category: t.category,
             end_at: t.latest_end,
             is_confirmed: true,
             is_completed: t.is_completed,
@@ -197,7 +204,15 @@ export async function mockApi(
       }
       const offset = Number(url.searchParams.get("offset") ?? 0);
       const limit = Number(url.searchParams.get("limit") ?? 50);
-      return route.fulfill({ json: deadlines.slice(offset, offset + limit) });
+      return route.fulfill({
+        json: deadlines
+          .filter(
+            (item) =>
+              !url.searchParams.get("category") ||
+              item.category === url.searchParams.get("category"),
+          )
+          .slice(offset, offset + limit),
+      });
     }
     if (path.startsWith("/api/deadlines/")) {
       const index = deadlines.findIndex(
@@ -244,7 +259,12 @@ export async function mockApi(
             }))
           : []),
       ]
-        .filter((entry) => entry.item.title.toLowerCase().includes(q))
+        .filter(
+          (entry) =>
+            entry.item.title.toLowerCase().includes(q) &&
+            (!url.searchParams.get("category") ||
+              entry.item.category === url.searchParams.get("category")),
+        )
         .sort(
           (a, b) =>
             a.at - b.at ||
@@ -268,6 +288,7 @@ export async function mockApi(
           "google_reminders",
           "deadline_id",
           "title",
+          "category",
           "description",
           "estimated_minutes",
           "priority",
@@ -295,6 +316,8 @@ export async function mockApi(
       const filtered = tasks.filter(
         (task) =>
           (!deadline || task.deadline_id === deadline) &&
+          (!url.searchParams.get("category") ||
+            task.category === url.searchParams.get("category")) &&
           (completed === null ||
             task.is_completed === (completed === "true")) &&
           (!scheduleType || task.schedule_type === scheduleType),
@@ -340,6 +363,9 @@ export async function login(page: Page) {
   await page.getByRole("button", { name: "로그인 →" }).click();
   await expect(page).toHaveURL(/\/dashboard$/);
   await expect(
-    page.getByRole("heading", { name: "테스터님, 오늘도 차근차근." }),
+    page.getByRole("heading", {
+      name: "머릿속 할 일 대신, 눈앞의 계획으로.",
+      level: 1,
+    }),
   ).toBeVisible();
 }

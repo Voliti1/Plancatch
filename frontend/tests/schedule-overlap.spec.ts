@@ -190,6 +190,7 @@ test("truncated results are not presented as a complete conflict-free check", as
   page,
 }) => {
   await open(page);
+  await page.locator(".manual-unified-settings > summary").click();
   await page.getByLabel("반복 주기", { exact: true }).selectOption("weekly");
   await page.route("**/test-api/api/schedules/conflicts", (route) => {
     expect(route.request().postDataJSON().recurrence.frequency).toBe("weekly");

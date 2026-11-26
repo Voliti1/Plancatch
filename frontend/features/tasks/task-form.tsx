@@ -1,4 +1,5 @@
 "use client";
+import { CategorySelect, type Category } from "@/components/category-badge";
 import { useScheduleTime } from "@/features/settings/time-zone";
 import { useId, useRef, useState } from "react";
 import type { ReactNode } from "react";
@@ -98,6 +99,9 @@ export function TaskForm({
   const priorityLabelId = useId();
   const typeLabelId = useId();
   const options = useResource(loadDeadlineOptions);
+  const [category, setCategory] = useState<Category | null>(
+    initial?.category ?? null,
+  );
   const [title, setTitle] = useState(initial?.title ?? draft?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [recurrence, setRecurrence] = useState<Recurrence | null>(
@@ -148,6 +152,7 @@ export function TaskForm({
     JSON.stringify([
       registrationKind,
       title,
+      category,
       description,
       deadline,
       minutes,
@@ -206,6 +211,7 @@ export function TaskForm({
         await onSaveDeadline({
           ...(reminders ? { google_reminders: reminders } : {}),
           title: title.trim(),
+          ...(category ? { category } : {}),
           due_at: fromLocalInput(end),
           description: description.trim() || null,
           source_id: null,
@@ -290,6 +296,7 @@ export function TaskForm({
           : {}),
         ...(reminders ? { google_reminders: reminders } : {}),
         title: title.trim(),
+        ...(category !== (initial?.category ?? null) ? { category } : {}),
         deadline_id: deadline || null,
         description: description.trim() || null,
         estimated_minutes: estimated,
@@ -308,42 +315,48 @@ export function TaskForm({
     }
   }
 
+  const durationField = (
+    <label>
+      {withoutTime ? "예상 소요시간 (분, 필수)" : "예상 소요시간 (분, 선택)"}
+      <input
+        name="estimated_minutes"
+        type="number"
+        min={1}
+        max={MAX_ESTIMATED_MINUTES}
+        step={1}
+        required={withoutTime}
+        inputMode={canChooseKind ? "numeric" : undefined}
+        value={minutes}
+        onChange={(event) => {
+          const value = event.target.value;
+          setMinutes(value);
+          if (!event.target.validity.badInput) updateTaskEnd(start, value);
+        }}
+        placeholder="예: 60"
+      />
+    </label>
+  );
+  const priorityField = (
+    <label>
+      <span id={priorityLabelId}>우선순위</span>
+      <select
+        name="priority"
+        aria-labelledby={priorityLabelId}
+        value={priority}
+        onChange={(event) => setPriority(Number(event.target.value))}
+      >
+        {[1, 2, 3, 4, 5].map((value) => (
+          <option key={value} value={value}>
+            {canChooseKind ? priorityNames[value - 1] : value}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
   const durationAndPriority = (
     <div className="form-grid">
-      <label>
-        {withoutTime ? "예상 소요시간 (분, 필수)" : "예상 소요시간 (분, 선택)"}
-        <input
-          name="estimated_minutes"
-          type="number"
-          min={1}
-          max={MAX_ESTIMATED_MINUTES}
-          step={1}
-          required={withoutTime}
-          inputMode={canChooseKind ? "numeric" : undefined}
-          value={minutes}
-          onChange={(event) => {
-            const value = event.target.value;
-            setMinutes(value);
-            if (!event.target.validity.badInput) updateTaskEnd(start, value);
-          }}
-          placeholder="예: 60"
-        />
-      </label>
-      <label>
-        <span id={priorityLabelId}>우선순위</span>
-        <select
-          name="priority"
-          aria-labelledby={priorityLabelId}
-          value={priority}
-          onChange={(event) => setPriority(Number(event.target.value))}
-        >
-          {[1, 2, 3, 4, 5].map((value) => (
-            <option key={value} value={value}>
-              {canChooseKind ? priorityNames[value - 1] : value}
-            </option>
-          ))}
-        </select>
-      </label>
+      {durationField}
+      {priorityField}
     </div>
   );
   const deadlineField = (
@@ -460,6 +473,84 @@ export function TaskForm({
     </label>
   );
 
+  const advancedOptions = (
+    <>
+      {canChooseKind && (
+        <>
+          <CategorySelect value={category} onChange={setCategory} />
+          {!isDeadline && (
+            <>
+              {priorityField}
+              {deadlineField}
+              {withoutTime && (
+                <div className="form-grid">
+                  <label>
+                    가능 시작 일시 (선택)
+                    <input
+                      type="datetime-local"
+                      value={possibleStart}
+                      onChange={(event) => setPossibleStart(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    가능 종료 일시 (선택)
+                    <input
+                      type="datetime-local"
+                      value={possibleEnd}
+                      onChange={(event) => setPossibleEnd(event.target.value)}
+                    />
+                  </label>
+                </div>
+              )}
+              {completion}
+            </>
+          )}
+        </>
+      )}
+      {!isDeadline && scheduleType === "fixed" && !singleOccurrence && (
+        <RecurrenceSettings
+          value={recurrence}
+          onChange={(value) => {
+            onUserEdit?.();
+            setError("");
+            setRecurrence(value);
+          }}
+        />
+      )}
+      {initial?.recurrence && (
+        <p className="notice">변경 사항은 이 반복 일정 전체에 적용돼요.</p>
+      )}
+      {!canChooseKind && !isDeadline && scheduleType === "flexible" && (
+        <p className="notice">
+          {withoutTime
+            ? "저장 후 이 할 일에 맞는 시간을 추천받을 수 있어요."
+            : "시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면 빈 시간을 추천받을 수 있어요."}
+        </p>
+      )}
+      {Boolean(initial?.exception_count) && (
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={resetOccurrences}
+            onChange={(e) => setResetOccurrences(e.target.checked)}
+          />
+          개별 변경 초기화 — 시작·종료 시간이나 반복 주기를 바꾸려면 선택하세요.
+          개별 수정·삭제를 취소하고 전체 반복 설정으로 되돌립니다.
+        </label>
+      )}
+      <ReminderSettings
+        allowPreserve={Boolean(initial) && initial?.google_reminders == null}
+        value={reminders}
+        registrationKind={canChooseKind ? registrationKind : undefined}
+        connectionNotice={reminderNotice}
+        onChange={(value) => {
+          onUserEdit?.();
+          setReminders(value);
+        }}
+      />
+    </>
+  );
+
   return (
     <form
       className={simple ? "calendar-task-form" : undefined}
@@ -507,11 +598,6 @@ export function TaskForm({
               마감일
             </button>
           </div>
-          <p className="small muted">
-            {isDeadline
-              ? "제출이나 신청처럼 기한이 있는 일정이에요."
-              : "시간을 직접 정하거나 나중에 추천받을 수 있어요."}
-          </p>
         </div>
       )}
       {!isDeadline && options.loading && <Loading />}
@@ -519,6 +605,13 @@ export function TaskForm({
         <ErrorNotice
           message={`마감일 목록을 불러오지 못했어요. ${options.error}`}
           retry={options.reload}
+        />
+      )}
+      {!canChooseKind && (
+        <CategorySelect
+          value={category}
+          onChange={setCategory}
+          disabled={disabled || busy || !hydrated}
         />
       )}
       <fieldset
@@ -556,51 +649,29 @@ export function TaskForm({
         </label>
         {simple ? (
           <>
-            {canChooseKind && !isDeadline && (
-              <div className="registration-kind-field">
-                <h3>시간 지정</h3>
-                <div
-                  className="manual-registration-kind"
-                  role="group"
-                  aria-label="할 일 시간 지정"
-                >
-                  {(
-                    [
-                      ["fixed", "직접 시간 지정"],
-                      ["flexible", "시간 미정으로 등록"],
-                    ] as const
-                  ).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      className={
-                        scheduleType === value ? "selected" : "secondary"
-                      }
-                      aria-pressed={scheduleType === value}
-                      onClick={() => {
-                        setScheduleType(value);
+            {canChooseKind && (
+              <div className="registration-time-heading">
+                <h3>{isDeadline ? "마감 시간" : "일정 시간"}</h3>
+                {!isDeadline && (
+                  <label className="checkbox registration-time-toggle">
+                    <input
+                      type="checkbox"
+                      checked={withoutTime}
+                      onChange={(event) => {
+                        setScheduleType(
+                          event.target.checked ? "flexible" : "fixed",
+                        );
                         setError("");
                         overlap.clear();
                         onUserEdit?.();
                       }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {canChooseKind && !withoutTime && (
-              <div className="registration-time-heading">
-                <div className="registration-label">
-                  <h3>{isDeadline ? "마감 시간" : "일정 시간"}</h3>
-                  <span className="registration-required" aria-hidden="true">
-                    필수
-                  </span>
-                </div>
-                <p id={timeHelpId} className="small muted">
+                    />
+                    시간 나중에 정하기
+                  </label>
+                )}
+                <span id={timeHelpId} className="small muted">
                   {zoneLabel} 기준
-                </p>
+                </span>
               </div>
             )}
             {!withoutTime && times}
@@ -619,13 +690,12 @@ export function TaskForm({
                 {initial ? " · 시간은 비워 둘 수 있어요." : ""}
               </p>
             )}
-            {!isDeadline && durationAndPriority}
-            {withoutTime && deadlineField}
-            {canChooseKind && (
-              <h3 className="registration-extras-heading">추가 설정</h3>
-            )}
+            {!isDeadline &&
+              (canChooseKind
+                ? withoutTime && durationField
+                : durationAndPriority)}
             {descriptionField}
-            {!isDeadline && (
+            {!isDeadline && !canChooseKind && (
               <details className="calendar-task-settings">
                 <summary>상세 설정</summary>
                 <div>
@@ -671,50 +741,37 @@ export function TaskForm({
             {completion}
           </>
         )}
-        {!isDeadline && scheduleType === "fixed" && !singleOccurrence && (
-          <RecurrenceSettings
-            value={recurrence}
-            onChange={(value) => {
-              onUserEdit?.();
-              setError("");
-              setRecurrence(value);
-            }}
-          />
+        {canChooseKind ? (
+          <details className="calendar-task-settings manual-unified-settings">
+            <summary>
+              세부 설정 (우선순위 · 반복 · 알림)
+              <span
+                className="registration-option-badges"
+                aria-label="변경한 세부 설정"
+              >
+                {!isDeadline && priority !== 3 && (
+                  <span>우선순위 {priorityNames[priority - 1]}</span>
+                )}
+                {!isDeadline && recurrence && <span>반복 설정</span>}
+                {reminders?.mode !== "none" && reminders != null && (
+                  <span>알림 설정</span>
+                )}
+                {category && <span>카테고리 설정</span>}
+                {!isDeadline && deadline && <span>마감일 연결</span>}
+                {!isDeadline && (possibleStart || possibleEnd) && (
+                  <span>가능 기간 설정</span>
+                )}
+                {!isDeadline && completed && <span>완료</span>}
+              </span>
+            </summary>
+            <div>{advancedOptions}</div>
+          </details>
+        ) : (
+          advancedOptions
         )}
-        {initial?.recurrence && (
-          <p className="notice">변경 사항은 이 반복 일정 전체에 적용돼요.</p>
-        )}
-        {!isDeadline && scheduleType === "flexible" && (
-          <p className="notice">
-            {withoutTime
-              ? "저장 후 이 할 일에 맞는 시간을 추천받을 수 있어요."
-              : "시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면 빈 시간을 추천받을 수 있어요."}
-          </p>
-        )}
-        {Boolean(initial?.exception_count) && (
-          <label className="checkbox-row">
-            <input
-              type="checkbox"
-              checked={resetOccurrences}
-              onChange={(e) => setResetOccurrences(e.target.checked)}
-            />
-            개별 변경 초기화 — 시작·종료 시간이나 반복 주기를 바꾸려면
-            선택하세요. 개별 수정·삭제를 취소하고 전체 반복 설정으로 되돌립니다.
-          </label>
-        )}
-        <ReminderSettings
-          allowPreserve={Boolean(initial) && initial?.google_reminders == null}
-          value={reminders}
-          registrationKind={canChooseKind ? registrationKind : undefined}
-          connectionNotice={reminderNotice}
-          onChange={(value) => {
-            onUserEdit?.();
-            setReminders(value);
-          }}
-        />
         {!isDeadline && scheduleType === "fixed" && (
           <>
-            <OverlapScope />
+            {!canChooseKind && <OverlapScope />}
             <OverlapWarning check={overlap} busy={busy || disabled} />
           </>
         )}

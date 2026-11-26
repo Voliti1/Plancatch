@@ -7,12 +7,14 @@ import type { Task } from "@/types/task";
 export type ScheduleEntry =
   { kind: "deadline"; item: Deadline } | { kind: "task"; item: Task };
 export type SchedulePage = { entries: ScheduleEntry[]; has_more: boolean };
-export function listSchedules(
+export async function listSchedules(
   offset: number,
   query: string,
   deadlines: boolean,
   tasks: boolean,
   signal?: AbortSignal,
+  category?: string | null,
+  hideCompleted = false,
 ) {
   const params = new URLSearchParams({
     offset: String(offset),
@@ -21,7 +23,35 @@ export function listSchedules(
     include_deadlines: String(deadlines),
     include_tasks: String(tasks),
   });
-  return api<SchedulePage>(`/api/schedules?${params}`, { signal });
+  if (category) params.set("category", category);
+  if (!hideCompleted)
+    return api<SchedulePage>(`/api/schedules?${params}`, { signal });
+  // Filter across source pages so completed tasks cannot hide later matching rows.
+  const visible: ScheduleEntry[] = [];
+  let sourceOffset = 0;
+  while (true) {
+    signal?.throwIfAborted();
+    params.set("offset", String(sourceOffset));
+    const result = await api<SchedulePage>(`/api/schedules?${params}`, {
+      signal,
+    });
+    visible.push(
+      ...result.entries.filter(
+        (entry) => entry.kind === "deadline" || !entry.item.is_completed,
+      ),
+    );
+    if (visible.length > offset + 50 || !result.has_more) {
+      return {
+        entries: visible.slice(offset, offset + 50),
+        has_more: visible.length > offset + 50,
+      };
+    }
+    if (!result.entries.length)
+      throw new Error(
+        "일정 목록을 끝까지 확인하지 못했어요. 다시 시도해 주세요.",
+      );
+    sourceOffset += result.entries.length;
+  }
 }
 export function removeSchedule(key: string, signal?: AbortSignal) {
   const colon = key.indexOf(":"),

@@ -1,7 +1,9 @@
+import type { Category } from "@/components/category-badge";
 import type { GoogleReminderSettings } from "./google-reminders";
 import type { Recurrence } from "@/features/tasks/recurrence-settings";
 export type ScheduleType = "fixed" | "flexible";
 export interface TaskInput {
+  category?: Category | null;
   reset_occurrences?: boolean;
   recurrence?: Recurrence | null;
   google_reminders?: GoogleReminderSettings | null;
@@ -16,6 +18,7 @@ export interface TaskInput {
   is_completed: boolean;
 }
 export interface Task extends TaskInput {
+  category?: Category | null;
   placement?: { start_at: string; end_at: string; block_count: number } | null;
   placement_blocks?: { id: string; start_at: string; end_at: string }[];
   series_id?: string | null;
@@ -27,6 +30,8 @@ export interface Task extends TaskInput {
   updated_at: string;
 }
 export interface TaskFilters {
+  dashboard?: boolean;
+  category?: Category | null;
   deadline_id?: string;
   is_completed?: boolean;
   schedule_type?: ScheduleType;

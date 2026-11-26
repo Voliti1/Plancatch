@@ -7,6 +7,7 @@ export interface ScheduledEventInput {
 }
 export interface ScheduledEvent extends Omit<ScheduledEventInput, "status"> {
   id: string;
+  category?: import("@/components/category-badge").Category | null;
   task_title?: string | null;
   status: EditableEventStatus | "synced";
   is_user_approved: boolean;

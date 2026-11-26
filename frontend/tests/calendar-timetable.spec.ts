@@ -7,6 +7,13 @@ import {
   slotRegistrationHref,
 } from "../features/calendar/time-layout";
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem("plancatch.calendar.view"))
+      localStorage.setItem("plancatch.calendar.view", "day");
+  });
+});
+
 test("time geometry clips midnight, separates overlap and ends at 24:00", () => {
   expect(timetableDays("2026-11-02", "week")).toEqual([
     "2026-11-02",
@@ -171,4 +178,19 @@ test("today and week are 24h timetables, consistent colors and editable hour pre
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+});
+
+test("point deadlines with seconds never create a next-day continuation", () => {
+  const deadline = {
+    id: "url",
+    kind: "deadline" as const,
+    title: "URL deadline",
+    start: "2026-12-01T14:59:59Z",
+    end: null,
+  };
+  expect(layoutDay([deadline], "2026-12-01")).toHaveLength(1);
+  expect(layoutDay([deadline], "2026-12-02")).toHaveLength(0);
+  expect(
+    layoutDay([{ ...deadline, start: "2026-12-01T15:00:00Z" }], "2026-12-02"),
+  ).toHaveLength(1);
 });

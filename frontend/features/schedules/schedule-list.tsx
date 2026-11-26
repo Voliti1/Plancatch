@@ -1,4 +1,10 @@
 "use client";
+import {
+  CategoryFilter,
+  type Category,
+  CategoryBadge,
+} from "@/components/category-badge";
+import { DeadlineDday } from "@/components/deadline-dday";
 import Link from "next/link";
 import { useCallback, useState } from "react";
 import { PageHeading } from "@/components/page-heading";
@@ -49,27 +55,31 @@ function ScheduleRows({
               {entry.kind === "deadline" ? "◷" : <TaskListIcon />}
             </span>
             <div className="row-title">
+              <CategoryBadge value={entry.item.category} />
               <strong>
                 <HighlightTitle title={entry.item.title} query={query} />
               </strong>
               {entry.kind === "deadline" ? (
-                <DeadlineTimes deadline={entry.item} compact />
+                <>
+                  <DeadlineDday due={entry.item.due_at} />
+                  <DeadlineTimes deadline={entry.item} compact />
+                </>
               ) : (
                 <>
                   <span>
                     <TaskTimes task={entry.item} />
                   </span>
                   {entry.item.schedule_type === "flexible" && (
-                    <span className="small muted">
+                    <span className="small muted schedule-time-badge">
                       {entry.item.placement
                         ? `캘린더에 등록한 시간 · ${entry.item.placement.block_count}개 구간`
-                        : "가능 기간 · 캘린더 시간 등록 전"}
+                        : "시간 추천 가능"}
                     </span>
                   )}
                   {entry.item.recurrence && (
                     <span className="small muted">
-                      {recurrenceSummary(entry.item.recurrence)} · 삭제 시 전체
-                      반복 삭제
+                      {recurrenceSummary(entry.item.recurrence)}
+                      {deletion.mode && " · 삭제 시 전체 반복 삭제"}
                     </span>
                   )}
                 </>
@@ -117,7 +127,12 @@ function ScheduleRows({
 }
 export function ScheduleList() {
   const search = useTitleSearch();
-  const [kinds, setKinds] = useState({ deadline: true, task: true }),
+  const [kinds, setKinds] = useState({
+      deadline: true,
+      task: true,
+      category: null as Category | null,
+      hideCompleted: false,
+    }),
     [version, setVersion] = useState(0);
   const deletion = useListDeletion(removeSchedule, () =>
     setVersion((v) => v + 1),
@@ -141,6 +156,15 @@ export function ScheduleList() {
             </NewRegistrationLink>
           </ListDeleteActions>
         }
+      />
+      <CategoryFilter
+        value={kinds.category}
+        onChange={(category) => {
+          if (deletion.busy) return;
+          deletion.exit();
+          search.setPage(0);
+          setKinds((value) => ({ ...value, category }));
+        }}
       />
       <TitleSearch
         label="일정 제목 검색"
@@ -177,11 +201,28 @@ export function ScheduleList() {
                 {kind === "deadline" ? "마감일" : "할 일"}
               </label>
             ))}
+            <label className={kinds.hideCompleted ? "is-checked" : ""}>
+              <input
+                type="checkbox"
+                checked={kinds.hideCompleted}
+                disabled={deletion.busy}
+                onChange={(event) => {
+                  if (deletion.busy) return;
+                  deletion.exit();
+                  search.setPage(0);
+                  setKinds((value) => ({
+                    ...value,
+                    hideCompleted: event.target.checked,
+                  }));
+                }}
+              />
+              완료된 항목 숨기기
+            </label>
           </div>
         </div>
         <p className="small muted">날짜가 빠른 순</p>
         <ScheduleResults
-          key={`${search.query}:${search.page}:${version}:${kinds.deadline}:${kinds.task}`}
+          key={`${search.query}:${search.page}:${version}:${kinds.deadline}:${kinds.task}:${kinds.category}:${kinds.hideCompleted}`}
           page={search.page}
           query={search.query}
           kinds={kinds}
@@ -207,14 +248,34 @@ function ScheduleResults({
 }: {
   page: number;
   query: string;
-  kinds: { deadline: boolean; task: boolean };
+  kinds: {
+    deadline: boolean;
+    task: boolean;
+    category: Category | null;
+    hideCompleted: boolean;
+  };
   deletion: ListDeletion;
   onPage: (page: number) => void;
 }) {
   const loader = useCallback(
     (signal: AbortSignal) =>
-      listSchedules(page * 50, query, kinds.deadline, kinds.task, signal),
-    [page, query, kinds.deadline, kinds.task],
+      listSchedules(
+        page * 50,
+        query,
+        kinds.deadline,
+        kinds.task,
+        signal,
+        kinds.category,
+        kinds.hideCompleted,
+      ),
+    [
+      page,
+      query,
+      kinds.deadline,
+      kinds.task,
+      kinds.category,
+      kinds.hideCompleted,
+    ],
   );
   const { data, loading, error, reload } = useResource(loader);
   if (loading) return <Loading />;
@@ -234,7 +295,9 @@ function ScheduleResults({
               ? "검색 결과가 없어요"
               : !kinds.deadline && !kinds.task
                 ? "표시할 일정 종류를 선택해 주세요"
-                : "아직 일정이 없어요"
+                : kinds.hideCompleted
+                  ? "표시할 미완료 항목이 없어요"
+                  : "아직 일정이 없어요"
           }
         >
           {query

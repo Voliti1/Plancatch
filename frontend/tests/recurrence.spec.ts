@@ -7,6 +7,7 @@ test("direct repeat registration, series editing and removal of recurrence", asy
   await mockApi(page);
   await login(page);
   await page.goto("/sources/new?mode=manual");
+  await page.locator(".manual-unified-settings > summary").click();
   await page
     .getByRole("textbox", { name: "일정명", exact: true })
     .fill("주간 팀 회의");
@@ -99,6 +100,9 @@ test("sentence repeat stays editable and deadline mode does not send recurrence"
   await expect(page.getByLabel("반복 주기", { exact: true })).toHaveValue(
     "weekly",
   );
+  await page
+    .locator(".natural-preview .manual-unified-settings > summary")
+    .click();
   await page.getByLabel("반복 종료", { exact: true }).selectOption("until");
   await page.getByLabel("반복 종료일", { exact: true }).fill("2026-11-01");
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
