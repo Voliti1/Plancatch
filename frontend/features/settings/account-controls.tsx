@@ -1,4 +1,6 @@
 "use client";
+import { useRouter } from "next/navigation";
+import { authApi } from "@/features/auth/api";
 import { useId, useRef, useState } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice } from "@/components/feedback";
@@ -15,7 +17,14 @@ export function AccountControls({
   const dialog = useRef<HTMLDialogElement>(null);
   const pending = useRef(false);
   const heading = useId();
-  const { changePassword, updateProfile, user } = useAuth();
+  const { changePassword, updateProfile, user, logout } = useAuth();
+  const router = useRouter();
+  const [deleteStep, setDeleteStep] = useState(false);
+  const [deleteProof, setDeleteProof] = useState("");
+  const [deleteAccepted, setDeleteAccepted] = useState(false);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const deletePending = useRef(false);
   const [profileName, setProfileName] = useState(user?.display_name ?? "");
   const [profileBusy, setProfileBusy] = useState(false);
   const profilePending = useRef(false);
@@ -28,6 +37,10 @@ export function AccountControls({
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   function clear() {
+    setDeleteStep(false);
+    setDeleteProof("");
+    setDeleteAccepted(false);
+    setDeleteError("");
     setCurrent("");
     setNext("");
     setConfirmation("");
@@ -36,7 +49,8 @@ export function AccountControls({
   }
   async function submit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending.current) return;
+    if (pending.current || profilePending.current || deletePending.current)
+      return;
     setError("");
     setSuccess(false);
     if (!current) {
@@ -118,10 +132,21 @@ export function AccountControls({
         aria-labelledby={heading}
         onClose={clear}
         onCancel={(event) => {
-          if (pending.current || profilePending.current) event.preventDefault();
+          if (
+            pending.current ||
+            profilePending.current ||
+            deletePending.current
+          )
+            event.preventDefault();
         }}
         onClick={(event) => {
-          if (pending.current || profilePending.current || event.target !== event.currentTarget) return;
+          if (
+            pending.current ||
+            profilePending.current ||
+            deletePending.current ||
+            event.target !== event.currentTarget
+          )
+            return;
           const box = event.currentTarget.getBoundingClientRect();
           if (
             event.clientX < box.left ||
@@ -138,7 +163,7 @@ export function AccountControls({
             type="button"
             className="account-icon"
             aria-label="설정 닫기"
-            disabled={busy || profileBusy}
+            disabled={busy || profileBusy || deleteBusy}
             onClick={() => dialog.current?.close()}
           >
             ×
@@ -148,7 +173,12 @@ export function AccountControls({
           <form
             onSubmit={async (event) => {
               event.preventDefault();
-              if (profilePending.current) return;
+              if (
+                profilePending.current ||
+                pending.current ||
+                deletePending.current
+              )
+                return;
               profilePending.current = true;
               setProfileBusy(true);
               setProfileError("");
@@ -166,7 +196,7 @@ export function AccountControls({
               }
             }}
           >
-            <fieldset disabled={profileBusy}>
+            <fieldset disabled={profileBusy || busy || deleteBusy}>
               <label>
                 프로필 이름
                 <input
@@ -198,7 +228,7 @@ export function AccountControls({
                 현재 비밀번호를 확인한 뒤 새 비밀번호로 변경해요.
               </p>
               <form onSubmit={submit} noValidate>
-                <fieldset disabled={busy}>
+                <fieldset disabled={busy || profileBusy || deleteBusy}>
                   <label>
                     현재 비밀번호
                     <input
@@ -249,6 +279,112 @@ export function AccountControls({
               </form>
             </>
           )}
+          <section className="account-delete" aria-label="회원 탈퇴">
+            <h3>회원 탈퇴</h3>
+            <p className="small muted">
+              계정과 저장한 자료·일정·업로드 파일이 삭제되며 복구할 수 없습니다.
+              Google 캘린더에 이미 복사한 일정은 Google에서 직접 관리해 주세요.
+            </p>
+            {!deleteStep ? (
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy || profileBusy}
+                onClick={() => setDeleteStep(true)}
+              >
+                회원 탈퇴 진행
+              </button>
+            ) : (
+              <form
+                noValidate
+                onSubmit={async (event) => {
+                  event.preventDefault();
+                  if (deletePending.current) return;
+                  setDeleteError("");
+                  if (!deleteProof || !deleteAccepted) {
+                    setDeleteError(
+                      "본인 확인 정보와 삭제 확인을 입력해 주세요.",
+                    );
+                    return;
+                  }
+                  deletePending.current = true;
+                  setDeleteBusy(true);
+                  try {
+                    await authApi.deleteAccount(
+                      user?.password_enabled === false
+                        ? { confirmation_email: deleteProof.trim() }
+                        : { current_password: deleteProof },
+                    );
+                    dialog.current?.close();
+                    logout();
+                    router.replace("/login");
+                  } catch (err) {
+                    const message = errorMessage(err);
+                    setDeleteError(
+                      message === "current_password_incorrect"
+                        ? "현재 비밀번호가 맞지 않아요."
+                        : message === "confirmation_email_incorrect"
+                          ? "가입한 이메일을 정확히 입력해 주세요."
+                          : message,
+                    );
+                  } finally {
+                    deletePending.current = false;
+                    setDeleteBusy(false);
+                  }
+                }}
+              >
+                <fieldset disabled={deleteBusy || busy || profileBusy}>
+                  <label>
+                    {user?.password_enabled === false
+                      ? "탈퇴 확인 이메일"
+                      : "탈퇴 확인 비밀번호"}
+                    <input
+                      type={
+                        user?.password_enabled === false ? "email" : "password"
+                      }
+                      autoComplete={
+                        user?.password_enabled === false
+                          ? "email"
+                          : "current-password"
+                      }
+                      value={deleteProof}
+                      onChange={(event) => setDeleteProof(event.target.value)}
+                      maxLength={user?.password_enabled === false ? 320 : 128}
+                      required
+                    />
+                  </label>
+                  <label className="checkbox">
+                    <input
+                      type="checkbox"
+                      checked={deleteAccepted}
+                      onChange={(event) =>
+                        setDeleteAccepted(event.target.checked)
+                      }
+                    />
+                    자료와 일정이 영구 삭제됨을 확인했습니다
+                  </label>
+                  {deleteError && <ErrorNotice message={deleteError} />}
+                  <div className="form-actions">
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => {
+                        setDeleteStep(false);
+                        setDeleteProof("");
+                        setDeleteAccepted(false);
+                        setDeleteError("");
+                      }}
+                    >
+                      탈퇴 취소
+                    </button>
+                    <button type="submit">
+                      {deleteBusy ? "탈퇴 처리 중…" : "확인하고 영구 탈퇴"}
+                    </button>
+                  </div>
+                </fieldset>
+              </form>
+            )}
+          </section>
         </div>
       </dialog>
     </>

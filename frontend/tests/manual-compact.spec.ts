@@ -27,12 +27,8 @@ for (const theme of ["light", "dark"] as const) {
       card.getByLabel("메모 (선택)", { exact: true }),
     ).toHaveAttribute("rows", "2");
     await expect(card.getByLabel(/예상 소요시간/)).toHaveCount(0);
-    for (const name of [
-      "우선순위",
-      "카테고리",
-      "반복 주기",
-      "구글 캘린더 알림",
-    ]) {
+    await expect(card.getByLabel("카테고리", { exact: true })).toBeVisible();
+    for (const name of ["우선순위", "반복 주기", "구글 캘린더 알림"]) {
       await expect(card.getByLabel(name, { exact: true })).toBeHidden();
     }
     await expect(

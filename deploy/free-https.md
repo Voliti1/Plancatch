@@ -28,3 +28,10 @@ sudo /home/ec2-user/Plancatch/.venv312/bin/python configure-free-https.py \
 않았어도 검토된 준비 사본으로 실행할 수 있으므로 실제 앱 SHA·준비 사본 해시·백업 경로를 함께 남긴다.
 수동 복구는 실행별 before.json/managed-before.json을 확인해 해당 호스트만 제거하고 nginx -t/reload한다.
 다른 호스트가 갱신 타이머를 사용하면 중지하지 않는다. 자동 DB downgrade·사용자 데이터 복원은 없다.
+
+
+## 인증 경로 제한 및 백엔드 서비스
+
+`nginx-auth-rate-limit.conf`는 http 컨텍스트인 `/etc/nginx/conf.d/00-plancatch-auth-rate-limit.conf`에 먼저 설치하고, `nginx-plancatch.conf`를 기존 default.d 파일에 설치한다. 둘을 함께 적용하고 `nginx -t` 통과 후 reload한다. 인증 경로는 IP별 분당 10회와 일시 burst 10회를 허용하며 초과 시 429다. Google callback은 별도의 exact location을 유지하고 access log를 끈다. error log의 crit 필터와 비기록 sink는 쿼리 인증 코드 유출을 차단한다. 원인 추적은 앱의 정제된 결과 로그로 수행한다.
+
+`plancatch-backend.service`는 운영 서비스명에 맞춰 `/etc/systemd/system/plancatch.service`에 설치한다. 기존 `.env`·사용자 데이터·서비스 사용자·경로는 유지하고 로컬 Nginx만 신뢰한다. 설치 전 설정·실행 코드·빌드의 복구 사본을 확보하고 systemd-analyze verify 및 nginx -t를 검사한다. HSTS는 HTTPS 호스트에만 적용하며 인증서 갱신과 공개 /health 응답을 확인한다.

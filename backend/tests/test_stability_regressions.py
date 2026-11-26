@@ -56,6 +56,8 @@ def test_documentation_visibility(monkeypatch, environment, status):
     from app import main
     from app.core.config import Settings
     monkeypatch.setattr(main, "get_settings", lambda: Settings(_env_file=None, app_env=environment))
+    from tests.test_auth import TestingSession
+    monkeypatch.setattr("app.api.routes.health.get_session_factory", lambda: TestingSession)
     client = TestClient(main.create_app())
     for path in ["/docs", "/redoc", "/openapi.json"]:
         assert client.get(path).status_code == status

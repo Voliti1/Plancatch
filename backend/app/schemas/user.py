@@ -152,3 +152,10 @@ class ProfileUpdate(BaseModel):
         if value is None:
             return None
         return value.strip() or None
+
+
+class AccountDelete(BaseModel):
+    """Reauthenticate the caller without allowing an alternate account ID."""
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+    current_password: str | None = Field(default=None, min_length=1, max_length=128)
+    confirmation_email: EmailStr | None = None

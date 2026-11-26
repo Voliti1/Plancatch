@@ -42,6 +42,8 @@ async def lifespan(application):
             while not stop.is_set():
                 delay = RECOVERY_SECONDS
                 try:
+                    from app.services.upload_cleanup import retry_pending
+                    await asyncio.to_thread(retry_pending)
                     counts = await asyncio.to_thread(recover_interrupted, get_engine())
                     if any(counts.values()):
                         logging.getLogger(__name__).info("Interrupted processing recovered: %s", counts)
