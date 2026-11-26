@@ -26,7 +26,7 @@ const navGroups = [
     label: "자료 및 연동",
     items: [
       ["/sources", "▤", "자료함"],
-      ["/settings/connections", "↗", "구글 캘린더"],
+      ["/settings/google-calendar", "↗", "구글 캘린더"],
     ] as const,
   },
 ];
@@ -79,6 +79,8 @@ export default function WorkspaceLayout({
                     !isNewRegistration &&
                     (path.startsWith(href) ||
                       (href === "/sources" && path.startsWith("/analyses/")) ||
+                      (href === "/settings/google-calendar" &&
+                        path.startsWith("/settings/connections")) ||
                       (href === "/deadlines" && path.startsWith("/tasks")))
                       ? "page"
                       : undefined

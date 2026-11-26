@@ -56,12 +56,9 @@ export function SourceAnalyses({
     <section className="card form-card analysis-launch">
       <h2>{urlOnly ? "2. 마감일 찾기" : "2. AI 마감일 분석"}</h2>
       <p className="muted">
-        자료에서 마감일을 찾아요. 찾은 날짜를 직접 확인한 뒤 등록해 주세요.
-      </p>
-      <p className="small muted">
         {urlOnly
-          ? "링크에 적힌 날짜를 찾아요. 외부 AI에 내용을 보내지 않아요. 날짜를 직접 확인한 뒤 등록해 주세요."
-          : "텍스트 자료는 동의한 자료 내용을 Gemini로 분석해요."}
+          ? "링크에 적힌 날짜를 찾아요. 외부 AI에 내용을 보내지 않아요. 찾은 날짜를 직접 확인한 뒤 등록해 주세요."
+          : "동의한 자료 내용을 AI(구글 Gemini)로 분석해 마감일을 찾아요. 찾은 날짜를 직접 확인한 뒤 등록해 주세요."}
       </p>
       {!extracted && (
         <p className="notice">내용을 먼저 불러온 뒤 분석을 시작해 주세요.</p>
@@ -69,7 +66,7 @@ export function SourceAnalyses({
       {extracted && (
         <p className="small muted">
           추출한 자료 내용 {textLength.toLocaleString("ko-KR")}자
-          {!urlOnly && " · 분석 한도 40,000자"}
+          {!urlOnly && textLength > 30000 && " · 분석 한도 40,000자"}
         </p>
       )}
       {!urlOnly && textLength > 40000 && (
@@ -158,23 +155,25 @@ function AnalysisHistory({
           자료 내용을 추출한 뒤 첫 분석을 시작해 보세요.
         </Empty>
       )}
-      <div className="pagination">
-        <button
-          className="secondary"
-          disabled={page === 0}
-          onClick={() => onPage(page - 1)}
-        >
-          이전 기록
-        </button>
-        <span>{page + 1} 페이지</span>
-        <button
-          className="secondary"
-          disabled={(data?.length ?? 0) < 10}
-          onClick={() => onPage(page + 1)}
-        >
-          다음 기록
-        </button>
-      </div>
+      {!(page === 0 && (data?.length ?? 0) < 10) && (
+        <div className="pagination">
+          <button
+            className="secondary"
+            disabled={page === 0}
+            onClick={() => onPage(page - 1)}
+          >
+            이전 기록
+          </button>
+          <span>{page + 1} 페이지</span>
+          <button
+            className="secondary"
+            disabled={(data?.length ?? 0) < 10}
+            onClick={() => onPage(page + 1)}
+          >
+            다음 기록
+          </button>
+        </div>
+      )}
     </>
   );
 }
