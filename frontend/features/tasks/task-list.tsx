@@ -54,8 +54,8 @@ export function TaskList() {
             }
           >
             <option value="all">전체</option>
-            <option value="flexible">유동 작업</option>
-            <option value="fixed">고정 일정</option>
+            <option value="flexible">시간 미정 할 일</option>
+            <option value="fixed">시간이 정해진 일정</option>
           </select>
         </label>
       </div>
@@ -102,7 +102,7 @@ function TaskPage({
         {data?.length ? (
           <TaskRows tasks={data} onUpdated={reload} />
         ) : (
-          <Empty title="표시할 작업이 없습니다">
+          <Empty title="표시할 작업이 없어요">
             새 작업을 등록하거나 필터를 변경해 보세요.
           </Empty>
         )}

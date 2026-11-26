@@ -38,7 +38,7 @@ export function checkedGoogleAuthorizationUrl(value: string): string {
     url.hash
   ) {
     throw new Error(
-      "안전한 Google 인증 주소를 확인하지 못했습니다. 다시 시도해 주세요.",
+      "안전한 구글 계정 확인 주소를 확인하지 못했어요. 다시 시도해 주세요.",
     );
   }
   return url.href;

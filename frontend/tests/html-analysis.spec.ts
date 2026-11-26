@@ -27,14 +27,16 @@ test("HTML analysis is labelled as direct extraction, not AI confidence; review 
     page.getByRole("heading", { name: "마감일 검토", exact: true }),
   ).toBeVisible();
   await expect(
-    page.getByText(/Gemini를 호출하거나 원문을 외부 AI에 전송하지 않습니다/),
+    page.getByText(/Gemini를 호출하거나 자료 내용을 외부 AI에 전송하지 않아요/),
   ).toBeVisible();
   await expect(page.locator(".candidate-evidence")).toContainText(
-    "AI 추정값이 아닙니다",
+    "페이지에 적힌 접수 기간을 그대로 읽어 왔어요.",
   );
-  await expect(page.locator(".candidate-evidence")).not.toContainText("신뢰도");
+  await expect(page.locator(".candidate-evidence")).not.toContainText(
+    "AI 확신 정도",
+  );
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-10-16T23:59");
   await page
     .getByRole("button", { name: "선택한 1개 일정 등록", exact: true })
@@ -42,7 +44,9 @@ test("HTML analysis is labelled as direct extraction, not AI confidence; review 
   await expect(
     page.getByRole("heading", { name: "마감일 등록 완료", exact: true }),
   ).toBeVisible();
-  await expect(page.locator(".candidate-evidence")).not.toContainText("신뢰도");
+  await expect(page.locator(".candidate-evidence")).not.toContainText(
+    "AI 확신 정도",
+  );
   expect(state.deadlines).toHaveLength(1);
   await page.reload();
   await expect(
@@ -84,7 +88,7 @@ test("unresolved HTML periods remain editable review results rather than AI erro
     page.getByRole("region", { name: "분석 주의사항" }),
   ).toContainText("날짜·시간");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),

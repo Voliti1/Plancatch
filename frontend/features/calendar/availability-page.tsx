@@ -61,7 +61,7 @@ const presets = [
 function validateWindows(windows: Window[]) {
   const sorted = [...windows].sort((a, b) => a.start_minutes - b.start_minutes);
   if (sorted.some((window) => window.end_minutes <= window.start_minutes))
-    return "종료 시간은 시작 시간보다 늦어야 합니다.";
+    return "종료 시간은 시작 시간보다 늦어야 해요.";
   if (
     sorted.some(
       (window, i) => i > 0 && sorted[i - 1].end_minutes > window.start_minutes,
@@ -107,7 +107,7 @@ function QuickHours({
             {preset.count === 5 ? "월~금" : "월~일"} {clock(preset.start)}~
             {clock(preset.end)}
             {preset.count === 5 ? " · 주말은 휴식일" : ""}. 적용한 뒤 아래에서
-            저장하면 반영됩니다.
+            저장하면 반영돼요.
           </p>
           <button
             type="button"
@@ -182,7 +182,7 @@ function QuickHours({
             </label>
           </div>
           <p className="small muted">
-            선택한 요일의 기존 시간대를 이 시간으로 교체합니다.
+            선택한 요일의 기존 시간대를 이 시간으로 교체해요.
           </p>
           {error && <ErrorNotice message={error} />}
           <button
@@ -220,9 +220,9 @@ export function AvailabilityPage() {
   return (
     <div className="availability-page">
       <PageHeading
-        eyebrow="WORKING HOURS"
+        eyebrow="작업 가능한 시간"
         title="작업 가능한 시간"
-        description="요일별 기본 시간과 특정 날짜에만 적용할 시간을 저장하세요. 한국 시간 기준입니다."
+        description="요일별 기본 시간과 특정 날짜에만 적용할 시간을 저장하세요. 한국 시간 기준이에요."
         action={
           <Link
             className="button secondary"
@@ -295,7 +295,7 @@ function AvailabilityEditor({
           });
           setDraft(result);
           guard.markSaved(JSON.stringify(result));
-          setMessage("가능 시간을 저장했습니다. 새 미리보기부터 적용됩니다.");
+          setMessage("가능 시간을 저장했어요. 새 미리보기부터 적용돼요.");
         } catch (err) {
           setError(errorMessage(err));
         } finally {
@@ -321,8 +321,8 @@ function AvailabilityEditor({
         <section className="card">
           <h2>요일별 기본 시간</h2>
           <p className="small muted">
-            하루에 시간대를 최대 8개까지 추가할 수 있어요. 종료의 00:00은 그날이
-            끝나는 자정입니다.
+            하루에 시간대를 최대 8개까지 추가할 수 있어요. 종료를 00:00으로
+            입력하면 다음 날 0시까지로 설정돼요.
           </p>
           {draft.weekly.map((entry) => (
             <WindowEditor
@@ -356,8 +356,8 @@ function AvailabilityEditor({
         <section className="card">
           <h2>특정 날짜만 다르게 설정</h2>
           <p className="small muted">
-            추가한 날짜는 요일별 기본 시간 대신 아래 설정을 사용합니다. 쉬는
-            날로 두거나 가능한 시간을 추가하세요. 날짜를 삭제하면 기본 시간으로
+            추가한 날짜는 요일별 기본 시간 대신 아래 설정을 사용해요. 쉬는 날로
+            두거나 가능한 시간을 추가하세요. 날짜를 삭제하면 기본 시간으로
             돌아갑니다.
           </p>
           <div className="availability-add-date">
@@ -375,7 +375,7 @@ function AvailabilityEditor({
               disabled={!day || draft.exceptions.length >= 366}
               onClick={() => {
                 if (draft.exceptions.some((e) => e.date === day)) {
-                  setError("이미 추가한 날짜입니다.");
+                  setError("이미 추가한 날짜예요.");
                   return;
                 }
                 change({
@@ -423,12 +423,12 @@ function AvailabilityEditor({
             </div>
           ))}
           {!draft.exceptions.length && (
-            <p className="small muted">따로 설정한 날짜가 없습니다.</p>
+            <p className="small muted">따로 설정한 날짜가 없어요.</p>
           )}
         </section>
         <section className="card">
           <p className="small muted">
-            이미 등록한 일정은 옮기지 않습니다. 가능 시간을 바꾼 뒤에는 추천
+            이미 등록한 일정은 옮기지 않아요. 가능 시간을 바꾼 뒤에는 추천
             시간을 다시 확인해 주세요.
           </p>
           {error && <ErrorNotice message={error} />}

@@ -4,7 +4,7 @@ import { aiSource, mockAnalyses, readyAnalysis } from "./analysis-fixtures";
 import type { Analysis } from "../types/analysis";
 
 const raw = "2026.11.25 ~11/25(수)";
-const evidence = `마감일 원문: ${raw}`;
+const evidence = `마감일 자료 내용: ${raw}`;
 const source = {
   ...aiSource,
   title: "[테스트] 잡플래닛 채용공고",
@@ -18,7 +18,7 @@ const review: Analysis = {
   ...readyAnalysis,
   model: "html:url:v1",
   input_text: source.extracted_text,
-  warnings: ["잡플래닛 원문에는 마감 날짜만 있고 마감 시각이 없습니다."],
+  warnings: ["잡플래닛 자료 내용에는 마감 날짜만 있고 마감 시각이 없어요."],
   candidates: [
     {
       ...readyAnalysis.candidates[0],
@@ -62,11 +62,11 @@ test("JobPlanet date-only HTML requires a user time before saving and approving"
   await expect(region).toContainText(raw);
   await expect(region).toContainText("마감일 미확정");
   await expect(
-    page.getByText("원문 마감 날짜는 2026-11-25입니다.", { exact: false }),
+    page.getByText("자료 내용 마감 날짜는 2026-11-25이에요.", { exact: false }),
   ).toBeVisible();
   await expect(page.locator(".candidate-evidence")).toContainText(raw);
   await expect(page.locator(".candidate-evidence")).not.toContainText("신뢰도");
-  const dateInput = page.getByLabel("후보 1 마감일 (한국 시간)", {
+  const dateInput = page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", {
     exact: true,
   });
   await expect(dateInput).toHaveValue("");
@@ -126,7 +126,7 @@ test("JobPlanet conflicting date remains empty and cannot be approved", async ({
     [
       {
         ...review,
-        warnings: ["잡플래닛 마감 날짜와 요일이 일치하지 않습니다."],
+        warnings: ["잡플래닛 마감 날짜와 요일이 일치하지 않아요."],
         source_period: { ...review.source_period!, has_conflict: true },
       },
     ],
@@ -138,13 +138,13 @@ test("JobPlanet conflicting date remains empty and cannot be approved", async ({
     page.getByRole("region", { name: "잡플래닛 접수기간" }),
   ).toContainText("충돌");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),
   ).toBeDisabled();
   await expect(
-    page.getByText("원문 마감 날짜는 2026-11-25입니다.", { exact: false }),
+    page.getByText("자료 내용 마감 날짜는 2026-11-25이에요.", { exact: false }),
   ).toHaveCount(0);
 });
 
@@ -160,10 +160,10 @@ test("a blocked JobPlanet source shows access guidance and starts no analysis", 
   await login(page);
   await page.goto("/sources/ai-source");
   await expect(
-    page.getByText("사이트에서 접근을 차단했습니다.", { exact: false }),
+    page.getByText("사이트에서 접근을 차단했어요.", { exact: false }),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "HTML 마감일 확인", exact: true }),
+    page.getByRole("button", { name: "마감일 찾기", exact: true }),
   ).toBeDisabled();
   expect(state.starts).toBe(0);
   expect(state.analyses).toHaveLength(0);

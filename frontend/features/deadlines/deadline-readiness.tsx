@@ -51,7 +51,7 @@ const riskLabels = {
   overdue: "마감 지남",
   insufficient: "시간 부족",
   tight: "여유 적음",
-  feasible: "배치 가능",
+  feasible: "시간 확보 가능",
   attention: "계획 확인",
   unknown: "판단 보류",
 };
@@ -146,7 +146,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
                   : "플랜캐치 일정 기준"}{" "}
                 · 확인 범위 {formatLocal(data.capacity_risk.checked_until)}까지
                 {data.capacity_risk.prerequisite_count > 0 &&
-                  ` · 선행 작업 ${data.capacity_risk.prerequisite_count}개도 확인했습니다.`}
+                  ` · 먼저 끝내야 할 일 ${data.capacity_risk.prerequisite_count}개도 확인했어요.`}
               </p>
             )}
             <dl className="readiness-summary">
@@ -170,7 +170,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
               </div>
               <div>
                 <dt>
-                  {metrics ? "목표 전 유효한 배치" : "목표 전 배치한 시간"}
+                  {metrics ? "마감 전 확보한 시간" : "목표 전 등록한 시간"}
                 </dt>
                 <dd>
                   {metrics
@@ -181,7 +181,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
                 </dd>
               </div>
               <div>
-                <dt>추가 배치할 시간</dt>
+                <dt>추가 등록할 시간</dt>
                 <dd>
                   {metrics
                     ? metrics.to_schedule_minutes === null
@@ -212,13 +212,13 @@ export function DeadlineReadiness({ id }: { id: string }) {
               <summary>계산 기준</summary>
               <p className="small muted">
                 {data.capacity_risk ? (
-                  "저장한 가능 시간·휴무일에서 고정·반복 일정과 확정 배치를 뺀 뒤, 필요한 선행 작업과 각 완료 기한을 확인합니다. 완료 표시하지 않은 작업은 지난 배치만으로 완료로 보지 않습니다. 다른 마감일의 미배치 작업은 선행 작업인 경우에만 포함합니다. 결과는 실제 일정 예약이나 성공 확률이 아니며, 일정을 유지한 상태에서 확인한 범위의 판단입니다."
+                  "작업 가능한 시간에서 이미 잡힌 일정을 빼고, 먼저 끝내야 할 일과 마감일까지 필요한 시간을 확인해요. 다른 마감일의 할 일은 먼저 끝내야 할 때만 포함해요. 지난 일정도 직접 완료로 표시해야 끝낸 일로 계산해요. 이 결과만으로 캘린더에 시간이 저장되지는 않으며, 확인한 범위에서의 예상이에요."
                 ) : (
                   <>
-                    완료 표시되지 않은 할 일은 전체 예상 시간으로 계산합니다.
-                    지난 배치를 작업 완료로 간주하지 않습니다. 배치 시간은
+                    완료 표시되지 않은 할 일은 전체 예상 시간으로 계산해요. 지난
+                    시간 등록을 작업 완료로 간주하지 않아요. 등록한 시간은
                     소요시간을 확인한 할 일만 계산하며, 다른 작업과 구글 개인
-                    일정의 겹침은 이 표시에서 확인하지 않습니다.
+                    일정의 겹침은 이 표시에서 확인하지 않아요.
                   </>
                 )}
               </p>
@@ -227,7 +227,7 @@ export function DeadlineReadiness({ id }: { id: string }) {
               <span className="small muted">
                 확인 시각 {formatLocal(data.assessed_at)}
               </span>
-              <Link href="/planning">할 일 시간 추천받기 →</Link>
+              <Link href="/planning">자동 시간 추천받기 →</Link>
             </div>
           </>
         )

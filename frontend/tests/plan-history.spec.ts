@@ -137,13 +137,13 @@ test("history errors retry and empty filters have no leftover rows", async ({
     return calls === 1
       ? route.fulfill({
           status: 503,
-          json: { detail: "기록을 불러오지 못했습니다." },
+          json: { detail: "기록을 불러오지 못했어요." },
         })
       : route.fulfill({ json: { entries: [], next_cursor: null } });
   });
   await page.goto("/planning/history");
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "기록을 불러오지 못했습니다.",
+    "기록을 불러오지 못했어요.",
   );
   await page.getByRole("button", { name: "새로고침", exact: true }).click();
   await expect(page.getByRole("main")).toContainText(
@@ -200,11 +200,11 @@ test("approved history reopens receipt and current placement management without 
     name: "추천 시간 미리보기",
     exact: true,
   });
-  await expect(result).toContainText("아래는 처음 저장한 시간입니다.");
+  await expect(result).toContainText("아래는 처음 저장한 시간이에요.");
   await result
     .getByLabel("관리할 할 일", { exact: true })
     .selectOption("old-task");
-  await expect(result).toContainText("캘린더에 저장한 시간이 없습니다");
+  await expect(result).toContainText("캘린더에 저장한 시간이 없어요");
   await expect(
     result.getByRole("button", { name: "캘린더에 저장", exact: true }),
   ).toHaveCount(0);
@@ -379,13 +379,13 @@ test("history management edits then deletes an existing placement and refreshes 
   await result
     .getByRole("button", { name: "시간 변경 저장", exact: true })
     .click();
-  await expect(result).toContainText("캘린더에 시간을 저장했습니다.");
+  await expect(result).toContainText("캘린더에 시간을 저장했어요.");
   expect(edits).toBe(1);
   await result.getByRole("button", { name: "시간 삭제", exact: true }).click();
   await result
     .getByRole("button", { name: "시간 삭제 확인", exact: true })
     .click();
-  await expect(result).toContainText("캘린더에 저장한 시간이 없습니다");
+  await expect(result).toContainText("캘린더에 저장한 시간이 없어요");
   expect(deletes).toBe(1);
   await result
     .getByRole("link", { name: "전체 시간 추천 기록 →", exact: true })

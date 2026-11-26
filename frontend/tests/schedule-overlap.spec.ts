@@ -48,7 +48,7 @@ test("a conflict requires an explicit save and double click never creates twice"
   });
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   const warning = page.getByRole("region", {
-    name: "시간이 겹치는 일정이 있습니다",
+    name: "시간이 겹치는 일정이 있어요",
     exact: true,
   });
   await expect(warning).toContainText("기존 주간 회의");
@@ -123,7 +123,7 @@ test("an unavailable check is explicit and can be retried or deliberately bypass
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await expect(
     page.getByRole("heading", {
-      name: "겹치는 일정을 확인하지 못했습니다",
+      name: "겹치는 일정을 확인하지 못했어요",
       exact: true,
     }),
   ).toBeVisible();
@@ -171,7 +171,7 @@ test("an edited existing schedule excludes itself and metadata-only changes do n
     .getByRole("button", { name: "변경 사항 저장", exact: true })
     .click();
   await expect(
-    page.getByText("변경 사항을 저장했습니다.", { exact: true }),
+    page.getByText("변경 사항을 저장했어요.", { exact: true }),
   ).toBeVisible();
   expect(inputs).toHaveLength(0);
   await page.getByRole("button", { name: "일정 수정", exact: true }).click();
@@ -206,13 +206,13 @@ test("truncated results are not presented as a complete conflict-free check", as
   await page.getByRole("button", { name: "일정 등록", exact: true }).click();
   await expect(
     page.getByRole("heading", {
-      name: "일부 일정만 확인했습니다",
+      name: "일부 일정만 확인했어요",
       exact: true,
     }),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "조회 한도에 도달해 일부 일정이나 겹침 내역이 생략됐습니다. 다른 겹침이 있을 수 있습니다.",
+      "조회 한도에 도달해 일부 일정이나 겹침 내역이 생략됐어요. 다른 겹침이 있을 수 있어요.",
       { exact: true },
     ),
   ).toBeVisible();

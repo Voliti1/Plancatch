@@ -74,9 +74,9 @@ export function PlanHistory() {
   return (
     <div className="auto-schedule planning-history">
       <PageHeading
-        eyebrow="TIME SUGGESTION HISTORY"
+        eyebrow="시간 추천 기록"
         title="시간 추천 기록"
-        description="추천받은 시간과 캘린더에 저장한 시간을 다시 확인할 수 있습니다."
+        description="추천받은 시간과 캘린더에 저장한 시간을 다시 확인할 수 있어요."
         action={
           <Link className="button" href="/planning">
             새 시간 찾기
@@ -109,8 +109,8 @@ export function PlanHistory() {
         </div>
         {!empty && (
           <p className="small muted">
-            처음 저장한 시간과 현재 캘린더의 시간을 비교할 수 있습니다. 저장하지
-            않은 추천은 만료된 기록을 포함해 최근 30개까지 보관합니다.
+            처음 저장한 시간과 현재 캘린더의 시간을 비교할 수 있어요. 저장하지
+            않은 추천은 만료된 기록을 포함해 최근 30개까지 보관해요.
           </p>
         )}
         {result.loading ? (
@@ -163,7 +163,7 @@ export function PlanHistory() {
                   </p>
                   {entry.blocked && entry.state !== "approved" && (
                     <p className="notice">
-                      기존 일정을 모두 확인하지 못한 기록입니다. 새 미리보기를
+                      기존 일정을 모두 확인하지 못한 기록이에요. 새 미리보기를
                       만들어 주세요.
                     </p>
                   )}
@@ -228,7 +228,7 @@ export function PlanHistory() {
                 </Link>
               </>
             ) : (
-              <p>해당 상태의 시간 추천 기록이 없습니다.</p>
+              <p>해당 상태의 시간 추천 기록이 없어요.</p>
             )}
           </div>
         )}

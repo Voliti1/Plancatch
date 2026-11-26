@@ -138,8 +138,8 @@ export function DeadlineForm({
             안전 마감일 사용
           </label>
           <p id={safetyHelpId} className="small muted">
-            공식 마감일보다 여유시간만큼 앞선 날짜를 안전 마감으로 저장합니다.
-            1일은 24시간이며, 연결된 작업이나 일정은 자동으로 변경되지 않습니다.
+            공식 마감일보다 여유시간만큼 앞선 날짜를 안전 마감으로 저장해요.
+            1일은 24시간이며, 연결된 작업이나 일정은 자동으로 변경되지 않아요.
           </p>
           {safetyEnabled && (
             <div className="safety-inputs">

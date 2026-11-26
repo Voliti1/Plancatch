@@ -32,7 +32,7 @@ test("linked source rejection in bulk keeps it selected while deleting only an u
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
   await expect(page.getByRole("main").getByRole("alert")).toContainText(
-    "마감일이 등록된 원본 자료는 삭제할 수 없습니다",
+    "마감일이 등록된 자료는 삭제할 수 없어요",
   );
   await expect(blocked).toBeChecked();
   await expect(deletable).toHaveCount(0);

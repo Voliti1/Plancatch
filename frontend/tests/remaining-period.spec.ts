@@ -91,7 +91,7 @@ test("edited draft countdown is provisional and updates to saved or missing date
   await page.clock.install({ time: new Date(now) });
   await page.goto("/analyses/analysis-1");
   await page
-    .getByLabel("후보 1 마감일 (한국 시간)", { exact: true })
+    .getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true })
     .fill("2026-10-14T23:59");
   await expect(page.locator(".remaining-period")).toContainText("수정 중인");
   await expect(page.locator(".remaining-period")).toContainText(
@@ -106,7 +106,9 @@ test("edited draft countdown is provisional and updates to saved or missing date
   await expect(page.locator(".remaining-period")).not.toContainText(
     "수정 중인",
   );
-  await page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }).fill("");
+  await page
+    .getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true })
+    .fill("");
   await expect(page.locator(".remaining-period")).toContainText(
     "마감일 미확정",
   );
@@ -173,7 +175,7 @@ test("initial HTML timer zeros do not show an open deadline as closed", async ({
   const period = page.getByRole("region", { name: "사람인 접수기간" });
   await expect(period).toContainText("19일 0시간 0분 10초");
   await expect(period).not.toContainText("0일 00:00:00");
-  await expect(period).not.toContainText("초기값일 수 있습니다");
+  await expect(period).not.toContainText("초기값일 수 있어요");
   await expect(period).not.toContainText("마감됨");
 });
 
@@ -236,7 +238,7 @@ test("JobKorea uses the HTML deadline clock and keeps the removed snapshot row h
   expect(state.starts).toBe(0);
   expect(state.deadlines).toHaveLength(0);
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 잡코리아 지원");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })

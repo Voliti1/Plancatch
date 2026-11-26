@@ -28,7 +28,7 @@ export function SourceImage({ id }: { id: string }) {
     <section className="card" aria-label="원본 이미지">
       <h2>원본 이미지</h2>
       {failed ? (
-        <p>이미지를 불러오지 못했습니다. 자료 상태를 확인해 주세요.</p>
+        <p>이미지를 불러오지 못했어요. 자료 상태를 확인해 주세요.</p>
       ) : url ? (
         // Authenticated Blob; a public Next image optimizer must never fetch this upload.
         // eslint-disable-next-line @next/next/no-img-element
@@ -38,7 +38,7 @@ export function SourceImage({ id }: { id: string }) {
           alt="등록한 일정 이미지. 아래 추출 결과와 날짜를 비교해 주세요."
         />
       ) : (
-        <p role="status">이미지를 불러오고 있습니다.</p>
+        <p role="status">이미지를 불러오고 있어요.</p>
       )}
     </section>
   );

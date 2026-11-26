@@ -39,8 +39,8 @@ export function KakaoCallback() {
           await kakaoApi.complete(mode, code, state);
           setNotice(
             mode === "calendar"
-              ? "카카오 캘린더를 연결했습니다."
-              : "카카오 로그인 계정을 연결했습니다.",
+              ? "카카오 캘린더를 연결했어요."
+              : "카카오 로그인 계정을 연결했어요.",
           );
         }
       } catch (failure) {
@@ -57,7 +57,7 @@ export function KakaoCallback() {
         {error ? (
           <ErrorNotice message={error} />
         ) : (
-          <p role="status">{notice || "카카오 계정을 확인하고 있습니다…"}</p>
+          <p role="status">{notice || "카카오 계정을 확인하고 있어요…"}</p>
         )}
         {(error || notice) && (
           <Link

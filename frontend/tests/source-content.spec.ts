@@ -10,10 +10,10 @@ const text = [
   "2026 원익그룹 신입 공채 모집",
   "마감일",
   "2026.10.12 23:59",
-  "자격 요건과 근무 조건은 전체 내용에서 확인합니다.",
+  "자격 요건과 근무 조건은 전체 내용에서 확인해요.",
   ...Array.from(
     { length: 100 },
-    (_, index) => `상세 내용 ${index + 1}: 테스트용 긴 원문입니다.`,
+    (_, index) => `상세 내용 ${index + 1}: 테스트용 긴 자료 내용이에요.`,
   ),
   "<script>window.untrustedSource = true</script>",
 ].join("\n");
@@ -37,9 +37,7 @@ async function openSource(
   await mockApi(page, [value]);
   await login(page);
   await page.goto(`/sources/${value.id}`);
-  await expect(
-    page.getByRole("heading", { name: "원본 자료 상세" }),
-  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "자료 상세" })).toBeVisible();
 }
 
 test("summary shows only company and raw deadline without the full text", async ({
@@ -228,7 +226,7 @@ test("empty and not-yet-extracted sources do not offer an empty popup", async ({
 }) => {
   await openSource(page, { ...source, extracted_text: "" });
   await expect(
-    page.getByText("추출된 내용이 없습니다.", { exact: true }),
+    page.getByText("추출된 내용이 없어요.", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "자세히 보기", exact: true }),
@@ -240,7 +238,7 @@ test("empty and not-yet-extracted sources do not offer an empty popup", async ({
   );
   await page.reload();
   await expect(
-    page.getByRole("button", { name: "원문 추출", exact: true }),
+    page.getByRole("button", { name: "내용 불러오기", exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("region", { name: "추출된 내용", exact: true }),
@@ -280,14 +278,14 @@ const cases = [
   },
   {
     name: "unlabelled other dates",
-    text: "오늘 2026.10.06\n설립 2001년 3월\n회사명은 예시일 뿐입니다.\n마감일변경 안내 2026.10.31",
-    company: "원문에서 회사명을 확인하지 못했습니다.",
-    deadline: "원문에서 마감일을 확인하지 못했습니다.",
+    text: "오늘 2026.10.06\n설립 2001년 3월\n회사명은 예시일 뿐이에요.\n마감일변경 안내 2026.10.31",
+    company: "자료 내용에서 회사명을 확인하지 못했어요.",
+    deadline: "자료 내용에서 마감일을 확인하지 못했어요.",
   },
   {
     name: "conflicting standalone companies",
     text: "(주)첫회사\n(주)둘째회사\n마감일: 미정",
-    company: "여러 회사명이 있어 원문 확인이 필요합니다.",
+    company: "여러 회사명이 있어 자료 내용 확인이 필요해요.",
     deadline: "미정",
   },
 ];

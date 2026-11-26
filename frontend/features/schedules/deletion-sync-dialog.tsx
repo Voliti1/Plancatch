@@ -44,7 +44,7 @@ export function DeletionSyncDialog({
           modal.showModal();
         }}
       >
-        Google 캘린더 삭제 상태 보기
+        구글 캘린더 삭제 상태 보기
       </button>
       <dialog
         ref={dialog}
@@ -86,7 +86,7 @@ export function DeletionSyncDialog({
         }}
       >
         <header className="google-deletion-dialog-header">
-          <h2 id={titleId}>Google 캘린더 삭제 상태</h2>
+          <h2 id={titleId}>구글 캘린더 삭제 상태</h2>
           <button
             type="button"
             className="secondary source-dialog-close"

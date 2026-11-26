@@ -109,7 +109,7 @@ test("붙여넣은 캡처는 저장 전 전송하지 않고 저장 후 AI 동의
   await page.getByRole("button", { name: "자료 저장", exact: true }).click();
   await expect(page).toHaveURL(/\/sources\/clipboard-source\/review$/);
   await expect(
-    page.getByRole("button", { name: "동의하고 AI 검토 시작" }),
+    page.getByRole("button", { name: "동의하고 찾은 날짜 확인 시작" }),
   ).toBeDisabled();
   expect(uploads).toBe(1);
   expect(state.starts).toBe(0);
@@ -120,9 +120,9 @@ test("본문과 입력칸에서 이미지 붙여넣기·교체·제거가 동작
 }) => {
   await open(page);
   await page
-    .getByLabel("원본 URL", { exact: true })
+    .getByLabel("웹페이지 링크", { exact: true })
     .fill("https://example.com/job");
-  await page.getByLabel("원본 텍스트", { exact: true }).fill("작성 중인 안내");
+  await page.getByLabel("글 내용", { exact: true }).fill("작성 중인 안내");
   expect(await paste(page, [{ name: "첫 캡처.png", type: "image/png" }])).toBe(
     false,
   );
@@ -137,10 +137,10 @@ test("본문과 입력칸에서 이미지 붙여넣기·교체·제거가 동작
   ).toBe(false);
   await expect(list).toContainText("두번째 캡처.png");
   await expect(list).not.toContainText("첫 캡처.png");
-  await expect(page.getByLabel("원본 URL", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("웹페이지 링크", { exact: true })).toHaveValue(
     "https://example.com/job",
   );
-  await expect(page.getByLabel("원본 텍스트", { exact: true })).toHaveValue(
+  await expect(page.getByLabel("글 내용", { exact: true })).toHaveValue(
     "작성 중인 안내",
   );
   expect(
@@ -165,7 +165,7 @@ for (const invalid of [
     name: "notice.svg",
     type: "image/svg+xml",
     size: 10,
-    error: "HEIC·SVG는 지원하지 않습니다",
+    error: "HEIC·SVG는 지원하지 않아요",
   },
 ])
   test(`잘못된 클립보드 이미지 ${invalid.name}는 기존 선택을 덮지 않는다`, async ({

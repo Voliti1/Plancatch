@@ -13,12 +13,12 @@ type EventFilters = {
 function explain(error: unknown): never {
   if (error instanceof ApiError && error.status === 404)
     throw new ApiError(
-      "일정 배치를 찾을 수 없습니다. 삭제되었거나 접근할 수 없거나 서버 API가 아직 제공되지 않을 수 있습니다.",
+      "일정 시간 등록을 찾을 수 없어요. 삭제되었거나 접근할 수 없거나 서버 API가 아직 제공되지 않을 수 있어요.",
       404,
     );
   if (error instanceof ApiError && error.status === 409)
     throw new ApiError(
-      "동기화된 일정은 이 화면에서 변경할 수 없습니다. 배치 내역을 다시 확인해 주세요.",
+      "동기화된 일정은 이 화면에서 변경할 수 없어요. 시간 등록 내역을 다시 확인해 주세요.",
       409,
     );
   throw error;

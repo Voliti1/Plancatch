@@ -249,7 +249,7 @@ export function TaskForm({
         throw new Error(
           simple
             ? invalidTimeRange
-            : "최종 완료 일시는 가능 시작 일시보다 늦어야 합니다.",
+            : "최종 완료 일시는 가능 시작 일시보다 늦어야 해요.",
         );
       const checkTimes =
         !initial ||
@@ -358,7 +358,7 @@ export function TaskForm({
         <option value="">연결 안 함</option>
         {deadline && !options.data?.some((item) => item.id === deadline) && (
           <option value={deadline}>
-            마감일을 확인할 수 없습니다 — 다시 선택해 주세요
+            마감일을 확인할 수 없어요 — 다시 선택해 주세요
           </option>
         )}
         {options.data?.map((item) => (
@@ -385,8 +385,8 @@ export function TaskForm({
               setScheduleType(event.target.value as ScheduleType)
             }
           >
-            <option value="flexible">유동 작업</option>
-            <option value="fixed">고정 일정</option>
+            <option value="flexible">시간 미정 할 일</option>
+            <option value="fixed">시간이 정해진 일정</option>
           </select>
         </label>
       )}
@@ -517,7 +517,7 @@ export function TaskForm({
       {!isDeadline && options.loading && <Loading />}
       {!isDeadline && options.error && (
         <ErrorNotice
-          message={`마감일 목록을 불러오지 못했습니다. ${options.error}`}
+          message={`마감일 목록을 불러오지 못했어요. ${options.error}`}
           retry={options.reload}
         />
       )}
@@ -616,7 +616,7 @@ export function TaskForm({
             {!canChooseKind && (
               <p className="muted small calendar-task-timezone">
                 {zoneLabel} 기준
-                {initial ? " · 시간은 비워 둘 수 있습니다." : ""}
+                {initial ? " · 시간은 비워 둘 수 있어요." : ""}
               </p>
             )}
             {!isDeadline && durationAndPriority}
@@ -664,8 +664,8 @@ export function TaskForm({
             {settings}
             {times}
             <p className="muted small">
-              가능 기간과 작업 유형을 저장합니다. 고정 일정은 입력한 시작·종료
-              시간으로 캘린더에 표시됩니다.
+              가능 기간과 작업 유형을 저장해요. 시간이 정해진 일정은 입력한
+              시작·종료 시간으로 캘린더에 표시돼요.
             </p>
             {descriptionField}
             {completion}
@@ -682,13 +682,13 @@ export function TaskForm({
           />
         )}
         {initial?.recurrence && (
-          <p className="notice">변경 사항은 이 반복 일정 전체에 적용됩니다.</p>
+          <p className="notice">변경 사항은 이 반복 일정 전체에 적용돼요.</p>
         )}
         {!isDeadline && scheduleType === "flexible" && (
           <p className="notice">
             {withoutTime
               ? "저장 후 이 할 일에 맞는 시간을 추천받을 수 있어요."
-              : "시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면 빈 시간을 추천받을 수 있습니다."}
+              : "시작·종료 일시는 작업이 가능한 기간입니다(선택). 소요시간을 입력하면 빈 시간을 추천받을 수 있어요."}
           </p>
         )}
         {Boolean(initial?.exception_count) && (

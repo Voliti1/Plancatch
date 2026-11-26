@@ -40,7 +40,7 @@ export function moveCalendarEvent(
   if (!end) throw new Error("종료 시간을 확인해 주세요.");
   if (target.kind === "placement") {
     if (target.locked)
-      throw new Error("동기화된 배치 시간을 변경할 수 없습니다.");
+      throw new Error("동기화된 등록한 시간을 변경할 수 없어요.");
     return eventsApi.update(target.id, { start_at: start, end_at: end });
   }
   const changed = { earliest_start: start, latest_end: end };
@@ -52,7 +52,8 @@ export function moveCalendarEvent(
 export function deleteCalendarEvent(target: CalendarTarget) {
   if (target.kind === "deadline") return deadlinesApi.remove(target.id);
   if (target.kind === "placement") {
-    if (target.locked) throw new Error("동기화된 배치를 삭제할 수 없습니다.");
+    if (target.locked)
+      throw new Error("동기화된 시간 등록을 삭제할 수 없어요.");
     return eventsApi.remove(target.id);
   }
   return target.occurrence

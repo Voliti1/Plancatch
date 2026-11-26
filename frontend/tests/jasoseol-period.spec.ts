@@ -6,7 +6,7 @@ import type { Analysis } from "../types/analysis";
 const start = "2026-10-26T18:00:00.000+09:00";
 const end = "2026-11-07T23:50:00.000+09:00";
 const due = "2026-11-07T23:50:00+09:00";
-const evidence = `마감일 원문: ${end}`;
+const evidence = `마감일 자료 내용: ${end}`;
 const source = {
   ...aiSource,
   title: "[테스트] 자소설닷컴 인사직무 채용",
@@ -65,7 +65,7 @@ test("Jasoseol renders 23:50 Seoul, ticks and preserves that instant through tit
   await expect(region).not.toContainText("오후 2:50");
   await expect(region).toContainText("11일 9시간 50분 0초");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("2026-11-07T23:50");
   await expect(page.locator(".candidate-evidence")).toContainText(end);
   await expect(page.locator(".candidate-evidence")).not.toContainText("신뢰도");
@@ -75,7 +75,7 @@ test("Jasoseol renders 23:50 Seoul, ticks and preserves that instant through tit
   expect(state.reads).toBe(1);
   expect(state.deadlines).toHaveLength(0);
   await page
-    .getByLabel("후보 1 제목", { exact: true })
+    .getByLabel("찾은 마감일 1 제목", { exact: true })
     .fill("[테스트] 자소설닷컴 지원 일정");
   await page
     .getByRole("button", { name: "검토 내용 저장", exact: true })
@@ -120,7 +120,7 @@ test("Jasoseol source clock conflicts require user review and never show a defin
     [
       {
         ...review,
-        warnings: ["자소설닷컴 공고의 접수기간 시간대를 확인하지 못했습니다."],
+        warnings: ["자소설닷컴 공고의 접수기간 시간대를 확인하지 못했어요."],
         candidates: [
           { ...review.candidates[0], due_at: null, selected: false },
         ],
@@ -144,7 +144,7 @@ test("Jasoseol source clock conflicts require user review and never show a defin
   await expect(region).toContainText("마감일 미확정");
   await expect(region).not.toContainText("마감일 (한국 시간)");
   await expect(
-    page.getByLabel("후보 1 마감일 (한국 시간)", { exact: true }),
+    page.getByLabel("찾은 마감일 1 마감일 (한국 시간)", { exact: true }),
   ).toHaveValue("");
   await expect(
     page.getByRole("button", { name: "선택한 0개 일정 등록", exact: true }),

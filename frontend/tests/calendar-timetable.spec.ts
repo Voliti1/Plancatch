@@ -102,7 +102,7 @@ test("today and week are 24h timetables, consistent colors and editable hour pre
           ...calendarEvent,
           id: "placed",
           task_id: "placed-task",
-          task_title: "배치 회의",
+          task_title: "시간 등록 회의",
           start_at: "2026-11-02T06:30:00Z",
           end_at: "2026-11-02T07:30:00Z",
         },

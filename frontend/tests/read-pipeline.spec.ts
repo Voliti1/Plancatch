@@ -136,7 +136,7 @@ test("a read with a navigation cancellation signal still has a network timeout",
     await page.goto("/calendar?date=2026-11-01");
     await page.getByRole("button", { name: "월간", exact: true }).click();
     await expect(
-      page.getByRole("alert").filter({ hasText: "서버에 연결하지 못했습니다" }),
+      page.getByRole("alert").filter({ hasText: "연결하지 못했어요" }),
     ).toBeVisible({ timeout: 5000 });
     await expect(
       page.getByRole("button", { name: "새로고침", exact: true }),

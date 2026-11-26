@@ -115,9 +115,9 @@ export function SourceForm({
             ← 대시보드
           </Link>
           <PageHeading
-            eyebrow="NEW SCHEDULE"
+            eyebrow="새 일정"
             title="새 일정 등록"
-            description="자료를 저장하면 바로 원문 추출과 마감일 검토를 이어갑니다."
+            description="자료를 저장하면 바로 내용 불러오기과 마감일 검토를 이어갑니다."
           />
         </>
       )}
@@ -129,10 +129,10 @@ export function SourceForm({
               <span>1</span>일정 입력
             </li>
             <li>
-              <span>2</span>AI 검토
+              <span>2</span>찾은 날짜 확인
             </li>
             <li>
-              <span>3</span>마감일 승인
+              <span>3</span>마감일 등록
             </li>
           </ol>
         </div>
@@ -160,8 +160,8 @@ export function SourceForm({
             />
             <div className="source-registration-fields">
               <section aria-labelledby="source-url-heading">
-                <h3 id="source-url-heading">URL로 추가</h3>
-                <label htmlFor="source-new-url">원본 URL</label>
+                <h3 id="source-url-heading">링크로 추가</h3>
+                <label htmlFor="source-new-url">웹페이지 링크</label>
                 <input
                   id="source-new-url"
                   name="url"
@@ -178,12 +178,12 @@ export function SourceForm({
                   className="text-button"
                   href="/deadlines/auto"
                 >
-                  URL 자동 등록 화면 열기 →
+                  링크에서 마감일 찾기 →
                 </NewRegistrationLink>
               </section>
               <section aria-labelledby="source-text-heading">
-                <h3 id="source-text-heading">텍스트로 추가</h3>
-                <label htmlFor="source-new-text">원본 텍스트</label>
+                <h3 id="source-text-heading">글로 추가</h3>
+                <label htmlFor="source-new-text">글 내용</label>
                 <textarea
                   id="source-new-text"
                   name="text"

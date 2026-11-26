@@ -53,7 +53,7 @@ test("retires the temporary session after forcing a password change", async ({
   await page.getByRole("link", { name: "비밀번호 찾기" }).click();
   await page.getByLabel("가입 이메일").fill(user.email);
   await page.getByRole("button", { name: "임시 비밀번호 받기" }).click();
-  await expect(page.getByRole("status")).toContainText("요청을 받았습니다");
+  await expect(page.getByRole("status")).toContainText("요청을 받았어요");
   await page.getByRole("link", { name: "로그인으로 돌아가기" }).click();
   await page.getByLabel("이메일").fill(user.email);
   await page

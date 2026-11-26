@@ -13,7 +13,7 @@ import {
 } from "react";
 
 export const LEAVE_MESSAGE =
-  "저장하지 않은 내용이 있습니다. 이동하면 작성한 내용이 사라집니다. 이동하시겠습니까?";
+  "저장하지 않은 내용이 있어요. 이동하면 작성한 내용이 사라집니다. 이동할까요?";
 export const DISCARD_NAVIGATION_EVENT = "plancatch:discard-navigation";
 
 interface Guard {
