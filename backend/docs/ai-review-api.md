@@ -43,6 +43,23 @@ Original source edits do not delete analysis history; approval checks the curren
 extracted text hash. Source deletion cascades its analysis history, but existing
 approved deadlines remain under the existing SET NULL policy.
 
+## Yearless dates in directly entered text
+
+For a text Source, an explicitly written month/day without a source year uses the
+analysis creation timestamp's calendar year in Asia/Seoul. The provider receives
+this trusted reference time; the server also resolves supported date/clock evidence
+locally so an invented model year cannot override this default. For example, an
+analysis created on 2026-11-26 resolves `12월 3일 17시에 회식` to
+`2026-12-03T17:00:00+09:00`. The year is calculated at runtime, not hardcoded.
+
+Written years remain authoritative. Past dates are not rolled into next year;
+invalid dates, conflicting weekdays and ambiguous alternatives require review.
+Missing clocks keep the existing 23:59 default and review notice. Only resolved
+missing-year warnings are retired; other warnings and exact original evidence remain.
+URL/PDF/image extraction and image OCR correction keep their existing document-year
+rules. Existing saved analyses and approved deadlines are not rewritten. Explicit
+AI consent, review/approval and duplicate-approval protection remain unchanged.
+
 ## Provider configuration and controls
 
 Set `GEMINI_API_KEY` and `GEMINI_MODEL` in the EC2 backend environment (never in
