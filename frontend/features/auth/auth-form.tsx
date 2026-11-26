@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAuth } from "./provider";
 import { TimeZoneControl } from "@/features/settings/time-zone";
+import { ThemeToggle } from "@/features/settings/theme";
 import { GoogleLoginButton } from "./google-login";
 import { authApi } from "./api";
 import { errorMessage } from "@/lib/api/client";
@@ -80,6 +81,7 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
       <section className="auth-panel">
         <div className="auth-time-zone">
           <TimeZoneControl />
+          <ThemeToggle />
         </div>
         <div className="auth-card">
           <span className="eyebrow">LET’S GET STARTED</span>

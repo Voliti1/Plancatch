@@ -22,7 +22,7 @@ async function mockGoogle(
       contentType: "application/javascript",
       body: `window.google={accounts:{id:{
         initialize(options){this.send=options.callback;},
-        renderButton(el){const b=document.createElement('button');b.textContent='Google로 계속하기';b.onclick=()=>this.send({credential:'test-only-id-token'});el.append(b);}
+        renderButton(el, options){const b=document.createElement('button'); b.textContent='Google로 계속하기'; b.dataset.googleType=options.type; b.dataset.googleTheme=options.theme; b.dataset.googleShape=options.shape;b.onclick=()=>this.send({credential:'test-only-id-token'});el.append(b);}
       }}};`,
     }),
   );
@@ -78,4 +78,36 @@ test("an existing email account supplies its password to link Google and keeps p
   await expect(
     page.getByRole("heading", { name: "비밀번호 변경" }),
   ).toBeVisible();
+});
+
+test("guest theme toggle updates the centered Google icon and persists", async ({
+  page,
+}) => {
+  await mockGoogle(page, false);
+  await page.goto("/login");
+  const google = page.getByRole("button", { name: "Google로 계속하기" });
+  await expect(page.getByText("간편 로그인", { exact: true })).toBeVisible();
+  await expect(google).toHaveAttribute("data-google-type", "icon");
+  await expect(google).toHaveAttribute("data-google-shape", "circle");
+  await expect(google).toHaveAttribute("data-google-theme", "outline");
+  const loginBounds = await page.locator(".auth-card").boundingBox();
+  const buttonBounds = await google.boundingBox();
+  expect(
+    Math.abs(
+      loginBounds!.x +
+        loginBounds!.width / 2 -
+        (buttonBounds!.x + buttonBounds!.width / 2),
+    ),
+  ).toBeLessThan(2);
+
+  await page.getByRole("button", { name: "다크 모드로 전환" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(google).toHaveAttribute("data-google-theme", "outline_dark");
+  await page.getByRole("link", { name: "회원가입" }).click();
+  await expect(page).toHaveURL(/\/signup$/);
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await expect(google).toHaveAttribute("data-google-theme", "outline_dark");
+  await page.getByRole("button", { name: "라이트 모드로 전환" }).click();
+  await expect(google).toHaveAttribute("data-google-theme", "outline");
 });

@@ -4,6 +4,7 @@ import Script from "next/script";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ErrorNotice } from "@/components/feedback";
 import { ApiError } from "@/lib/api/client";
+import { useTheme } from "@/features/settings/theme";
 import { authApi } from "./api";
 import { useAuth } from "./provider";
 import "./google-login.css";
@@ -17,10 +18,11 @@ type GoogleIdentity = {
   renderButton(
     element: HTMLElement,
     options: {
-      theme: "outline";
+      type: "icon";
+      theme: "outline" | "outline_dark";
+      shape: "circle";
       size: "large";
       text: "continue_with";
-      width: number;
       locale: "ko";
     },
   ): void;
@@ -44,6 +46,7 @@ const errors: Record<string, string> = {
 
 export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
   const { loginGoogle } = useAuth();
+  const theme = useTheme();
   const holder = useRef<HTMLDivElement>(null);
   const pending = useRef(false);
   const active = useRef(false);
@@ -110,21 +113,27 @@ export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
 
   useEffect(() => {
     const api = identity();
-    const node = holder.current;
-    if (!challenge || !sdkReady || !api || !node || retry) return;
+    if (!challenge || !sdkReady || !api || retry) return;
     api.initialize({
       ...challenge,
       callback: ({ credential: token }) => void submit(token),
     });
+  }, [challenge, sdkReady, retry, submit]);
+
+  useEffect(() => {
+    const api = identity();
+    const node = holder.current;
+    if (!challenge || !sdkReady || !api || !node || retry) return;
     api.renderButton(node, {
-      theme: "outline",
+      type: "icon",
+      theme: theme === "dark" ? "outline_dark" : "outline",
+      shape: "circle",
       size: "large",
       text: "continue_with",
       locale: "ko",
-      width: Math.min(320, Math.floor(node.clientWidth)),
     });
     return () => node.replaceChildren();
-  }, [challenge, sdkReady, retry, submit]);
+  }, [challenge, sdkReady, retry, theme]);
 
   if (!challenge) return null;
   function restart() {
@@ -148,10 +157,15 @@ export function GoogleLoginButton({ blocked }: { blocked: boolean }) {
         }}
       />
       <div
-        ref={holder}
-        inert={blocked || submitting || Boolean(credential) || retry}
-        hidden={retry || Boolean(credential)}
-      />
+        className="google-login-options"
+        hidden={retry || Boolean(credential) || !sdkReady}
+      >
+        <p className="google-login-divider">간편 로그인</p>
+        <div
+          ref={holder}
+          inert={blocked || submitting || Boolean(credential) || retry}
+        />
+      </div>
       {submitting && (
         <p className="small muted" role="status">
           Google 계정을 확인하는 중…
