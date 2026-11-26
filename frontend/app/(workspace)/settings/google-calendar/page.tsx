@@ -1,5 +1,5 @@
-import { GoogleCalendarConnectionPage } from "@/features/google-calendar/connection-page";
+import { redirect } from "next/navigation";
 
-export default function GoogleCalendarSettingsPage() {
-  return <GoogleCalendarConnectionPage />;
+export default function LegacyGoogleCalendarPage() {
+  redirect("/settings/connections#google");
 }

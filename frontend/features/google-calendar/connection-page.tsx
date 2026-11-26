@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { PageHeading } from "@/components/page-heading";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
@@ -9,9 +8,7 @@ import { checkedGoogleAuthorizationUrl, googleCalendarApi } from "./api";
 import { ManagedExports } from "./managed-exports";
 import "./connection-page.css";
 
-export function GoogleCalendarConnectionPage({
-  embedded = false,
-}: { embedded?: boolean } = {}) {
+export function GoogleCalendarConnection() {
   const status = useResource(googleCalendarApi.status);
   const { reload } = status;
   const [busy, setBusy] = useState(false);
@@ -92,20 +89,16 @@ export function GoogleCalendarConnectionPage({
 
   return (
     <>
-      {!embedded && (
-        <PageHeading
-          eyebrow="GOOGLE CALENDAR"
-          title="구글 캘린더 연결"
-          description="Google 계정을 연결하면 이후 플랜캐치에서 등록·수정·삭제하는 일정이 Google 캘린더에 자동으로 반영됩니다."
-        />
-      )}
       <section
-        className={embedded ? "settings-calendar-inline" : "card form-card"}
+        id="google"
+        className="card form-card"
         aria-label="구글 계정 연결 설정"
       >
-        {!embedded && <h2>Google Calendar 계정</h2>}
+        <h2>구글 캘린더 연결</h2>
         <p className="muted">
-          다른 앱에서 만든 Google 일정은 변경하지 않습니다.
+          Google 계정을 연결하면 이후 플랜캐치에서 등록·수정·삭제하는 일정이
+          Google 캘린더에 자동으로 반영됩니다. 다른 앱에서 만든 Google 일정은
+          변경하지 않습니다.
         </p>
         {status.loading && <Loading />}
         {status.error && (

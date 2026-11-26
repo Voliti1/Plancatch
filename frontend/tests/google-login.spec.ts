@@ -59,10 +59,10 @@ test("Google-only accounts can sign in and do not show password changes", async 
   ).toHaveCount(0);
   await expect(
     settings.getByText("구글 캘린더 연결", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     settings.getByText("카카오 캘린더 연결", { exact: true }),
-  ).toBeVisible();
+  ).toHaveCount(0);
   await expect(
     settings.getByRole("heading", { name: "비밀번호 변경" }),
   ).toHaveCount(0);
