@@ -1772,3 +1772,6 @@ textarea {
   background: #b42333;
   color: white;
 }
+.account-delete .account-delete-start {
+  border-color: #d14343;
+}
