@@ -24,12 +24,21 @@ import {
 } from "@/features/google-calendar/reminder-settings";
 import { newReminderSettings } from "@/types/google-reminders";
 
+import { SafetyBufferSettings } from "@/features/deadlines/safety-buffer-settings";
+import {
+  parseSafetyBuffer,
+  splitSafetyBuffer,
+  type SafetyBufferParts,
+} from "@/features/deadlines/safety-buffer";
+
 type Draft = {
   id: string;
   title: string;
   due: string;
   description: string;
   selected: boolean;
+  safetyEnabled: boolean;
+  safetyParts: SafetyBufferParts;
   chosenDue?: string;
   suggestionTouched?: boolean;
 };
@@ -39,6 +48,8 @@ const draftOf = (candidate: AnalysisCandidate, zone: string): Draft => ({
   due: candidate.due_at ? localInput(candidate.due_at, zone) : "",
   description: candidate.description ?? "",
   selected: candidate.selected,
+  safetyEnabled: candidate.safety_buffer_minutes != null,
+  safetyParts: splitSafetyBuffer(candidate.safety_buffer_minutes ?? null),
 });
 function suggestedDraftOf(candidate: AnalysisCandidate, zone: string): Draft {
   const draft = draftOf(candidate, zone);
@@ -69,6 +80,9 @@ function payloadOf(
           : zonedInputToUtc(draft.due, zone),
     description: draft.description.trim() || null,
     selected: draft.selected,
+    safety_buffer_minutes: draft.safetyEnabled
+      ? parseSafetyBuffer(draft.safetyParts)
+      : null,
   };
 }
 export function CandidateEvidence({
@@ -388,6 +402,14 @@ export function ReviewEditor({
                 dueAt={countdownDate}
                 now={now}
                 editing={dateChanged}
+              />
+              <SafetyBufferSettings
+                safetyEnabled={draft.safetyEnabled}
+                safetyParts={draft.safetyParts}
+                onEnabledChange={(safetyEnabled) =>
+                  update(index, { safetyEnabled })
+                }
+                onPartsChange={(safetyParts) => update(index, { safetyParts })}
               />
               <label htmlFor={`${formId}-${index}-description`}>
                 찾은 마감일 {index + 1} 설명 (선택)

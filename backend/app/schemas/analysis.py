@@ -14,6 +14,7 @@ from pydantic import (
 )
 
 from app.schemas.google_reminders import GoogleReminders, default_reminders
+from app.services.deadline_safety import calculate_safe_due_at
 from app.services.saramin_period import read_period
 
 
@@ -83,6 +84,7 @@ class Candidate(FileProposal):
     selected: bool
     time_defaulted: bool = False
     suggested_due_at: AwareDatetime | None = None
+    safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
 
 
 class CandidateEdit(BaseModel):
@@ -92,6 +94,13 @@ class CandidateEdit(BaseModel):
     due_at: AwareDatetime | None
     description: str | None = Field(default=None, max_length=2000)
     selected: bool
+    safety_buffer_minutes: int | None = Field(default=None, strict=True, gt=0, le=2147483647)
+
+    @model_validator(mode="after")
+    def validate_safety_deadline(self) -> "CandidateEdit":
+        if self.due_at is not None:
+            calculate_safe_due_at(self.due_at, self.safety_buffer_minutes)
+        return self
 
     @field_validator("title")
     @classmethod
