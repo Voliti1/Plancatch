@@ -288,7 +288,7 @@ export function AccountControls({
             {!deleteStep ? (
               <button
                 type="button"
-                className="secondary"
+                className="secondary account-delete-start"
                 disabled={busy || profileBusy}
                 onClick={() => setDeleteStep(true)}
               >
