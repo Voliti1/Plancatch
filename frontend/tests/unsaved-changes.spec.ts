@@ -1,3 +1,4 @@
+import { deadlineField } from "./deadline-editor";
 import { sourceInput } from "./source-input";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
@@ -268,9 +269,9 @@ test("deadline edits are protected, saving clears the warning, and logout asks b
   await mockApi(page, [], { deadlines: [deadline] });
   await login(page);
   await page.goto("/deadlines/" + deadline.id);
-  await page
-    .getByLabel("마감 제목", { exact: true })
-    .fill("[테스트] 수정한 마감");
+  await (
+    await deadlineField(page, "마감 제목", { exact: true })
+  ).fill("[테스트] 수정한 마감");
   await confirmMove(page, false, () => sources(page).click());
   await page
     .getByRole("button", { name: "변경 사항 저장", exact: true })

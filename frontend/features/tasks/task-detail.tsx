@@ -5,12 +5,14 @@ import { useRouter } from "next/navigation";
 import { useCallback, useRef, useState } from "react";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
+import { CategoryBadge } from "@/components/category-badge";
 import { errorMessage } from "@/lib/api/client";
 import { useResource } from "@/lib/api/use-resource";
 import { tasksApi } from "./api";
 import { TaskForm } from "./task-form";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 import "./schedule-overview.css";
+import "./detail-pages.css";
 import { reminderSummary } from "@/features/google-calendar/reminder-settings";
 import { recurrenceSummary } from "./recurrence-settings";
 export function TaskDetail({
@@ -25,6 +27,12 @@ export function TaskDetail({
   const { data, error, loading, reload } = useResource(loader);
   const startsAt = data?.placement?.start_at ?? data?.earliest_start;
   const endsAt = data?.placement?.end_at ?? data?.latest_end;
+  const hasReminder = Boolean(
+    data?.google_reminders &&
+    (data.google_reminders.mode === "default" ||
+      (data.google_reminders.mode === "custom" &&
+        data.google_reminders.overrides.length > 0)),
+  );
   const router = useRouter();
   const [editing, setEditing] = useState(startEditing);
   const [saved, setSaved] = useState("");
@@ -40,9 +48,28 @@ export function TaskDetail({
     setSaved("");
     try {
       await tasksApi.remove(id);
-      router.replace("/tasks");
+      router.replace("/deadlines");
     } catch (err) {
       setMutationError(errorMessage(err));
+      pending.current = false;
+      setBusy(false);
+    }
+  }
+  async function toggleComplete() {
+    if (!data || pending.current || editing || confirmDelete) return;
+    pending.current = true;
+    setBusy(true);
+    setMutationError("");
+    setSaved("");
+    try {
+      await tasksApi.update(id, { is_completed: !data.is_completed });
+      setSaved(
+        data.is_completed ? "미완료로 변경했어요." : "완료로 표시했어요.",
+      );
+      reload();
+    } catch (err) {
+      setMutationError(errorMessage(err));
+    } finally {
       pending.current = false;
       setBusy(false);
     }
@@ -50,10 +77,9 @@ export function TaskDetail({
   return (
     <>
       <div className="schedule-detail-navigation">
-        <Link className="back-link" href="/dashboard">
-          ← 대시보드
+        <Link className="back-link" href="/deadlines">
+          ← 마감일·할 일 목록
         </Link>
-        <Link href="/deadlines">전체 일정 보기 →</Link>
       </div>
       <PageHeading
         eyebrow="일정 상세"
@@ -72,16 +98,37 @@ export function TaskDetail({
                 {saved}
               </p>
             )}
+            {mutationError && !confirmDelete && (
+              <ErrorNotice message={mutationError} />
+            )}
             <section className="card form-card task-detail schedule-detail">
-              <div className="section-header">
-                <span className={`tag ${data.is_completed ? "confirmed" : ""}`}>
-                  {data.is_completed ? "완료" : "미완료"}
-                </span>
-                <span className="tag">
-                  {data.schedule_type === "fixed"
-                    ? "시간이 정해진 일정"
-                    : "시간 미정 할 일"}
-                </span>
+              <div className="detail-summary-heading">
+                <div className="detail-badges">
+                  <span
+                    className={`tag ${data.is_completed ? "confirmed" : ""}`}
+                  >
+                    {data.is_completed ? "완료" : "미완료"}
+                  </span>
+                  <span className="tag">
+                    {data.schedule_type === "fixed"
+                      ? "시간이 정해진 일정"
+                      : "시간 미정 할 일"}
+                  </span>
+                  <CategoryBadge value={data.category} />
+                </div>
+                {!editing && (
+                  <button
+                    className="secondary"
+                    disabled={busy || confirmDelete}
+                    onClick={() => void toggleComplete()}
+                  >
+                    {busy && !confirmDelete
+                      ? "변경 중…"
+                      : data.is_completed
+                        ? "미완료로 변경"
+                        : "완료 처리"}
+                  </button>
+                )}
               </div>
               <h2>{data.title}</h2>
               {data.series_id && (
@@ -211,26 +258,36 @@ export function TaskDetail({
                         </span>
                       )}
                     </p>
+                    {!data.recurrence && (
+                      <p className="small">
+                        반복: {recurrenceSummary(data.recurrence)}
+                      </p>
+                    )}
+                    {!hasReminder && (
+                      <p className="small">
+                        구글 캘린더 알림:{" "}
+                        {reminderSummary(data.google_reminders)}
+                      </p>
+                    )}
                   </details>
-                  <p className="small">
-                    반복: {recurrenceSummary(data.recurrence)}
-                  </p>
                   {data.recurrence && (
-                    <p className="small muted">
-                      개별 변경·삭제 {data.exception_count ?? 0}회. 종료일을
-                      앞당기면 그 이후의 개별 변경도 함께 제외돼요.
+                    <>
+                      <p className="small">
+                        반복: {recurrenceSummary(data.recurrence)}
+                      </p>
+                      {data.recurrence && (
+                        <p className="small muted">
+                          개별 변경·삭제 {data.exception_count ?? 0}회. 종료일을
+                          앞당기면 그 이후의 개별 변경도 함께 제외돼요.
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {hasReminder && (
+                    <p className="small">
+                      구글 캘린더 알림: {reminderSummary(data.google_reminders)}
                     </p>
                   )}
-                  <p className="small">
-                    구글 캘린더 알림: {reminderSummary(data.google_reminders)}
-                  </p>
-                  <p className="muted small schedule-window-note">
-                    {data.placement
-                      ? "캘린더에 저장된 등록한 시간이에요."
-                      : data.schedule_type === "fixed"
-                        ? "입력한 시작·종료 시간으로 캘린더에 표시돼요."
-                        : "시간 미정 할 일의 가능 기간이에요. 시간이 정해진 일정으로 바꾸면 입력한 시간에 캘린더에 표시돼요."}
-                  </p>
                   <div className="form-actions">
                     {data.schedule_type === "flexible" &&
                       !data.is_completed &&
@@ -314,7 +371,9 @@ export function TaskDetail({
                 )}
               </section>
             )}
-            {mutationError && <ErrorNotice message={mutationError} />}
+            {mutationError && confirmDelete && (
+              <ErrorNotice message={mutationError} />
+            )}
           </>
         )
       )}
