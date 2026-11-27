@@ -521,3 +521,90 @@ def test_auto_registration_owner_revision_and_consent_protection():
     del payload["confirm_auto_registration"]
     assert client.post(path, headers=headers, json=payload).status_code == 422
     assert client.get("/api/deadlines", headers=headers).json() == []
+
+@pytest.mark.parametrize("buffer", [None, 1, 1640, 2147483647])
+def test_review_safety_buffer_persists_and_approval_is_idempotent(buffer):
+    analysis, _, headers = ready_analysis()
+    path = f"/api/ai-analyses/{analysis['id']}"
+    payload = edit_payload(analysis)
+    # Far-future official date permits even the largest valid elapsed buffer.
+    payload['candidates'][0].update(due_at='9999-12-31T12:00:45+00:00', safety_buffer_minutes=buffer)
+    reviewed = client.patch(path, headers=headers, json=payload)
+    assert reviewed.status_code == 200
+    assert client.get(path, headers=headers).json()['candidates'][0]['safety_buffer_minutes'] == buffer
+    # An older client that does not know the optional field must not erase it.
+    older = client.patch(path, headers=headers, json=edit_payload(reviewed.json()))
+    assert older.status_code == 200
+    assert older.json()['candidates'][0]['safety_buffer_minutes'] == buffer
+    approved = client.post(path + '/approve', headers=headers, json={'revision': 3})
+    assert approved.status_code == 200
+    did = approved.json()['approved_deadline_ids'][0]
+    saved = client.get(f'/api/deadlines/{did}', headers=headers).json()
+    from datetime import datetime, timedelta
+    assert saved['safety_buffer_minutes'] == buffer
+    expected = (datetime.fromisoformat(saved['due_at']) - timedelta(minutes=buffer)).isoformat() if buffer else None
+    assert (datetime.fromisoformat(saved['safe_due_at']).isoformat() if saved['safe_due_at'] else None) == expected
+    assert client.post(path + '/approve', headers=headers, json={'revision': 3}).json()['approved_deadline_ids'] == [did]
+    assert len(client.get('/api/deadlines', headers=headers).json()) == 1
+
+
+@pytest.mark.parametrize('buffer', [0, -1, 1.5, True, '60', 2147483648])
+def test_invalid_review_safety_buffer_is_rejected_without_saving(buffer):
+    analysis, _, headers = ready_analysis()
+    payload = edit_payload(analysis)
+    payload['candidates'][0]['safety_buffer_minutes'] = buffer
+    path = f"/api/ai-analyses/{analysis['id']}"
+    assert client.patch(path, headers=headers, json=payload).status_code == 422
+    assert client.get(path, headers=headers).json()['revision'] == 1
+    assert client.get('/api/deadlines', headers=headers).json() == []
+
+
+def test_review_safety_buffer_can_be_disabled_and_checks_preserved_buffer_date_range():
+    analysis, _, headers = ready_analysis()
+    path = f"/api/ai-analyses/{analysis['id']}"
+    payload = edit_payload(analysis)
+    payload['candidates'][0]['safety_buffer_minutes'] = 1440
+    saved = client.patch(path, headers=headers, json=payload).json()
+    incompatible = edit_payload(saved)
+    incompatible['candidates'][0]['due_at'] = '0001-01-01T00:00:00Z'
+    assert client.patch(path, headers=headers, json=incompatible).status_code == 422
+    assert client.get(path, headers=headers).json()['revision'] == 2
+    disabled = edit_payload(saved)
+    disabled['candidates'][0]['safety_buffer_minutes'] = None
+    assert client.patch(path, headers=headers, json=disabled).status_code == 200
+    approved = client.post(path + '/approve', headers=headers, json={'revision': 3}).json()
+    result = client.get('/api/deadlines/' + approved['approved_deadline_ids'][0], headers=headers).json()
+    assert result['safety_buffer_minutes'] is None and result['safe_due_at'] is None
+
+
+def test_each_review_candidate_has_its_own_safety_buffer(monkeypatch):
+    monkeypatch.setattr(service, 'analyze_text', lambda *_: ProviderResult(
+        deadlines=[PROPOSAL, dict(PROPOSAL, title='second'), dict(PROPOSAL, title='excluded')], warnings=[]))
+    analysis, _, headers = ready_analysis()
+    path = f"/api/ai-analyses/{analysis['id']}"
+    payload = edit_payload(analysis)
+    for item, buffer in zip(payload['candidates'], [60, 1440, 120]):
+        item['safety_buffer_minutes'] = buffer
+    payload['candidates'][2]['selected'] = False
+    assert client.patch(path, headers=headers, json=payload).status_code == 200
+    assert client.post(path + '/approve', headers=headers, json={'revision': 2}).status_code == 200
+    saved = client.get('/api/deadlines', headers=headers).json()
+    assert len(saved) == 2
+    assert sorted(x['safety_buffer_minutes'] for x in saved) == [60, 1440]
+
+
+def test_review_safety_addition_preserves_existing_description_omission_contract():
+    analysis, _, headers = ready_analysis()
+    path = f"/api/ai-analyses/{analysis['id']}"
+    payload = edit_payload(analysis)
+    payload['candidates'][0].pop('description')
+    payload['candidates'][0]['safety_buffer_minutes'] = 60
+    reviewed = client.patch(path, headers=headers, json=payload)
+    assert reviewed.status_code == 200
+    assert reviewed.json()['candidates'][0]['description'] is None
+    old_payload = edit_payload(reviewed.json())
+    old_payload['candidates'][0].pop('description')
+    result = client.patch(path, headers=headers, json=old_payload)
+    assert result.status_code == 200
+    assert result.json()['candidates'][0]['safety_buffer_minutes'] == 60
+    assert result.json()['candidates'][0]['description'] is None

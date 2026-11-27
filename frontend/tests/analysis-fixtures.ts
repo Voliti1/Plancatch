@@ -127,6 +127,7 @@ export async function mockAnalyses(
           "description",
           "due_at",
           "id",
+          "safety_buffer_minutes",
           "selected",
           "title",
         ]),
@@ -147,8 +148,13 @@ export async function mockAnalyses(
           source_id: aiSource.id,
           title: candidate.title,
           due_at: candidate.due_at!,
-          safety_buffer_minutes: null,
-          safe_due_at: null,
+          safety_buffer_minutes: candidate.safety_buffer_minutes ?? null,
+          safe_due_at: candidate.safety_buffer_minutes
+            ? new Date(
+                Date.parse(candidate.due_at!) -
+                  candidate.safety_buffer_minutes * 60000,
+              ).toISOString()
+            : null,
           description: candidate.description,
           confidence: candidate.confidence,
           evidence_text: candidate.evidence_text,

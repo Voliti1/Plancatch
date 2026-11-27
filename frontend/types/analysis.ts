@@ -6,6 +6,7 @@ export interface CandidateEdit {
   due_at: string | null;
   description: string | null;
   selected: boolean;
+  safety_buffer_minutes?: number | null;
 }
 export interface AnalysisCandidate extends CandidateEdit {
   evidence_text: string;
