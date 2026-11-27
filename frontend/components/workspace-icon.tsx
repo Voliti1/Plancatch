@@ -7,9 +7,19 @@ export type WorkspaceIconName =
   | "timer"
   | "inbox"
   | "google-calendar"
+  | "plus"
+  | "more"
   | "upload";
 
 const shapes: Record<WorkspaceIconName, ReactNode> = {
+  plus: <path d="M12 5v14M5 12h14" />,
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1" />
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="19" cy="12" r="1" />
+    </>
+  ),
   dashboard: (
     <>
       <rect x="3" y="3" width="7" height="7" rx="1.5" />

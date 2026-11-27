@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { useAuth } from "@/features/auth/provider";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { NewRegistrationLink } from "@/features/deadlines/new-registration-link";
@@ -33,6 +33,94 @@ const navGroups = [
   },
 ];
 
+function isCurrent(href: string, path: string) {
+  return (
+    path !== "/sources/new" &&
+    (path.startsWith(href) ||
+      (href === "/sources" && path.startsWith("/analyses/")) ||
+      (href === "/settings/google-calendar" &&
+        path.startsWith("/settings/connections")) ||
+      (href === "/deadlines" && path.startsWith("/tasks")))
+  );
+}
+
+function MobileMore({
+  path,
+  onLogout,
+}: {
+  path: string;
+  onLogout: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const container = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const panelId = useId();
+  useEffect(() => {
+    if (!open) return;
+    function outside(event: PointerEvent) {
+      if (
+        event.target instanceof Node &&
+        !container.current?.contains(event.target)
+      )
+        setOpen(false);
+    }
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  return (
+    <div
+      className="mobile-more"
+      ref={container}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.preventDefault();
+          setOpen(false);
+          button.current?.focus();
+        }
+      }}
+    >
+      <button
+        ref={button}
+        type="button"
+        className="account-icon"
+        aria-label="더보기"
+        aria-expanded={open}
+        aria-controls={panelId}
+        onClick={() => setOpen((value) => !value)}
+      >
+        <WorkspaceIcon name="more" />
+      </button>
+      <div
+        id={panelId}
+        className="mobile-more-panel"
+        hidden={!open}
+        role="group"
+        aria-label="추가 메뉴"
+      >
+        <Link
+          href="/planning"
+          aria-current={isCurrent("/planning", path) ? "page" : undefined}
+        >
+          <WorkspaceIcon name="timer" />
+          자동 시간 추천
+        </Link>
+        <Link
+          href="/settings/google-calendar"
+          aria-current={
+            isCurrent("/settings/google-calendar", path) ? "page" : undefined
+          }
+        >
+          <WorkspaceIcon name="google-calendar" />
+          구글 캘린더
+        </Link>
+        <button type="button" className="text-button" onClick={onLogout}>
+          로그아웃 ↗
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function WorkspaceLayout({
   children,
 }: {
@@ -44,6 +132,11 @@ export default function WorkspaceLayout({
   const path = usePathname();
   const { confirmLeave } = useUnsavedNavigation();
   const isNewRegistration = path === "/sources/new";
+  function exit() {
+    if (!confirmLeave()) return;
+    logout();
+    router.replace("/login");
+  }
   useEffect(() => {
     if (!loading && !user && !error) router.replace("/login");
   }, [loading, user, error, router]);
@@ -77,16 +170,7 @@ export default function WorkspaceLayout({
                 <Link
                   key={href}
                   href={href}
-                  aria-current={
-                    !isNewRegistration &&
-                    (path.startsWith(href) ||
-                      (href === "/sources" && path.startsWith("/analyses/")) ||
-                      (href === "/settings/google-calendar" &&
-                        path.startsWith("/settings/connections")) ||
-                      (href === "/deadlines" && path.startsWith("/tasks")))
-                      ? "page"
-                      : undefined
-                  }
+                  aria-current={isCurrent(href, path) ? "page" : undefined}
                 >
                   <WorkspaceIcon name={icon} />
                   {label}
@@ -101,16 +185,10 @@ export default function WorkspaceLayout({
             email={user.email}
           />
           <span>{user.email}</span>
-          <button
-            className="text-button"
-            onClick={() => {
-              if (!confirmLeave()) return;
-              logout();
-              router.replace("/login");
-            }}
-          >
+          <button className="text-button" onClick={exit}>
             로그아웃 ↗
           </button>
+          <MobileMore key={path} path={path} onLogout={exit} />
         </div>
       </aside>
       <div className="main-wrap">
@@ -123,6 +201,45 @@ export default function WorkspaceLayout({
         </main>
         <footer>플랜캐치 · 계획을 모으고, 마감을 지키다.</footer>
       </div>
+      <nav className="mobile-tabbar" aria-label="주 메뉴">
+        <Link
+          href="/dashboard"
+          aria-current={isCurrent("/dashboard", path) ? "page" : undefined}
+        >
+          <WorkspaceIcon name="dashboard" />
+          <span>대시보드</span>
+        </Link>
+        <Link
+          href="/calendar"
+          aria-current={isCurrent("/calendar", path) ? "page" : undefined}
+        >
+          <WorkspaceIcon name="calendar" />
+          <span>캘린더</span>
+        </Link>
+        <NewRegistrationLink
+          className="mobile-tabbar-registration"
+          aria-label="+ 새 일정 등록하기"
+          aria-current={isNewRegistration ? "page" : undefined}
+        >
+          <WorkspaceIcon name="plus" />
+          <span>등록</span>
+        </NewRegistrationLink>
+        <Link
+          href="/deadlines"
+          aria-label="마감일·할 일"
+          aria-current={isCurrent("/deadlines", path) ? "page" : undefined}
+        >
+          <WorkspaceIcon name="checklist" />
+          <span>일정</span>
+        </Link>
+        <Link
+          href="/sources"
+          aria-current={isCurrent("/sources", path) ? "page" : undefined}
+        >
+          <WorkspaceIcon name="inbox" />
+          <span>자료함</span>
+        </Link>
+      </nav>
     </div>
   );
 }

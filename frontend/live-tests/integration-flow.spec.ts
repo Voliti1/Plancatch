@@ -1,4 +1,5 @@
 import { deadlineField } from "../tests/deadline-editor";
+import { logoutButton } from "../tests/workspace-navigation";
 import { sourceInput } from "../tests/source-input";
 import { randomBytes } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
@@ -376,7 +377,7 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
       "Live integration: owned synthetic sources and schedules removed; dedicated test account remains",
     );
   }
-  await page.getByRole("button", { name: "로그아웃 ↗", exact: true }).click();
+  await (await logoutButton(page)).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(
     await page.evaluate(() => sessionStorage.getItem("plancatch.access_token")),
