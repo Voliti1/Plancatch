@@ -1,3 +1,5 @@
+import { deadlineField } from "./deadline-editor";
+import { logoutButton } from "./workspace-navigation";
 import { sourceInput } from "./source-input";
 import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
@@ -30,7 +32,7 @@ test("protected routes, signup, login restore and logout", async ({ page }) => {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
-  await page.getByRole("button", { name: "로그아웃" }).click();
+  await (await logoutButton(page)).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(
     await page.evaluate(() => sessionStorage.getItem("plancatch.access_token")),
@@ -89,19 +91,23 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
   expect((await sent).postDataJSON().due_at).toBe("2026-10-01T00:30:00.000Z");
   await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
   await expect(page.getByRole("heading", { name: "일정 상세" })).toBeVisible();
-  await expect(page.getByLabel("마감 일시 (한국 시간)")).toHaveValue(
+  await expect(await deadlineField(page, "마감 일시 (한국 시간)")).toHaveValue(
     "2026-10-01T09:30",
   );
-  await page.getByLabel("마감 제목").fill("최종 발표 수정");
-  await page.getByLabel("확인한 마감일로 표시").check();
-  await expect(page.getByLabel("마감 제목")).toHaveValue("최종 발표 수정");
+  await (await deadlineField(page, "마감 제목")).fill("최종 발표 수정");
+  await (await deadlineField(page, "확인한 마감일로 표시")).check();
+  await expect(await deadlineField(page, "마감 제목")).toHaveValue(
+    "최종 발표 수정",
+  );
   const update = page.waitForRequest((r) => r.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await update).postDataJSON().title).toBe("최종 발표 수정");
   await expect(page.getByText("변경 사항을 저장했어요.")).toBeVisible();
   await page.reload();
-  await expect(page.getByLabel("마감 제목")).toHaveValue("최종 발표 수정");
-  await expect(page.getByLabel("확인한 마감일로 표시")).toBeChecked();
+  await expect(await deadlineField(page, "마감 제목")).toHaveValue(
+    "최종 발표 수정",
+  );
+  await expect(await deadlineField(page, "확인한 마감일로 표시")).toBeChecked();
   await page.screenshot({
     path: test.info().outputPath("deadline-detail.png"),
     fullPage: true,
@@ -111,6 +117,10 @@ test("deadline create, Seoul conversion, edit and delete", async ({ page }) => {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
+  await page
+    .getByRole("region", { name: "마감일 요약", exact: true })
+    .getByRole("button", { name: "취소", exact: true })
+    .click();
   await page.getByRole("button", { name: "삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인" }).click();
   await expect(page).toHaveURL(/\/deadlines$/);
@@ -165,7 +175,7 @@ test("editing a title preserves deadline seconds", async ({ page }) => {
     },
   );
   await page.goto("/deadlines/precision-check");
-  await page.getByLabel("마감 제목").fill("제목만 변경");
+  await (await deadlineField(page, "마감 제목")).fill("제목만 변경");
   const sent = page.waitForRequest((request) => request.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await sent).postDataJSON().due_at).toBe("2026-10-01T00:30:45.123Z");

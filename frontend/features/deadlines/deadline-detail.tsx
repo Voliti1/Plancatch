@@ -11,6 +11,9 @@ import { useResource } from "@/lib/api/use-resource";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice, Loading } from "@/components/feedback";
 import { PageHeading } from "@/components/page-heading";
+import { CategoryBadge } from "@/components/category-badge";
+import { DeadlineDday } from "@/components/deadline-dday";
+import "@/features/tasks/detail-pages.css";
 import { DeadlineTasks } from "@/features/tasks/deadline-tasks";
 import { GoogleExportPanel } from "@/features/google-calendar/export-panel";
 export function DeadlineDetail({ id }: { id: string }) {
@@ -23,20 +26,42 @@ export function DeadlineDetail({ id }: { id: string }) {
   const [deleteError, setDeleteError] = useState("");
   const [saved, setSaved] = useState(false);
   const [workVersion, setWorkVersion] = useState(0);
+  const [editing, setEditing] = useState(false);
   if (loading) return <Loading />;
   if (error) return <ErrorNotice message={error} retry={reload} />;
   if (!data) return null;
   return (
     <>
       <Link className="back-link" href="/deadlines">
-        ← 일정 목록
+        ← 마감일·할 일 목록
       </Link>
       <PageHeading
         eyebrow="DEADLINE DETAILS"
         title="일정 상세"
         description={`등록 ${formatLocal(data.created_at)} · 표시 시간대 ${zoneLabel}`}
       />
-      <section className="card form-card">
+      <section
+        className="card form-card deadline-detail-summary"
+        aria-label="마감일 요약"
+      >
+        <div className="detail-summary-heading">
+          <div className="detail-badges">
+            <DeadlineDday due={data.due_at} />
+            <CategoryBadge value={data.category} />
+          </div>
+          {!editing && (
+            <button
+              className="secondary"
+              disabled={deleting || confirm}
+              onClick={() => {
+                setSaved(false);
+                setEditing(true);
+              }}
+            >
+              수정
+            </button>
+          )}
+        </div>
         <h2>{data.title}</h2>
         <DeadlineTimes deadline={data} />
         {saved && (
@@ -44,21 +69,44 @@ export function DeadlineDetail({ id }: { id: string }) {
             변경 사항을 저장했어요.
           </p>
         )}
-        <DeadlineForm
-          initial={data}
-          onSave={async (payload) => {
-            await deadlinesApi.update(id, payload);
-            setSaved(true);
-            reload();
-          }}
-        />
-        {data.evidence_text && (
+        {editing ? (
+          <DeadlineForm
+            initial={data}
+            onCancel={() => setEditing(false)}
+            onSave={async (payload) => {
+              await deadlinesApi.update(id, payload);
+              setSaved(true);
+              setEditing(false);
+              reload();
+            }}
+          />
+        ) : data.description ? (
+          <div className="task-description">
+            <h3>메모</h3>
+            <p className="source-text">{data.description}</p>
+          </div>
+        ) : null}
+        {(data.evidence_text || data.source_id) && (
           <details className="notice">
             <summary>원문에서 찾은 근거 보기</summary>
-            <p className="source-text">{data.evidence_text}</p>
+            {data.evidence_text && (
+              <p className="source-text">{data.evidence_text}</p>
+            )}
+            {data.source_id && (
+              <Link
+                className="source-detail-link"
+                href={`/sources/${encodeURIComponent(data.source_id)}`}
+              >
+                원본 자료 보기 →
+              </Link>
+            )}
           </details>
         )}
       </section>
+      <DeadlineTasks
+        deadlineId={id}
+        onUpdated={() => setWorkVersion((v) => v + 1)}
+      />
       <DeadlineReadiness
         key={`${id}-${data.updated_at}-${workVersion}`}
         id={id}
@@ -67,24 +115,8 @@ export function DeadlineDetail({ id }: { id: string }) {
         key={`${id}-${data.updated_at}`}
         kind="deadline"
         itemId={id}
-        disabled={deleting}
+        disabled={deleting || confirm || editing}
       />
-      <DeadlineTasks
-        deadlineId={id}
-        onUpdated={() => setWorkVersion((v) => v + 1)}
-      />
-      <section className="card">
-        <h2>마감일까지 작업 계획</h2>
-        <p className="muted">
-          필요한 작업과 순서를 제안받고 확인한 뒤 할 일로 등록하세요.
-        </p>
-        <Link
-          className="button secondary"
-          href={`/deadlines/${encodeURIComponent(id)}/plan`}
-        >
-          AI 작업 계획 만들기
-        </Link>
-      </section>
       <section className="card danger-zone">
         <div>
           <h2>마감일 삭제</h2>
@@ -95,7 +127,11 @@ export function DeadlineDetail({ id }: { id: string }) {
           </p>
         </div>
         {!confirm ? (
-          <button className="danger secondary" onClick={() => setConfirm(true)}>
+          <button
+            className="danger secondary"
+            disabled={editing}
+            onClick={() => setConfirm(true)}
+          >
             삭제
           </button>
         ) : (

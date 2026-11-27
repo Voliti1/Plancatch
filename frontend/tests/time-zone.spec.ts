@@ -1,3 +1,4 @@
+import { deadlineField } from "./deadline-editor";
 import { expect, test } from "@playwright/test";
 import { mockApi, user, login } from "./fixtures";
 import { localInput, zonedInputToUtc } from "../lib/date/time-zones";
@@ -65,14 +66,14 @@ test("account choice updates the deadline editor and local calendar date", async
   });
   await page.goto("/deadlines/zone-deadline");
   const picker = page.getByLabel("기준 시간대 변경");
-  await expect(page.getByLabel("마감 일시 (한국 시간)")).toHaveValue(
+  await expect(await deadlineField(page, "마감 일시 (한국 시간)")).toHaveValue(
     "2026-11-25T10:30",
   );
   await picker.selectOption("America/New_York");
   await expect(picker).toHaveValue("America/New_York");
-  await expect(page.getByLabel("마감 일시 (미국 · 뉴욕)")).toHaveValue(
-    "2026-11-24T20:30",
-  );
+  await expect(
+    await deadlineField(page, "마감 일시 (미국 · 뉴욕)"),
+  ).toHaveValue("2026-11-24T20:30");
   await expect(page.getByLabel("한국 현재 시각", { exact: true })).toHaveText(
     "한국 10:30",
   );

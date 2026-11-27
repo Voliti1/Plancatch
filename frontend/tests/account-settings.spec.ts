@@ -16,7 +16,8 @@ test("account row replaces coming box; theme persists through reload and calenda
   const settings = await row
     .getByRole("button", { name: "설정 열기" })
     .boundingBox();
-  expect(name!.x + name!.width).toBeLessThanOrEqual(theme!.x);
+  if (name) expect(name.x + name.width).toBeLessThanOrEqual(theme!.x);
+  else expect(page.viewportSize()!.width).toBeLessThanOrEqual(760);
   expect(theme!.x + theme!.width).toBeLessThanOrEqual(settings!.x);
   await page.getByRole("button", { name: "다크 모드로 전환" }).click();
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");

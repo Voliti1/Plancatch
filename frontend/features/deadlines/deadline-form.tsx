@@ -19,9 +19,11 @@ import {
 export function DeadlineForm({
   initial,
   onSave,
+  onCancel,
 }: {
   initial?: Deadline;
   onSave: (payload: DeadlineInput) => Promise<void>;
+  onCancel?: () => void;
 }) {
   const { toLocalInput, fromLocalInput, zoneLabel } = useScheduleTime();
   const hydrated = useHydrated();
@@ -50,7 +52,7 @@ export function DeadlineForm({
   const [safetyParts, setSafetyParts] = useState(() =>
     splitSafetyBuffer(initial?.safety_buffer_minutes ?? null),
   );
-  const { markSaved } = useUnsavedChanges(
+  const { markSaved, confirmDiscard } = useUnsavedChanges(
     JSON.stringify([
       title,
       category,
@@ -203,9 +205,22 @@ export function DeadlineForm({
           onChange={setReminders}
         />
         {error && <ErrorNotice message={error} />}
-        <button type="submit">
-          {busy ? "저장 중…" : initial ? "변경 사항 저장" : "마감일 등록"}
-        </button>
+        <div className="form-actions">
+          {onCancel && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => {
+                if (confirmDiscard()) onCancel();
+              }}
+            >
+              취소
+            </button>
+          )}
+          <button type="submit">
+            {busy ? "저장 중…" : initial ? "변경 사항 저장" : "마감일 등록"}
+          </button>
+        </div>
       </fieldset>
     </form>
   );

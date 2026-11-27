@@ -226,8 +226,15 @@ test("manual registration, simple detail editing and completion are reflected on
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "완료 처리", exact: true }),
-  ).toHaveCount(0);
-  await page.getByRole("link", { name: "← 대시보드", exact: true }).click();
+  ).toBeEnabled();
+  await page
+    .getByRole("link", { name: "← 마감일·할 일 목록", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/deadlines$/);
+  await page
+    .getByRole("navigation", { name: "주 메뉴" })
+    .getByRole("link", { name: "대시보드", exact: true })
+    .click();
   await expect(overview.getByRole("listitem")).toContainText(
     "[테스트] 회의 시간 변경",
   );

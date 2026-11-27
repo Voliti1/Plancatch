@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { workspaceLink } from "./workspace-navigation";
 import { login, mockApi } from "./fixtures";
 import type { Task } from "../types/task";
 
@@ -83,9 +84,10 @@ test("suggests a preview with saved availability without opening settings", asyn
   page,
 }) => {
   await selectTask(page);
-  await expect(
-    page.getByRole("link", { name: "자동 시간 추천", exact: true }),
-  ).toHaveAttribute("aria-current", "page");
+  await expect(await workspaceLink(page, "자동 시간 추천")).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
   const startDate = page.getByLabel("추천 기간 시작일", { exact: true });
   await expect(startDate).toBeHidden();
   let approvals = 0;

@@ -73,13 +73,13 @@ async function setup(page: Page, initial: State = "synced") {
   };
 }
 
-test("automatic status replaces previews and task detail completion button", async ({
+test("automatic sync status stays independent of the task completion button", async ({
   page,
 }) => {
   const state = await setup(page);
   await expect(
     page.getByRole("button", { name: "완료 처리", exact: true }),
-  ).toHaveCount(0);
+  ).toBeEnabled();
   await expect(
     page.getByRole("button", { name: "미완료로 변경", exact: true }),
   ).toHaveCount(0);
