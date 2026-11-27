@@ -30,6 +30,7 @@ from app.services.ai_analysis import (
     process_analysis,
     slots,
 )
+from app.services.deadline_safety import calculate_safe_due_at
 from app.services.html_analysis import HTML_MODEL, matching_period
 from app.services.image_analysis import IMAGE_CORRECTION_MODEL, process_file_analysis
 from app.services.processing_recovery import INTERRUPTED, begin_processing
@@ -246,8 +247,20 @@ def review_analysis(analysis_id: uuid.UUID, payload: ReviewRequest,
     originals = {item["id"]: item for item in analysis.candidates}
     if {str(item.id) for item in payload.candidates} != set(originals):
         raise HTTPException(422, "Include all candidate IDs; use selected=false to exclude")
-    analysis.candidates = [dict(originals[str(item.id)], **item.model_dump(mode="json"))
-                           for item in payload.candidates]
+    # Older clients omit the additive buffer field; preserve any saved setting.
+    candidates = []
+    for item in payload.candidates:
+        changes = item.model_dump(mode="json")
+        if "safety_buffer_minutes" not in item.model_fields_set:
+            changes.pop("safety_buffer_minutes")
+        candidates.append(dict(originals[str(item.id)], **changes))
+    try:
+        for item in candidates:
+            if item["due_at"] is not None:
+                calculate_safe_due_at(datetime.fromisoformat(item["due_at"]), item.get("safety_buffer_minutes"))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    analysis.candidates = candidates
     analysis.revision += 1
     db.commit()
     db.refresh(analysis)
@@ -278,13 +291,19 @@ def create_approved_deadlines(analysis: Analysis, current_user: CurrentUser,
     selected = [item for item in analysis.candidates if item["selected"]]
     if not selected or any(item["due_at"] is None for item in selected):
         raise HTTPException(422, "Select at least one candidate with an explicit deadline")
+    try:
+        for item in selected:
+            calculate_safe_due_at(datetime.fromisoformat(item["due_at"]), item.get("safety_buffer_minutes"))
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     ids = []
     for item in selected:
         deadline = Deadline(user_id=current_user.id, source_id=source.id,
                             title=item["title"], due_at=datetime.fromisoformat(item["due_at"]).astimezone(UTC),
                             description=item["description"], confidence=item["confidence"],
                             evidence_text=item["evidence_text"], is_confirmed=True,
-                            google_reminders=reminders.model_dump())
+                            google_reminders=reminders.model_dump(),
+                            safety_buffer_minutes=item.get("safety_buffer_minutes"))
         db.add(deadline)
         db.flush()
         sync.enqueue_deadline(db, current_user.id, deadline.id)
