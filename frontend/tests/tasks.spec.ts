@@ -59,12 +59,12 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   await login(page);
   await page.goto("/deadlines/deadline-1");
   await expect(
-    page.getByText("연결된 작업이 없어요", { exact: true }),
+    page.getByText("연결된 할 일이 없어요", { exact: true }),
   ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "다른 마감의 작업", exact: true }),
   ).toHaveCount(0);
-  await page.getByRole("link", { name: "＋ 작업 등록", exact: true }).click();
+  await page.getByRole("link", { name: "＋ 할 일 등록", exact: true }).click();
   await expect(page.getByLabel("연결할 마감일", { exact: true })).toHaveValue(
     "deadline-1",
   );
@@ -107,7 +107,7 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   ).toBeVisible();
   await expect(
     page.getByRole("button", { name: "완료 처리", exact: true }),
-  ).toHaveCount(0);
+  ).toBeEnabled();
   await page.getByText("상세 정보", { exact: true }).click();
   await page.getByRole("link", { name: "연결된 마감일 보기" }).click();
   await expect(
@@ -139,12 +139,15 @@ test("deadline-linked task creation, detail, cancellation, completion and deleti
   ).toBeVisible();
   await page.getByRole("button", { name: "일정 삭제", exact: true }).click();
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
-  await expect(page).toHaveURL(/\/tasks$/);
+  await expect(page).toHaveURL(/\/deadlines$/);
   await expect(
     page.getByRole("link", { name: "발표 초안 작성", exact: true }),
   ).toHaveCount(0);
   await expect(
-    page.getByRole("link", { name: "다른 마감의 작업", exact: true }),
+    page
+      .locator(".schedule-rows")
+      .getByRole("link")
+      .filter({ hasText: "다른 마감의 작업" }),
   ).toBeVisible();
 });
 
@@ -313,7 +316,7 @@ test("deadline choices load all pages and invalid task input keeps the form", as
   await expect(page.getByText("연결된 마감일 보기 →")).toBeVisible();
 });
 
-test("save failures preserve values, completion is absent, and deletion conflict is explained", async ({
+test("save failures preserve values and completion stays available; deletion conflict is explained", async ({
   page,
 }) => {
   await seed(page, [seedTask]);
@@ -326,7 +329,7 @@ test("save failures preserve values, completion is absent, and deletion conflict
   );
   await expect(
     page.getByRole("button", { name: "완료 처리", exact: true }),
-  ).toHaveCount(0);
+  ).toBeEnabled();
   await page.getByRole("button", { name: "일정 수정", exact: true }).click();
   await page.getByLabel("일정명", { exact: true }).fill("유지할 입력");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
@@ -360,10 +363,11 @@ test("save failures preserve values, completion is absent, and deletion conflict
   await expect(page).toHaveURL(/\/tasks\/seed-task$/);
   await page.unroute("**/test-api/api/tasks/seed-task");
   await page.getByRole("button", { name: "삭제 확인", exact: true }).click();
-  await expect(page).toHaveURL(/\/tasks$/);
-  await expect(
-    page.getByText("표시할 작업이 없어요", { exact: true }),
-  ).toBeVisible();
+  await expect(page).toHaveURL(/\/deadlines$/);
+  await expect(page.locator(".schedule-rows")).not.toContainText(
+    seedTask.title,
+  );
+  await expect(page.locator(".schedule-rows")).toContainText(deadline.title);
 });
 
 test("task routes protect access and show missing record, API retry and expiration", async ({
@@ -377,7 +381,9 @@ test("task routes protect access and show missing record, API retry and expirati
   await expect(
     page.getByRole("alert").filter({ hasText: "작업을 찾을 수 없어요." }),
   ).toBeVisible();
-  await page.getByRole("link", { name: "전체 일정 보기 →" }).click();
+  await page
+    .getByRole("link", { name: "← 마감일·할 일 목록", exact: true })
+    .click();
   await expect(page).toHaveURL(/\/deadlines$/);
   await expect(page.locator(".schedule-rows")).toContainText("기존 작업");
   await page.goto("/tasks");

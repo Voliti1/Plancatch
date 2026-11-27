@@ -1,3 +1,4 @@
+import { deadlineField } from "./deadline-editor";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import type { Deadline } from "../types/api";
@@ -91,8 +92,10 @@ test("creating without safety sends null and a past deadline can be configured w
   expect((await sent).postDataJSON().safety_buffer_minutes).toBeNull();
   await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
   await expect(page.getByLabel("저장된 마감일")).toContainText("미설정");
-  await page.getByLabel("안전 마감일 사용", { exact: true }).check();
-  await page.getByLabel("여유시간 (분)", { exact: true }).fill("1");
+  await (
+    await deadlineField(page, "안전 마감일 사용", { exact: true })
+  ).check();
+  await (await deadlineField(page, "여유시간 (분)", { exact: true })).fill("1");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   await expect(
     page.getByLabel("저장된 마감일").locator("time").nth(1),
@@ -100,7 +103,7 @@ test("creating without safety sends null and a past deadline can be configured w
   await expect(page.getByLabel("저장된 마감일")).toContainText("1분 전");
   await page.reload();
   await expect(
-    page.getByLabel("안전 마감일 사용", { exact: true }),
+    await deadlineField(page, "안전 마감일 사용", { exact: true }),
   ).toBeChecked();
 });
 
@@ -112,20 +115,28 @@ test("detail buffer setup stores day/hour/minute total and displays both server 
   ]);
   await page.goto(`/deadlines/${deadline.id}`);
   await expect(
-    page.getByLabel("안전 마감일 사용", { exact: true }),
+    await deadlineField(page, "안전 마감일 사용", { exact: true }),
   ).not.toBeChecked();
-  await expect(page.getByLabel("여유시간 (일)", { exact: true })).toHaveCount(
-    0,
-  );
-  await page.getByLabel("마감 제목").fill(deadline.title);
-  await page.getByLabel("마감 일시 (한국 시간)").fill("2026-10-05T18:00");
-  await page.getByLabel("안전 마감일 사용", { exact: true }).check();
-  await expect(page.getByLabel("여유시간 (일)", { exact: true })).toHaveValue(
-    "",
-  );
-  await page.getByLabel("여유시간 (일)", { exact: true }).fill("1");
-  await page.getByLabel("여유시간 (시간)", { exact: true }).fill("3");
-  await page.getByLabel("여유시간 (분)", { exact: true }).fill("20");
+  await expect(
+    await deadlineField(page, "여유시간 (일)", { exact: true }),
+  ).toHaveCount(0);
+  await (await deadlineField(page, "마감 제목")).fill(deadline.title);
+  await (
+    await deadlineField(page, "마감 일시 (한국 시간)")
+  ).fill("2026-10-05T18:00");
+  await (
+    await deadlineField(page, "안전 마감일 사용", { exact: true })
+  ).check();
+  await expect(
+    await deadlineField(page, "여유시간 (일)", { exact: true }),
+  ).toHaveValue("");
+  await (await deadlineField(page, "여유시간 (일)", { exact: true })).fill("1");
+  await (
+    await deadlineField(page, "여유시간 (시간)", { exact: true })
+  ).fill("3");
+  await (
+    await deadlineField(page, "여유시간 (분)", { exact: true })
+  ).fill("20");
   const sent = page.waitForRequest(
     (r) => r.method() === "PATCH" && r.url().includes("/api/deadlines/"),
   );
@@ -151,9 +162,9 @@ test("detail buffer setup stores day/hour/minute total and displays both server 
   await expect(dates.locator("time").nth(1)).toContainText("오후 2:40");
   await expect(dates).toContainText("1일 3시간 20분 전");
   await page.reload();
-  await expect(page.getByLabel("여유시간 (일)", { exact: true })).toHaveValue(
-    "1",
-  );
+  await expect(
+    await deadlineField(page, "여유시간 (일)", { exact: true }),
+  ).toHaveValue("1");
   await page.goto("/deadlines");
   const row = page.getByRole("link").filter({ hasText: deadline.title });
   await expect(row).toContainText("공식 마감");
@@ -175,16 +186,16 @@ test("editing preserves buffer, official precision, source and evidence; updates
 }) => {
   await open(page);
   await page.getByRole("link").filter({ hasText: deadline.title }).click();
-  await expect(page.getByLabel("여유시간 (일)", { exact: true })).toHaveValue(
-    "1",
-  );
-  await expect(page.getByLabel("여유시간 (시간)", { exact: true })).toHaveValue(
-    "3",
-  );
-  await expect(page.getByLabel("여유시간 (분)", { exact: true })).toHaveValue(
-    "20",
-  );
-  await page.getByLabel("마감 제목").fill("[테스트] 제목만 수정");
+  await expect(
+    await deadlineField(page, "여유시간 (일)", { exact: true }),
+  ).toHaveValue("1");
+  await expect(
+    await deadlineField(page, "여유시간 (시간)", { exact: true }),
+  ).toHaveValue("3");
+  await expect(
+    await deadlineField(page, "여유시간 (분)", { exact: true }),
+  ).toHaveValue("20");
+  await (await deadlineField(page, "마감 제목")).fill("[테스트] 제목만 수정");
   const sent = page.waitForRequest((r) => r.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await sent).postDataJSON()).toMatchObject({
@@ -197,16 +208,20 @@ test("editing preserves buffer, official precision, source and evidence; updates
   await expect(
     page.getByText(deadline.evidence_text!, { exact: true }),
   ).toBeVisible();
-  await page.getByLabel("여유시간 (일)", { exact: true }).fill("0");
-  await page.getByLabel("여유시간 (시간)", { exact: true }).fill("3");
-  await page.getByLabel("여유시간 (분)", { exact: true }).fill("0");
+  await (await deadlineField(page, "여유시간 (일)", { exact: true })).fill("0");
+  await (
+    await deadlineField(page, "여유시간 (시간)", { exact: true })
+  ).fill("3");
+  await (await deadlineField(page, "여유시간 (분)", { exact: true })).fill("0");
   const changed = page.waitForRequest((r) => r.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await changed).postDataJSON().safety_buffer_minutes).toBe(180);
   await expect(
     page.getByLabel("저장된 마감일").locator("time").nth(1),
   ).toHaveAttribute("datetime", "2026-10-05T06:00:45.123Z");
-  await page.getByLabel("마감 일시 (한국 시간)").fill("2026-10-06T18:00");
+  await (
+    await deadlineField(page, "마감 일시 (한국 시간)")
+  ).fill("2026-10-06T18:00");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   await expect(
     page.getByLabel("저장된 마감일").locator("time").nth(1),
@@ -220,14 +235,16 @@ test("editing preserves buffer, official precision, source and evidence; updates
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
-  await page.getByLabel("안전 마감일 사용", { exact: true }).uncheck();
+  await (
+    await deadlineField(page, "안전 마감일 사용", { exact: true })
+  ).uncheck();
   const disabled = page.waitForRequest((r) => r.method() === "PATCH");
   await page.getByRole("button", { name: "변경 사항 저장" }).click();
   expect((await disabled).postDataJSON().safety_buffer_minutes).toBeNull();
   await expect(page.getByLabel("저장된 마감일")).toContainText("미설정");
   await page.reload();
   await expect(
-    page.getByLabel("안전 마감일 사용", { exact: true }),
+    await deadlineField(page, "안전 마감일 사용", { exact: true }),
   ).not.toBeChecked();
   await page.goto("/deadlines");
   await expect(page.getByText("미설정", { exact: true })).toBeVisible();
@@ -240,14 +257,18 @@ test("blank, zero, negative, fractional and excessive buffers are blocked withou
     { ...deadline, safety_buffer_minutes: null, safe_due_at: null },
   ]);
   await page.goto(`/deadlines/${deadline.id}`);
-  await page.getByLabel("마감 제목").fill("[테스트] 여유시간 검증");
-  await page.getByLabel("마감 일시 (한국 시간)").fill("2026-10-05T18:00");
-  await page.getByLabel("안전 마감일 사용", { exact: true }).check();
+  await (await deadlineField(page, "마감 제목")).fill("[테스트] 여유시간 검증");
+  await (
+    await deadlineField(page, "마감 일시 (한국 시간)")
+  ).fill("2026-10-05T18:00");
+  await (
+    await deadlineField(page, "안전 마감일 사용", { exact: true })
+  ).check();
   let posts = 0;
   page.on("request", (r) => {
     if (r.method() === "PATCH" && r.url().includes("/api/deadlines/")) posts++;
   });
-  const minutes = page.getByLabel("여유시간 (분)", { exact: true });
+  const minutes = await deadlineField(page, "여유시간 (분)", { exact: true });
   for (const value of [
     "",
     "0",
@@ -265,12 +286,14 @@ test("blank, zero, negative, fractional and excessive buffers are blocked withou
       page.getByRole("alert").filter({ hasText: "여유시간" }),
     ).toBeVisible();
     await expect(minutes).toHaveValue(value);
-    await expect(page.getByLabel("마감 제목")).toHaveValue(
+    await expect(await deadlineField(page, "마감 제목")).toHaveValue(
       "[테스트] 여유시간 검증",
     );
     expect(posts).toBe(0);
   }
-  await page.getByLabel("여유시간 (일)", { exact: true }).fill("1491309");
+  await (
+    await deadlineField(page, "여유시간 (일)", { exact: true })
+  ).fill("1491309");
   await minutes.fill("0");
   await page
     .getByRole("button", { name: "변경 사항 저장", exact: true })
@@ -279,10 +302,12 @@ test("blank, zero, negative, fractional and excessive buffers are blocked withou
     page.getByRole("alert").filter({ hasText: "합계" }),
   ).toBeVisible();
   expect(posts).toBe(0);
-  await page.getByLabel("여유시간 (일)", { exact: true }).fill("");
+  await (await deadlineField(page, "여유시간 (일)", { exact: true })).fill("");
   await minutes.fill("2147483647");
   // The maximum buffer needs a late enough official date to remain in the API's date range.
-  await page.getByLabel("마감 일시 (한국 시간)").fill("9000-10-05T18:00");
+  await (
+    await deadlineField(page, "마감 일시 (한국 시간)")
+  ).fill("9000-10-05T18:00");
   const sent = page.waitForRequest(
     (r) => r.method() === "PATCH" && r.url().includes("/api/deadlines/"),
   );
@@ -298,8 +323,10 @@ test("422 preserves draft and saved dates, retry locks all fields and prevents d
 }) => {
   await open(page);
   await page.goto("/deadlines/deadline-1");
-  await page.getByLabel("마감 제목").fill("[테스트] 오류 뒤 유지");
-  await page.getByLabel("여유시간 (분)", { exact: true }).fill("21");
+  await (await deadlineField(page, "마감 제목")).fill("[테스트] 오류 뒤 유지");
+  await (
+    await deadlineField(page, "여유시간 (분)", { exact: true })
+  ).fill("21");
   await page.route("**/test-api/api/deadlines/deadline-1", (route) =>
     route.request().method() === "PATCH"
       ? route.fulfill({
@@ -318,12 +345,12 @@ test("422 preserves draft and saved dates, retry locks all fields and prevents d
   await expect(
     page.getByRole("alert").filter({ hasText: "지원되는 날짜 범위" }),
   ).toBeVisible();
-  await expect(page.getByLabel("마감 제목")).toHaveValue(
+  await expect(await deadlineField(page, "마감 제목")).toHaveValue(
     "[테스트] 오류 뒤 유지",
   );
-  await expect(page.getByLabel("여유시간 (분)", { exact: true })).toHaveValue(
-    "21",
-  );
+  await expect(
+    await deadlineField(page, "여유시간 (분)", { exact: true }),
+  ).toHaveValue("21");
   await expect(
     page.getByLabel("저장된 마감일").locator("time").nth(1),
   ).toHaveAttribute("datetime", deadline.safe_due_at!);
@@ -372,7 +399,9 @@ test("missing or inaccessible deadline is explained and expired save removes the
     page.getByRole("alert").filter({ hasText: "접근할 수 없는 마감일" }),
   ).toBeVisible();
   await page.goto("/deadlines/deadline-1");
-  await page.getByLabel("여유시간 (분)", { exact: true }).fill("21");
+  await (
+    await deadlineField(page, "여유시간 (분)", { exact: true })
+  ).fill("21");
   await page.route("**/test-api/api/deadlines/deadline-1", (route) =>
     route.request().method() === "PATCH"
       ? route.fulfill({ status: 401, json: { detail: "Unauthorized" } })

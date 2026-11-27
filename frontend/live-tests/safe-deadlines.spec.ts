@@ -1,3 +1,4 @@
+import { deadlineField } from "../tests/deadline-editor";
 import { randomBytes } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
 import type { Deadline } from "../types/api";
@@ -73,10 +74,12 @@ test("live test account: safety opt-in, server calculation, persistence, date up
     await page.goto("/deadlines");
     await page.getByRole("button", { name: "＋ 마감일 등록" }).click();
     await expect(
-      page.getByLabel("안전 마감일 사용", { exact: true }),
+      await deadlineField(page, "안전 마감일 사용", { exact: true }),
     ).not.toBeChecked();
-    await page.getByLabel("마감 제목").fill(marker);
-    await page.getByLabel("마감 일시 (한국 시간)").fill("2026-10-05T18:00");
+    await (await deadlineField(page, "마감 제목")).fill(marker);
+    await (
+      await deadlineField(page, "마감 일시 (한국 시간)")
+    ).fill("2026-10-05T18:00");
     const created = page.waitForResponse(
       (r) =>
         r.request().method() === "POST" &&
@@ -93,24 +96,32 @@ test("live test account: safety opt-in, server calculation, persistence, date up
     expect(deadline.safe_due_at).toBeNull();
     await expect(page).toHaveURL(new RegExp(`/deadlines/${deadline.id}$`));
     await expect(page.getByLabel("저장된 마감일")).toContainText("미설정");
-    await page.getByLabel("안전 마감일 사용", { exact: true }).check();
-    await page.getByLabel("여유시간 (일)", { exact: true }).fill("1");
-    await page.getByLabel("여유시간 (시간)", { exact: true }).fill("3");
-    await page.getByLabel("여유시간 (분)", { exact: true }).fill("20");
+    await (
+      await deadlineField(page, "안전 마감일 사용", { exact: true })
+    ).check();
+    await (
+      await deadlineField(page, "여유시간 (일)", { exact: true })
+    ).fill("1");
+    await (
+      await deadlineField(page, "여유시간 (시간)", { exact: true })
+    ).fill("3");
+    await (
+      await deadlineField(page, "여유시간 (분)", { exact: true })
+    ).fill("20");
     await page.getByRole("button", { name: "변경 사항 저장" }).click();
     await expect(page.getByLabel("저장된 마감일")).toContainText(
       "1일 3시간 20분 전",
     );
     await page.reload();
-    await expect(page.getByLabel("여유시간 (일)", { exact: true })).toHaveValue(
-      "1",
-    );
     await expect(
-      page.getByLabel("여유시간 (시간)", { exact: true }),
+      await deadlineField(page, "여유시간 (일)", { exact: true }),
+    ).toHaveValue("1");
+    await expect(
+      await deadlineField(page, "여유시간 (시간)", { exact: true }),
     ).toHaveValue("3");
-    await expect(page.getByLabel("여유시간 (분)", { exact: true })).toHaveValue(
-      "20",
-    );
+    await expect(
+      await deadlineField(page, "여유시간 (분)", { exact: true }),
+    ).toHaveValue("20");
     const saved = await ownRequest(page, `/api/deadlines/${deadline.id}`);
     expect(saved.status).toBe(200);
     expect(new Date(saved.data.due_at).toISOString()).toBe(
@@ -134,7 +145,9 @@ test("live test account: safety opt-in, server calculation, persistence, date up
     const unchanged = await ownRequest(page, `/api/deadlines/${deadline.id}`);
     expect(unchanged.data.due_at).toBe(saved.data.due_at);
     expect(unchanged.data.safety_buffer_minutes).toBe(1640);
-    await page.getByLabel("마감 일시 (한국 시간)").fill("2026-10-06T18:00");
+    await (
+      await deadlineField(page, "마감 일시 (한국 시간)")
+    ).fill("2026-10-06T18:00");
     await page.getByRole("button", { name: "변경 사항 저장" }).click();
     await expect(
       page.getByLabel("저장된 마감일").locator("time").nth(1),
@@ -144,12 +157,14 @@ test("live test account: safety opt-in, server calculation, persistence, date up
       page.getByRole("link").filter({ hasText: marker }),
     ).toContainText("안전 마감");
     await page.getByRole("link").filter({ hasText: marker }).click();
-    await page.getByLabel("안전 마감일 사용", { exact: true }).uncheck();
+    await (
+      await deadlineField(page, "안전 마감일 사용", { exact: true })
+    ).uncheck();
     await page.getByRole("button", { name: "변경 사항 저장" }).click();
     await expect(page.getByLabel("저장된 마감일")).toContainText("미설정");
     await page.reload();
     await expect(
-      page.getByLabel("안전 마감일 사용", { exact: true }),
+      await deadlineField(page, "안전 마감일 사용", { exact: true }),
     ).not.toBeChecked();
     const disabled = await ownRequest(page, `/api/deadlines/${deadline.id}`);
     expect(disabled.data.safety_buffer_minutes).toBeNull();

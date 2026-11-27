@@ -1,3 +1,4 @@
+import { expectRegistrationCurrent } from "./workspace-navigation";
 import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { calendarTask } from "./calendar-fixtures";
@@ -62,11 +63,11 @@ test("schedule registration uses the shared fresh page and source library has no
   await expect(
     page.getByRole("heading", { name: "새 일정 등록", exact: true }),
   ).toBeVisible();
-  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await expectRegistrationCurrent(page);
   await page
     .getByRole("tab", { name: "직접 일정 만들기", exact: true })
     .click();
-  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await expectRegistrationCurrent(page);
   await page.getByLabel("일정명", { exact: true }).fill("남기지 않을 입력");
   page.once("dialog", (dialog) => dialog.accept());
   await page
@@ -104,13 +105,13 @@ test("schedule registration uses the shared fresh page and source library has no
     .getByRole("link", { name: "+ 새 일정 등록하기", exact: true })
     .click();
   await expect(page).toHaveURL(/\/sources\/new\?new=.+/);
-  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await expectRegistrationCurrent(page);
   await page.goto("/sources/new?mode=manual");
   await expect(page.getByLabel("일정명", { exact: true })).toBeVisible();
-  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await expectRegistrationCurrent(page);
   await page.reload();
   await expect(page.getByLabel("일정명", { exact: true })).toBeVisible();
-  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await expectRegistrationCurrent(page);
 });
 test("calendar view controls are today week month with the same gap", async ({
   page,

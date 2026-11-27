@@ -1,3 +1,4 @@
+import { expectRegistrationCurrent } from "./workspace-navigation";
 import { expect, test } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import { aiSource } from "./analysis-fixtures";
@@ -29,10 +30,12 @@ test("시안 스타일에서도 메뉴 이름과 현재 위치, 실제 요약 �
     page.getByRole("region", { name: "할 일", exact: true }),
   ).toBeVisible();
   const menu = page.getByRole("navigation", { name: "주 메뉴" });
-  await expect(menu.getByRole("link")).toHaveCount(6);
+  await expect(menu.getByRole("link")).toHaveCount(
+    page.viewportSize()!.width <= 760 ? 5 : 6,
+  );
   await expect(
     menu.locator('svg[aria-hidden="true"][focusable="false"]'),
-  ).toHaveCount(6);
+  ).toHaveCount(page.viewportSize()!.width <= 760 ? 5 : 6);
   await expect(menu).not.toContainText(/[◈▦◷▥▤↗]/);
   await expect(
     menu.getByRole("link", { name: "대시보드", exact: true }),
@@ -51,7 +54,7 @@ test("시안 스타일에서도 메뉴 이름과 현재 위치, 실제 요약 �
   await page
     .getByRole("link", { name: "새 일정 등록하기 ↗", exact: true })
     .click();
-  await expect(menu.locator("[aria-current]")).toHaveCount(0);
+  await expectRegistrationCurrent(page);
   const tabs = page.getByRole("tablist", { name: "자료 입력 방식" });
   await tabs.getByRole("tab").first().press("ArrowRight");
   await expect(

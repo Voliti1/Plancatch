@@ -17,13 +17,21 @@ export function DeadlineTasks({
   return (
     <section className="card form-card deadline-tasks">
       <div className="section-header">
-        <h2>이 마감일의 작업</h2>
-        <Link
-          className="button secondary"
-          href={`/tasks/new?deadline_id=${encodeURIComponent(deadlineId)}`}
-        >
-          ＋ 작업 등록
-        </Link>
+        <h2>이 마감일의 할 일</h2>
+        <div className="detail-card-actions">
+          <Link
+            className="button secondary"
+            href={`/deadlines/${encodeURIComponent(deadlineId)}/plan`}
+          >
+            AI 작업 계획 만들기
+          </Link>
+          <Link
+            className="button secondary"
+            href={`/tasks/new?deadline_id=${encodeURIComponent(deadlineId)}`}
+          >
+            ＋ 할 일 등록
+          </Link>
+        </div>
       </div>
       <DeadlineTaskPage
         key={`${deadlineId}-${page}`}
@@ -64,8 +72,8 @@ function DeadlineTaskPage({
           }}
         />
       ) : (
-        <Empty title="연결된 작업이 없어요">
-          이 마감일을 준비할 첫 작업을 등록해 보세요.
+        <Empty title="연결된 할 일이 없어요">
+          직접 등록하거나 AI 작업 계획으로 필요한 할 일을 정리해 보세요.
         </Empty>
       )}
       <Pagination page={page} count={data?.length ?? 0} onChange={onPage} />

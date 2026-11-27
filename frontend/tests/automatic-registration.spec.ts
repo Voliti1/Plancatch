@@ -426,39 +426,44 @@ test("blue sidebar registration matches menu typography and opens a fresh shared
     exact: true,
   });
   await expect(button).toBeVisible();
-  const styles = await page.locator(".sidebar").evaluate((sidebar) => {
-    const button = sidebar.querySelector(".sidebar-new-registration")!;
-    const menu = sidebar.querySelector("nav a")!;
-    const caption = sidebar.querySelector(".nav-group-label")!;
-    const buttonStyle = getComputedStyle(button),
-      menuStyle = getComputedStyle(menu);
-    const typography = (style: CSSStyleDeclaration) => [
-      style.fontFamily,
-      style.fontSize,
-      style.fontWeight,
-      style.lineHeight,
-    ];
-    return {
-      button: typography(buttonStyle),
-      menu: typography(menuStyle),
-      blue: buttonStyle.backgroundColor,
-      white: buttonStyle.color,
-      above:
-        button.getBoundingClientRect().bottom <=
-        (getComputedStyle(caption).display === "none"
-          ? menu
-          : caption
-        ).getBoundingClientRect().top,
-      overflow:
-        document.documentElement.scrollWidth >
-        document.documentElement.clientWidth + 1,
-    };
-  });
-  expect(styles.button).toEqual(styles.menu);
-  expect(styles.blue).toBe("rgb(48, 94, 232)");
-  expect(styles.white).toBe("rgb(255, 255, 255)");
-  expect(styles.above).toBe(true);
-  expect(styles.overflow).toBe(false);
+  if (page.viewportSize()!.width > 760) {
+    const styles = await page.locator(".sidebar").evaluate((sidebar) => {
+      const button = sidebar.querySelector(".sidebar-new-registration")!;
+      const menu = sidebar.querySelector("nav a")!;
+      const caption = sidebar.querySelector(".nav-group-label")!;
+      const buttonStyle = getComputedStyle(button),
+        menuStyle = getComputedStyle(menu);
+      const typography = (style: CSSStyleDeclaration) => [
+        style.fontFamily,
+        style.fontSize,
+        style.fontWeight,
+        style.lineHeight,
+      ];
+      return {
+        button: typography(buttonStyle),
+        menu: typography(menuStyle),
+        blue: buttonStyle.backgroundColor,
+        white: buttonStyle.color,
+        above:
+          button.getBoundingClientRect().bottom <=
+          (getComputedStyle(caption).display === "none"
+            ? menu
+            : caption
+          ).getBoundingClientRect().top,
+        overflow:
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth + 1,
+      };
+    });
+    expect(styles.button).toEqual(styles.menu);
+    expect(styles.blue).toBe("rgb(48, 94, 232)");
+    expect(styles.white).toBe("rgb(255, 255, 255)");
+    expect(styles.above).toBe(true);
+    expect(styles.overflow).toBe(false);
+  } else {
+    await expect(page.locator(".sidebar-new-registration")).not.toBeVisible();
+    await expect(page.locator(".mobile-tabbar")).toHaveCSS("position", "fixed");
+  }
   for (const menu of ["자료함", "마감일·할 일"]) {
     await page.getByRole("link", { name: menu, exact: true }).click();
     await button.click();

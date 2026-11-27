@@ -55,11 +55,11 @@ export function AuthForm({ signup = false }: { signup?: boolean }) {
         </Link>
         <div>
           <span className="eyebrow">LESS CHAOS, MORE CLARITY</span>
-          <h1>
+          <h2 className="auth-story-title">
             흩어진 계획을 모아,
             <br />
             나만의 페이스로.
-          </h1>
+          </h2>
           <p>
             중요한 자료부터 다가오는 마감까지.
             <br />

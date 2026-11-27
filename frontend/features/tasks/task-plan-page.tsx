@@ -120,7 +120,7 @@ function Planner({
       </Link>
       <PageHeading
         eyebrow="할 일 계획"
-        title="마감일까지 작업 계획"
+        title="마감일까지 할 일 계획"
         description={`${initial.deadline.title} · 마감 ${formatLocal(initial.deadline.safe_due_at || initial.deadline.due_at)}`}
       />
       <form
@@ -149,7 +149,7 @@ function Planner({
         }}
       >
         <fieldset disabled={busy}>
-          <h2>필요한 작업 제안받기</h2>
+          <h2>필요한 할 일 제안받기</h2>
           <label>
             계획에 참고할 메모 (선택)
             <textarea
@@ -170,14 +170,14 @@ function Planner({
               onChange={(e) => setConsent(e.target.checked)}
             />
             마감일의 제목·설명·기한과 입력한 메모를 AI(구글 Gemini)에 전송하여
-            작업을 제안받는 데 동의해요.
+            할 일을 제안받는 데 동의해요.
           </label>
           <p className="small muted">
             AI의 예상 소요시간과 권장 완료일을 확인해 주세요. 승인 전에는 할
             일이나 캘린더 일정이 등록되지 않아요.
           </p>
           <button disabled={!consent}>
-            {busy ? "처리 중…" : "AI 제안한 할 일 만들기"}
+            {busy ? "처리 중…" : "AI로 할 일 제안받기"}
           </button>
         </fieldset>
       </form>
@@ -230,7 +230,7 @@ function Planner({
           {plan.status === "approved" ? (
             <>
               <p role="status">
-                할 일 {plan.approved_task_ids.length}개와 작업 순서를
+                할 일 {plan.approved_task_ids.length}개와 할 일 순서를
                 등록했어요. 자동 시간 추천에서 가능한 시간을 확인할 수 있어요.
               </p>
               <Link className="button" href="/planning">
@@ -243,7 +243,7 @@ function Planner({
             <fieldset disabled={busy}>
               {draft.map((c, i) => (
                 <section key={c.id} className="task-plan-candidate">
-                  <h3>작업 {i + 1}</h3>
+                  <h3>할 일 {i + 1}</h3>
                   <label className="checkbox">
                     <input
                       type="checkbox"
@@ -252,10 +252,10 @@ function Planner({
                         change(i, { selected: e.target.checked })
                       }
                     />
-                    이 작업 포함
+                    이 할 일 포함
                   </label>
                   <label>
-                    작업 제목
+                    할 일 제목
                     <input
                       required
                       maxLength={255}
@@ -322,7 +322,7 @@ function Planner({
                   </label>
                   <details>
                     <summary>
-                      먼저 끝내야 할 작업 ({c.depends_on.length}개)
+                      먼저 끝내야 할 일 ({c.depends_on.length}개)
                     </summary>
                     {draft
                       .filter((p) => p.id !== c.id)
@@ -346,8 +346,8 @@ function Planner({
                 </section>
               ))}
               <p className="small muted">
-                먼저 해야 할 작업도 함께 선택해 주세요. 서로를 먼저 하도록
-                연결할 수는 없어요.
+                먼저 해야 할 일도 함께 선택해 주세요. 서로를 먼저 하도록 연결할
+                수는 없어요.
               </p>
               <div className="form-actions">
                 <button
@@ -369,7 +369,7 @@ function Planner({
                   제안 제외
                 </button>
                 <button disabled={!draft.some((c) => c.selected)}>
-                  {busy ? "등록 중…" : "선택한 작업 등록"}
+                  {busy ? "등록 중…" : "선택한 할 일 등록"}
                 </button>
               </div>
             </fieldset>
@@ -377,9 +377,9 @@ function Planner({
         </form>
       )}
       <section className="card">
-        <h2>저장한 제안한 할 일</h2>
+        <h2>이전 제안 기록</h2>
         {!history.length && (
-          <p className="muted">아직 제안받은 제안이 없어요.</p>
+          <p className="muted">아직 제안받은 할 일이 없어요.</p>
         )}
         {history.map((p) => (
           <p key={p.id}>

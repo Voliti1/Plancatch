@@ -1,0 +1,50 @@
+.detail-summary-heading,
+.detail-badges,
+.detail-card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.detail-summary-heading {
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.detail-badges {
+  min-width: 0;
+}
+.deadline-detail-summary {
+  margin-bottom: 24px;
+}
+.deadline-detail-summary ~ .deadline-readiness {
+  max-width: var(--preview-detail-width, 920px);
+  margin-bottom: 24px;
+}
+.deadline-detail-summary h2 {
+  overflow-wrap: anywhere;
+}
+.deadline-detail-summary .source-text {
+  white-space: pre-wrap;
+}
+.deadline-detail-summary .notice {
+  margin-top: 20px;
+}
+.deadline-tasks .section-header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+.detail-card-actions .button {
+  white-space: normal;
+  text-align: center;
+}
+@media (max-width: 760px) {
+  .detail-card-actions {
+    width: 100%;
+  }
+  .detail-card-actions .button {
+    flex: 1 1 160px;
+  }
+  .detail-summary-heading > button {
+    flex-shrink: 0;
+  }
+}
