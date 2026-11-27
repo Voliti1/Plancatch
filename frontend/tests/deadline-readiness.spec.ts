@@ -1,3 +1,4 @@
+import { deadlineField } from "./deadline-editor";
 import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
 import type { Deadline } from "../types/api";
@@ -259,7 +260,9 @@ test("saving a changed deadline refreshes its preparation assessment", async ({
   await page.goto(`/deadlines/${deadline.id}`);
   const panel = page.getByRole("region", { name: "마감 준비 상태" });
   await expect(panel.getByText("확인 필요", { exact: true })).toBeVisible();
-  await page.getByLabel("마감 제목", { exact: true }).fill("수정한 보고서");
+  await (
+    await deadlineField(page, "마감 제목", { exact: true })
+  ).fill("수정한 보고서");
   await page
     .getByRole("button", { name: "변경 사항 저장", exact: true })
     .click();
@@ -294,7 +297,9 @@ test("failed assessment keeps the editable form and retries without showing old 
   await panel.getByRole("button", { name: "다시 확인" }).click();
   await expect(panel.getByRole("alert")).toBeVisible();
   await expect(panel.getByText("계획 있음", { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("마감 제목", { exact: true })).toBeEnabled();
+  await expect(
+    await deadlineField(page, "마감 제목", { exact: true }),
+  ).toBeEnabled();
   await panel.getByRole("button", { name: "다시 확인" }).click();
   await expect(panel.getByText("계획 있음", { exact: true })).toBeVisible();
 });

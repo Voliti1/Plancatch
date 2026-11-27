@@ -1,3 +1,4 @@
+import { deadlineField } from "../tests/deadline-editor";
 import { sourceInput } from "../tests/source-input";
 import { randomBytes } from "node:crypto";
 import { test, expect, type Page } from "@playwright/test";
@@ -231,9 +232,9 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
     await page
       .getByRole("link", { name: "생성된 마감일 1 보기 →", exact: true })
       .click();
-    await page
-      .getByLabel("마감 제목", { exact: true })
-      .fill(`${marker} 수정 마감`);
+    await (
+      await deadlineField(page, "마감 제목", { exact: true })
+    ).fill(`${marker} 수정 마감`);
     await page
       .getByRole("button", { name: "변경 사항 저장", exact: true })
       .click();
@@ -241,9 +242,9 @@ test("current integrated UI: real signup, consent, text/PDF review, persistence,
       page.getByText("변경 사항을 저장했어요.", { exact: true }),
     ).toBeVisible();
     await page.reload();
-    await expect(page.getByLabel("마감 제목", { exact: true })).toHaveValue(
-      `${marker} 수정 마감`,
-    );
+    await expect(
+      await deadlineField(page, "마감 제목", { exact: true }),
+    ).toHaveValue(`${marker} 수정 마감`);
     const saved = await ownRequest(page, `/api/deadlines/${deadlineId}`);
     expect(saved.status).toBe(200);
     expect(Date.parse(saved.data.due_at)).toBe(
