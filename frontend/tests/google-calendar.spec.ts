@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
+import { workspaceLink } from "./workspace-navigation";
 
 const emptyStatus = {
   configured: true,
@@ -51,11 +52,13 @@ async function setup(page: Page, initial = {}) {
   );
   await login(page);
   const menu = page.getByRole("navigation", { name: "주 메뉴" });
-  const connections = menu.getByRole("link", {
-    name: "구글 캘린더",
-    exact: false,
-  });
-  await expect(menu.getByRole("link").last()).toHaveText(/구글 캘린더/);
+  const connections = await workspaceLink(page, "구글 캘린더");
+  await expect(connections).toHaveAttribute(
+    "href",
+    "/settings/google-calendar",
+  );
+  if (page.viewportSize()!.width > 760)
+    await expect(menu.getByRole("link").last()).toHaveText(/구글 캘린더/);
   await connections.click();
   await expect(
     page.getByRole("heading", { name: "계정 연결 관리" }),
@@ -63,11 +66,10 @@ async function setup(page: Page, initial = {}) {
   await expect(
     page.getByRole("region", { name: "구글 계정 연결 설정" }),
   ).toBeVisible();
-  await expect(connections).toHaveAttribute(
-    "href",
-    "/settings/google-calendar",
+  await expect(await workspaceLink(page, "구글 캘린더")).toHaveAttribute(
+    "aria-current",
+    "page",
   );
-  await expect(connections).toHaveAttribute("aria-current", "page");
   await expect(
     page.getByRole("region", { name: "카카오 캘린더 연결" }),
   ).toContainText("추후 지원");

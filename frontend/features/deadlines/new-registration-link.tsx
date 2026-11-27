@@ -9,12 +9,16 @@ export function NewRegistrationLink({
   href = "/sources/new",
   mode,
   disabled = false,
+  "aria-label": ariaLabel,
+  "aria-current": ariaCurrent,
 }: {
   className: string;
   children: ReactNode;
   href?: "/sources/new" | "/deadlines/auto";
   mode?: "manual";
   disabled?: boolean;
+  "aria-label"?: string;
+  "aria-current"?: "page";
 }) {
   const router = useRouter();
   const destination =
@@ -22,6 +26,8 @@ export function NewRegistrationLink({
   return (
     <Link
       className={className}
+      aria-label={ariaLabel}
+      aria-current={ariaCurrent}
       href={destination}
       aria-disabled={disabled || undefined}
       tabIndex={disabled ? -1 : undefined}

@@ -103,7 +103,8 @@ test("modal preserves page layout and scroll, scrolls internally and closes with
 }) => {
   await openSource(page);
   const button = page.getByRole("button", { name: "자세히 보기", exact: true });
-  await button.scrollIntoViewIfNeeded();
+  // Keep the trigger above the fixed mobile navigation before recording layout.
+  await button.evaluate((el) => el.scrollIntoView({ block: "center" }));
   const before = await page.evaluate(() => ({
     y: scrollY,
     height: document.documentElement.scrollHeight,
@@ -303,7 +304,7 @@ test.describe("narrow desktop viewport", () => {
       name: "자세히 보기",
       exact: true,
     });
-    await trigger.scrollIntoViewIfNeeded();
+    await trigger.evaluate((el) => el.scrollIntoView({ block: "center" }));
     const before = await page.locator(".source-detail").boundingBox();
     const gap = await page.evaluate(
       () => innerWidth - document.documentElement.clientWidth,

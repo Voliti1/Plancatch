@@ -1,4 +1,5 @@
 import { deadlineField } from "./deadline-editor";
+import { logoutButton } from "./workspace-navigation";
 import { sourceInput } from "./source-input";
 import { test, expect, type Page } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
@@ -283,12 +284,13 @@ test("deadline edits are protected, saving clears the warning, and logout asks b
   await expect(page).toHaveURL(/\/sources$/);
   await fresh(page).click();
   await (await sourceInput(page, "text")).fill("[테스트] 로그아웃 전 입력");
-  const logout = page.getByRole("button", { name: "로그아웃 ↗", exact: true });
-  await confirmMove(page, false, () => logout.click());
+  await confirmMove(page, false, async () =>
+    (await logoutButton(page)).click(),
+  );
   await expect(await sourceInput(page, "text")).toHaveValue(
     "[테스트] 로그아웃 전 입력",
   );
-  await confirmMove(page, true, () => logout.click());
+  await confirmMove(page, true, async () => (await logoutButton(page)).click());
   await expect(page).toHaveURL(/\/login$/);
 });
 

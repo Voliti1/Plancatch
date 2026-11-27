@@ -96,19 +96,19 @@ async function setup(page: Page) {
   await login(page);
   await page.goto("/deadlines/plan-deadline/plan");
   await expect(
-    page.getByRole("heading", { name: "마감일까지 작업 계획" }),
+    page.getByRole("heading", { name: "마감일까지 할 일 계획" }),
   ).toBeVisible();
   return state;
 }
 
 async function generate(page: Page) {
   await expect(
-    page.getByRole("button", { name: "AI 제안한 할 일 만들기" }),
+    page.getByRole("button", { name: "AI로 할 일 제안받기" }),
   ).toBeDisabled();
   await page
     .getByRole("checkbox", { name: /AI\(구글 Gemini\)에 전송/ })
     .check();
-  await page.getByRole("button", { name: "AI 제안한 할 일 만들기" }).click();
+  await page.getByRole("button", { name: "AI로 할 일 제안받기" }).click();
   await expect(
     page.getByRole("heading", { name: "제안한 할 일 검토" }),
   ).toBeVisible();
@@ -123,7 +123,7 @@ test("consent, editable candidates and one-click review approval", async ({
     .fill("조사와 검토가 필요해요");
   await generate(page);
   await page
-    .getByLabel("작업 제목", { exact: true })
+    .getByLabel("할 일 제목", { exact: true })
     .first()
     .fill("수정한 조사");
   expect(
@@ -135,9 +135,9 @@ test("consent, editable candidates and one-click review approval", async ({
     path: `test-results/task-plan-${test.info().project.name}.png`,
     fullPage: true,
   });
-  await page.getByRole("button", { name: "선택한 작업 등록" }).click();
+  await page.getByRole("button", { name: "선택한 할 일 등록" }).click();
   await expect(page.getByRole("status")).toContainText(
-    "할 일 2개와 작업 순서를 등록했어요",
+    "할 일 2개와 할 일 순서를 등록했어요",
   );
   expect(state.generated).toBe(1);
   expect(state.patched).toBe(1);
@@ -158,7 +158,7 @@ test("lost approval response recovers its receipt without duplicate submission",
   const state = await setup(page);
   state.loseApproval = true;
   await generate(page);
-  await page.getByRole("button", { name: "선택한 작업 등록" }).click();
+  await page.getByRole("button", { name: "선택한 할 일 등록" }).click();
   await expect(page.getByRole("status")).toContainText("할 일 2개");
   expect(state.approved).toBe(1);
   expect(state.generated).toBe(1);
@@ -171,15 +171,15 @@ test("changed deadline error preserves saved review and does not report success"
   state.rejectApproval = true;
   await generate(page);
   await page
-    .getByLabel("작업 제목", { exact: true })
+    .getByLabel("할 일 제목", { exact: true })
     .first()
     .fill("보존할 수정");
-  await page.getByRole("button", { name: "선택한 작업 등록" }).click();
+  await page.getByRole("button", { name: "선택한 할 일 등록" }).click();
   await expect(
     page.getByRole("alert").filter({ hasText: "마감일 정보가 바뀌었어요" }),
   ).toBeVisible();
   await expect(
-    page.getByLabel("작업 제목", { exact: true }).first(),
+    page.getByLabel("할 일 제목", { exact: true }).first(),
   ).toHaveValue("보존할 수정");
   await expect(
     page.getByRole("link", { name: "자동 시간 추천으로 이동" }),

@@ -1,4 +1,5 @@
 import { deadlineField } from "./deadline-editor";
+import { logoutButton } from "./workspace-navigation";
 import { sourceInput } from "./source-input";
 import { test, expect } from "@playwright/test";
 import { login, mockApi } from "./fixtures";
@@ -31,7 +32,7 @@ test("protected routes, signup, login restore and logout", async ({ page }) => {
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBeTruthy();
-  await page.getByRole("button", { name: "로그아웃" }).click();
+  await (await logoutButton(page)).click();
   await expect(page).toHaveURL(/\/login$/);
   expect(
     await page.evaluate(() => sessionStorage.getItem("plancatch.access_token")),
