@@ -238,3 +238,109 @@ test("a late deadline save does not navigate away from a newly opened registrati
     release();
   }
 });
+
+test("manual deadline safety is visible, keeps kind-switch drafts and submits the combined buffer", async ({
+  page,
+}) => {
+  await page.goto("/sources/new?mode=manual");
+  await expect(
+    page.getByLabel("안전 마감일 사용", { exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole("button", { name: "마감일", exact: true }).click();
+  const enabled = page.getByLabel("안전 마감일 사용", { exact: true });
+  await expect(enabled).not.toBeChecked();
+  const label = page.locator(".safety-settings .checkbox");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (value) => (document.documentElement.dataset.theme = value),
+      theme,
+    );
+    await expect(label).toHaveCSS("font-weight", "700");
+    await expect(label).toHaveCSS("font-size", "16px");
+    await expect(label).toHaveCSS("align-items", "center");
+  }
+  await enabled.check();
+  await page.getByLabel("여유시간 (일)", { exact: true }).fill("1");
+  await page.getByLabel("여유시간 (시간)", { exact: true }).fill("3");
+  await page.getByLabel("여유시간 (분)", { exact: true }).fill("20");
+  await page.getByRole("button", { name: "할 일", exact: true }).click();
+  await expect(enabled).toHaveCount(0);
+  await page.getByRole("button", { name: "마감일", exact: true }).click();
+  await expect(enabled).toBeChecked();
+  await expect(page.getByLabel("여유시간 (일)", { exact: true })).toHaveValue(
+    "1",
+  );
+  await page
+    .getByLabel("일정명", { exact: true })
+    .fill("[테스트] 최초 안전 마감");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-12-10T18:00");
+  await page.screenshot({
+    path: test.info().outputPath("manual-safety-dark.png"),
+    fullPage: true,
+  });
+  const sent = page.waitForRequest(
+    (r) => r.method() === "POST" && r.url().endsWith("/api/deadlines"),
+  );
+  await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
+  expect((await sent).postDataJSON()).toMatchObject({
+    safety_buffer_minutes: 1640,
+    due_at: "2026-12-10T09:00:00.000Z",
+  });
+  await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
+});
+
+test("manual safety rejects invalid totals, accepts maximum and disabling clears the payload after failure", async ({
+  page,
+}) => {
+  await page.goto("/sources/new?mode=manual");
+  await page.getByRole("button", { name: "마감일", exact: true }).click();
+  await page
+    .getByLabel("일정명", { exact: true })
+    .fill("[테스트] 안전 마감 검증");
+  await page.getByLabel("마감 일시", { exact: true }).fill("2026-12-10T18:00");
+  const enabled = page.getByLabel("안전 마감일 사용", { exact: true });
+  await enabled.check();
+  let writes = 0;
+  const payloads: Array<{ safety_buffer_minutes: number | null }> = [];
+  await page.route("**/test-api/api/deadlines", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    writes++;
+    payloads.push(route.request().postDataJSON());
+    if (writes === 1)
+      return route.fulfill({
+        status: 503,
+        json: { detail: "[테스트] 저장 실패" },
+      });
+    return route.fallback();
+  });
+  const minutes = page.getByLabel("여유시간 (분)", { exact: true });
+  for (const value of [
+    "",
+    "0",
+    "-1",
+    "1.5",
+    "2147483648",
+    "9007199254740992",
+  ]) {
+    await minutes.fill(value);
+    await page
+      .getByRole("button", { name: "마감일 등록", exact: true })
+      .click();
+    await expect(page.getByRole("main").getByRole("alert")).toContainText(
+      "여유시간",
+    );
+    expect(writes).toBe(0);
+    await expect(minutes).toHaveValue(value);
+  }
+  await minutes.fill("2147483647");
+  await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
+  await expect(page.getByRole("main").getByRole("alert")).toContainText(
+    "저장 실패",
+  );
+  expect(payloads[0].safety_buffer_minutes).toBe(2147483647);
+  await expect(minutes).toHaveValue("2147483647");
+  await enabled.uncheck();
+  await page.getByRole("button", { name: "마감일 등록", exact: true }).click();
+  await expect(page).toHaveURL(/\/deadlines\/deadline-1$/);
+  expect(payloads[1].safety_buffer_minutes).toBeNull();
+});
