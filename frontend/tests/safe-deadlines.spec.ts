@@ -117,6 +117,17 @@ test("detail buffer setup stores day/hour/minute total and displays both server 
   await expect(
     await deadlineField(page, "안전 마감일 사용", { exact: true }),
   ).not.toBeChecked();
+  const safetyLabel = page.locator(".safety-settings .checkbox");
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate(
+      (value) => (document.documentElement.dataset.theme = value),
+      theme,
+    );
+    await expect(safetyLabel).toHaveCSS("font-weight", "700");
+    await expect(safetyLabel).toHaveCSS("font-size", "16px");
+    await expect(safetyLabel).toHaveCSS("align-items", "center");
+  }
+
   await expect(
     await deadlineField(page, "여유시간 (일)", { exact: true }),
   ).toHaveCount(0);

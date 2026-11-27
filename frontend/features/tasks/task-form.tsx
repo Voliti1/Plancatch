@@ -33,6 +33,12 @@ import {
   type GoogleReminderSettings,
 } from "@/types/google-reminders";
 
+import {
+  parseSafetyBuffer,
+  splitSafetyBuffer,
+} from "@/features/deadlines/safety-buffer";
+import { SafetyBufferSettings } from "@/features/deadlines/safety-buffer-settings";
+
 const DEFAULT_TASK_MINUTES = 60;
 const MAX_ESTIMATED_MINUTES = 2147483647;
 const priorityNames = ["매우 낮음", "낮음", "보통", "높음", "매우 높음"];
@@ -90,6 +96,8 @@ export function TaskForm({
   );
   const canChooseKind = simple && !initial && Boolean(onSaveDeadline);
   const isDeadline = canChooseKind && registrationKind === "deadline";
+  const [safetyEnabled, setSafetyEnabled] = useState(false);
+  const [safetyParts, setSafetyParts] = useState(() => splitSafetyBuffer(null));
   const titleLabelId = useId();
   const timeHelpId = useId();
   const timeErrorId = useId();
@@ -151,6 +159,8 @@ export function TaskForm({
   const { markSaved, confirmDiscard } = useUnsavedChanges(
     JSON.stringify([
       registrationKind,
+      safetyEnabled,
+      safetyParts,
       title,
       category,
       description,
@@ -216,7 +226,9 @@ export function TaskForm({
           description: description.trim() || null,
           source_id: null,
           deadline_type: null,
-          safety_buffer_minutes: null,
+          safety_buffer_minutes: safetyEnabled
+            ? parseSafetyBuffer(safetyParts)
+            : null,
           is_confirmed: true,
         });
         markSaved();
@@ -687,6 +699,20 @@ export function TaskForm({
               (canChooseKind
                 ? withoutTime && durationField
                 : durationAndPriority)}
+            {isDeadline && (
+              <SafetyBufferSettings
+                safetyEnabled={safetyEnabled}
+                safetyParts={safetyParts}
+                onEnabledChange={(value) => {
+                  onUserEdit?.();
+                  setSafetyEnabled(value);
+                }}
+                onPartsChange={(value) => {
+                  onUserEdit?.();
+                  setSafetyParts(value);
+                }}
+              />
+            )}
             {descriptionField}
             {!isDeadline && !canChooseKind && (
               <details className="calendar-task-settings">

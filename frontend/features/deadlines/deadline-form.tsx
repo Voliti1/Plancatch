@@ -1,13 +1,14 @@
 "use client";
 import { CategorySelect, type Category } from "@/components/category-badge";
 import { useScheduleTime } from "@/features/settings/time-zone";
-import { useId, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { errorMessage } from "@/lib/api/client";
 import { ErrorNotice } from "@/components/feedback";
 import { useHydrated } from "@/lib/use-hydrated";
 import { useUnsavedChanges } from "@/lib/unsaved-changes";
 import type { Deadline, DeadlineInput } from "@/types/api";
 import { parseSafetyBuffer, splitSafetyBuffer } from "./safety-buffer";
+import { SafetyBufferSettings } from "./safety-buffer-settings";
 import {
   ReminderSettings,
   validateReminders,
@@ -27,7 +28,6 @@ export function DeadlineForm({
 }) {
   const { toLocalInput, fromLocalInput, zoneLabel } = useScheduleTime();
   const hydrated = useHydrated();
-  const safetyHelpId = useId();
   const submitting = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -135,51 +135,12 @@ export function DeadlineForm({
             />
           </label>
         </div>
-        <div className="safety-settings">
-          <label className="checkbox">
-            <input
-              name="safety_enabled"
-              type="checkbox"
-              checked={safetyEnabled}
-              onChange={(event) => setSafetyEnabled(event.target.checked)}
-              aria-describedby={safetyHelpId}
-            />
-            안전 마감일 사용
-          </label>
-          <p id={safetyHelpId} className="small muted">
-            공식 마감일보다 여유시간만큼 앞선 날짜를 안전 마감으로 저장해요.
-            1일은 24시간이며, 연결된 작업이나 일정은 자동으로 변경되지 않아요.
-          </p>
-          {safetyEnabled && (
-            <div className="safety-inputs">
-              {(
-                [
-                  ["days", "일"],
-                  ["hours", "시간"],
-                  ["minutes", "분"],
-                ] as const
-              ).map(([key, unit]) => (
-                <label key={key}>
-                  여유시간 ({unit})
-                  <input
-                    name={`safety_${key}`}
-                    type="text"
-                    inputMode="numeric"
-                    value={safetyParts[key]}
-                    placeholder="0"
-                    onChange={(event) =>
-                      setSafetyParts((parts) => ({
-                        ...parts,
-                        [key]: event.target.value,
-                      }))
-                    }
-                    aria-describedby={safetyHelpId}
-                  />
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+        <SafetyBufferSettings
+          safetyEnabled={safetyEnabled}
+          safetyParts={safetyParts}
+          onEnabledChange={setSafetyEnabled}
+          onPartsChange={setSafetyParts}
+        />
         <label>
           설명 (선택)
           <textarea

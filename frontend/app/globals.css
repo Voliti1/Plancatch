@@ -886,8 +886,12 @@ footer {
   border: 1px solid var(--line);
   border-radius: 10px;
 }
-.safety-settings .checkbox {
+.safety-settings .checkbox.safety-toggle {
   margin-bottom: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  align-items: center;
+  color: var(--ink);
 }
 .safety-settings p {
   margin-bottom: 0;
